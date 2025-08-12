@@ -12,7 +12,7 @@ class ZenNoteEditor {
     this.autoSaveDelay = 2000; // 2 seconds
     this.lastSavedContent = '';
     this.lastSavedTitle = '';
-    
+
     // Markdown patterns - trigger immediately on symbols
     this.markdownPatterns = {
       heading1: /^#\s*$/,            // Just # + optional spaces
@@ -28,12 +28,12 @@ class ZenNoteEditor {
 
   async init() {
     console.log('[ZenNoteEditor] Initializing...');
-    
+
     this.titleInput = document.getElementById('note-title');
     this.editorElement = document.getElementById('note-text');
     this.toolbar = document.getElementById('note-toolbar');
     this.slashMenu = document.getElementById('slash-menu');
-    
+
     if (!this.titleInput || !this.editorElement || !this.toolbar || !this.slashMenu) {
       console.error('[ZenNoteEditor] Required elements not found');
       return;
@@ -41,10 +41,10 @@ class ZenNoteEditor {
 
     // Setup event listeners
     this.setupEventListeners();
-    
+
     // Load existing note data
     this.loadNoteData();
-    
+
     console.log('[ZenNoteEditor] Initialized successfully');
   }
 
@@ -52,24 +52,24 @@ class ZenNoteEditor {
     // Title input events
     this.titleInput.addEventListener('input', (e) => this.handleTitleChange(e));
     this.titleInput.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
-    
+
     // Editor events
     this.editorElement.addEventListener('input', (e) => this.handleEditorInput(e));
     this.editorElement.addEventListener('keydown', (e) => this.handleEditorKeydown(e));
     this.editorElement.addEventListener('paste', (e) => this.handlePaste(e));
     this.editorElement.addEventListener('focus', () => this.handleEditorFocus());
     this.editorElement.addEventListener('blur', () => this.handleEditorBlur());
-    
+
     // Toolbar button events
     this.toolbar.addEventListener('click', (e) => this.handleToolbarClick(e));
-    
+
     // Slash menu events
     this.slashMenu.addEventListener('click', (e) => this.handleSlashMenuClick(e));
-    
+
     // Document events
     document.addEventListener('selectionchange', () => this.updateToolbarState());
     document.addEventListener('click', (e) => this.handleDocumentClick(e));
-    
+
     // Before unload warning
     window.addEventListener('beforeunload', (e) => this.handleBeforeUnload(e));
   }
@@ -93,13 +93,13 @@ class ZenNoteEditor {
       this.showSlashMenu();
       return;
     }
-    
+
     // Handle markdown symbols immediately (not waiting for space)
     if (['#', '-', '*', '>', '`'].includes(event.key)) {
       // Small delay to let the character be added, then check
       setTimeout(() => this.checkForMarkdown(), 10);
     }
-    
+
     // Handle keyboard shortcuts
     if (event.ctrlKey || event.metaKey) {
       switch (event.key.toLowerCase()) {
@@ -121,20 +121,20 @@ class ZenNoteEditor {
           break;
       }
     }
-    
+
     // Handle Enter key for slash commands
     if (event.key === 'Enter' && this.slashMenuVisible) {
       event.preventDefault();
       this.executeSlashCommand();
       return;
     }
-    
+
     // Handle Escape to hide slash menu
     if (event.key === 'Escape' && this.slashMenuVisible) {
       this.hideSlashMenu();
       return;
     }
-    
+
     // Handle arrow keys in slash menu
     if (this.slashMenuVisible && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       event.preventDefault();
@@ -159,10 +159,10 @@ class ZenNoteEditor {
   handlePaste(event) {
     // Handle paste events for better formatting
     event.preventDefault();
-    
+
     const text = event.clipboardData.getData('text/plain');
     const html = event.clipboardData.getData('text/html');
-    
+
     if (html) {
       this.insertHTML(html);
     } else if (text) {
@@ -184,27 +184,27 @@ class ZenNoteEditor {
   sanitizeHTML(html) {
     const div = document.createElement('div');
     div.innerHTML = html;
-    
+
     // Remove potentially dangerous tags
     const dangerousTags = ['script', 'style', 'iframe', 'object', 'embed'];
     dangerousTags.forEach(tag => {
       const elements = div.getElementsByTagName(tag);
       Array.from(elements).forEach(el => el.remove());
     });
-    
+
     return div.innerHTML;
   }
 
   checkForSlashCommand() {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
-    
+
     const range = selection.getRangeAt(0);
-    
+
     // Get ONLY the current line where cursor is
     const currentLineText = this.getCurrentLineTextOnly(range);
     console.log('[ZenNoteEditor] Checking for slash command, current line only:', currentLineText);
-    
+
     // Show slash menu if current line starts with '/'
     if (currentLineText.startsWith('/')) {
       console.log('[ZenNoteEditor] Slash detected on current line, showing menu');
@@ -217,13 +217,13 @@ class ZenNoteEditor {
   checkForMarkdown() {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
-    
+
     const range = selection.getRangeAt(0);
-    
+
     // Get ONLY the current line where cursor is
     const currentLineText = this.getCurrentLineTextOnly(range);
     console.log('[ZenNoteEditor] Checking markdown for current line only:', currentLineText);
-    
+
     // Check for markdown patterns on the current line only
     Object.entries(this.markdownPatterns).forEach(([command, pattern]) => {
       if (pattern.test(currentLineText)) {
@@ -237,7 +237,7 @@ class ZenNoteEditor {
   getCurrentLineTextOnly(range) {
     // Get ONLY the current line where the cursor is positioned
     // Use a more robust approach that works with HTML elements
-    
+
     // First try to get the current line from the DOM structure
     const currentLineElement = this.getCurrentLineElement(range);
     if (currentLineElement) {
@@ -245,57 +245,57 @@ class ZenNoteEditor {
       console.log('[ZenNoteEditor] Current line from DOM:', lineText);
       return lineText;
     }
-    
+
     // Fallback: use innerText approach
     const text = this.editorElement.innerText;
     const cursorPosition = this.getCursorPosition();
-    
+
     // Find the start and end of the current line
     let lineStart = cursorPosition;
     let lineEnd = cursorPosition;
-    
+
     // Walk backwards to find line start (previous newline or beginning)
     while (lineStart > 0 && text[lineStart - 1] !== '\n') {
       lineStart--;
     }
-    
+
     // Walk forwards to find line end (next newline or end)
     while (lineEnd < text.length && text[lineEnd] !== '\n') {
       lineEnd++;
     }
-    
+
     // Extract ONLY the current line (no previous lines)
     const currentLine = text.substring(lineStart, lineEnd);
     console.log('[ZenNoteEditor] Current line extracted (start:', lineStart, 'end:', lineEnd, '):', currentLine);
-    
+
     return currentLine;
   }
 
   getCurrentLineElement(range) {
     // Try to find the current line element by walking up the DOM tree
     let currentNode = range.startContainer;
-    
+
     // If it's a text node, get its parent
     if (currentNode.nodeType === Node.TEXT_NODE) {
       currentNode = currentNode.parentNode;
     }
-    
+
     // Walk up to find a block-level element or the editor itself
     while (currentNode && currentNode !== this.editorElement) {
       // Check if this is a block-level element that represents a line
       if (this.isBlockElement(currentNode)) {
         return currentNode;
       }
-      
+
       // Check if this element contains line breaks
       if (currentNode.textContent && currentNode.textContent.includes('\n')) {
         // This element contains multiple lines, find the specific line
         return this.findSpecificLineInElement(currentNode, range);
       }
-      
+
       currentNode = currentNode.parentNode;
     }
-    
+
     return null;
   }
 
@@ -313,10 +313,10 @@ class ZenNoteEditor {
   getCursorPosition() {
     const selection = window.getSelection();
     if (!selection.rangeCount) return 0;
-    
+
     const range = selection.getRangeAt(0);
     let position = 0;
-    
+
     // Calculate position by walking through text nodes
     // Use innerText to match the line break detection
     const text = this.editorElement.innerText;
@@ -326,7 +326,7 @@ class ZenNoteEditor {
       null,
       false
     );
-    
+
     let node;
     while (node = walker.nextNode()) {
       if (node === range.startContainer) {
@@ -335,13 +335,13 @@ class ZenNoteEditor {
       }
       position += node.textContent.length;
     }
-    
+
     return position;
   }
 
   executeMarkdownCommand(command, text, range) {
     let replacement = '';
-    
+
     switch (command) {
       case 'heading1':
         replacement = `<h1></h1>`;
@@ -368,7 +368,7 @@ class ZenNoteEditor {
         replacement = '<hr>';
         break;
     }
-    
+
     if (replacement) {
       // Replace the current line content with formatted content
       this.replaceCurrentLineContent(replacement, text);
@@ -380,16 +380,16 @@ class ZenNoteEditor {
     // Replace the current line content with formatted content
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
-    
+
     const range = selection.getRangeAt(0);
-    
+
     // Try to find the current line element
     const currentLineElement = this.getCurrentLineElement(range);
-    
+
     if (currentLineElement && currentLineElement !== this.editorElement) {
       // Replace the content of the current line element
       currentLineElement.innerHTML = replacement;
-      
+
       // Position cursor inside the new element
       const newElement = currentLineElement.querySelector('h1, h2, h3, li, blockquote, pre, code') || currentLineElement;
       if (newElement) {
@@ -409,17 +409,17 @@ class ZenNoteEditor {
     // Replace the ENTIRE current line with the formatted content
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
-    
+
     const range = selection.getRangeAt(0);
-    
+
     // Get the current line boundaries
     // Use innerText to match the line break detection
     const text = this.editorElement.innerText;
     const cursorPosition = this.getCursorPosition();
-    
+
     let lineStart = cursorPosition;
     let lineEnd = cursorPosition;
-    
+
     // Find line start and end
     while (lineStart > 0 && text[lineStart - 1] !== '\n') {
       lineStart--;
@@ -427,32 +427,32 @@ class ZenNoteEditor {
     while (lineEnd < text.length && text[lineEnd] !== '\n') {
       lineEnd++;
     }
-    
+
     // Create a new range that covers the entire current line
     const lineRange = document.createRange();
-    
+
     // Find the text node and offset for line start
     const startNode = this.findTextNodeAtPosition(lineStart);
     const endNode = this.findTextNodeAtPosition(lineEnd);
-    
+
     if (startNode && endNode) {
       // Calculate offsets within the text nodes
       const startOffset = lineStart - this.getPositionOfTextNode(startNode);
       const endOffset = lineEnd - this.getPositionOfTextNode(endNode);
-      
+
       lineRange.setStart(startNode, startOffset);
       lineRange.setEnd(endNode, endOffset);
-      
+
       // Replace the entire line
       lineRange.deleteContents();
-      
+
       // Insert the formatted content
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = replacement;
-      
+
       // Insert the formatted element
       lineRange.insertNode(tempDiv.firstElementChild);
-      
+
       // Position cursor inside the new element
       const newElement = lineRange.startContainer.parentElement;
       if (newElement && newElement.tagName) {
@@ -476,10 +476,10 @@ class ZenNoteEditor {
       null,
       false
     );
-    
+
     let node;
     let currentPosition = 0;
-    
+
     while (node = walker.nextNode()) {
       const nodeLength = node.textContent.length;
       if (currentPosition <= position && position <= currentPosition + nodeLength) {
@@ -487,7 +487,7 @@ class ZenNoteEditor {
       }
       currentPosition += nodeLength;
     }
-    
+
     return null;
   }
 
@@ -498,30 +498,30 @@ class ZenNoteEditor {
       null,
       false
     );
-    
+
     let node;
     let position = 0;
-    
+
     while (node = walker.nextNode()) {
       if (node === textNode) {
         return position;
       }
       position += node.textContent.length;
     }
-    
+
     return 0;
   }
 
   showSlashMenu() {
     if (this.slashMenuVisible) return;
-    
+
     console.log('[ZenNoteEditor] Showing slash menu');
     this.slashMenuVisible = true;
     this.slashMenu.classList.add('visible');
-    
+
     // Position the menu near the cursor
     this.positionSlashMenu();
-    
+
     // Select first item
     this.selectSlashMenuItem(0);
   }
@@ -535,10 +535,10 @@ class ZenNoteEditor {
   positionSlashMenu() {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
-    
+
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    
+
     this.slashMenu.style.position = 'absolute';
     this.slashMenu.style.left = `${rect.left}px`;
     this.slashMenu.style.top = `${rect.bottom + 10}px`;
@@ -555,23 +555,23 @@ class ZenNoteEditor {
   navigateSlashMenu(direction) {
     const items = this.slashMenu.querySelectorAll('.slash-item');
     let newIndex = this.selectedSlashIndex + direction;
-    
+
     if (newIndex < 0) newIndex = items.length - 1;
     if (newIndex >= items.length) newIndex = 0;
-    
+
     this.selectSlashMenuItem(newIndex);
   }
 
   executeSlashCommand() {
     const selectedItem = this.slashMenu.querySelector('.slash-item.selected');
     if (!selectedItem) return;
-    
+
     const command = selectedItem.dataset.command;
     console.log('[ZenNoteEditor] Executing slash command:', command);
-    
+
     // Remove the slash character from the current line
     this.removeSlashFromCurrentLine();
-    
+
     // Execute the command
     this.executeCommand(command);
     this.hideSlashMenu();
@@ -581,14 +581,14 @@ class ZenNoteEditor {
     // Remove the slash character from the current line
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
-    
+
     const range = selection.getRangeAt(0);
     const currentLineText = this.getCurrentLineTextOnly(range);
-    
+
     if (currentLineText.startsWith('/')) {
       // Remove the slash and any following spaces
       const cleanText = currentLineText.replace(/^\/\s*/, '');
-      
+
       // Replace the current line with clean text
       this.replaceEntireCurrentLine(cleanText, currentLineText);
     }
@@ -621,7 +621,7 @@ class ZenNoteEditor {
         this.insertDivider();
         break;
     }
-    
+
     this.markAsChanged();
     this.editorElement.focus();
   }
@@ -631,7 +631,7 @@ class ZenNoteEditor {
     hr.style.border = 'none';
     hr.style.borderTop = '1px solid var(--zen-notes-border)';
     hr.style.margin = '20px 0';
-    
+
     document.execCommand('insertHTML', false, hr.outerHTML);
   }
 
@@ -719,7 +719,7 @@ class ZenNoteEditor {
     if (this.autoSaveTimer) {
       clearTimeout(this.autoSaveTimer);
     }
-    
+
     this.autoSaveTimer = setTimeout(() => {
       this.performAutoSave();
     }, this.autoSaveDelay);
@@ -728,7 +728,7 @@ class ZenNoteEditor {
   async performAutoSave() {
     const currentContent = this.editorElement.innerHTML;
     const currentTitle = this.titleInput.value.trim();
-    
+
     // Only save if content has actually changed
     if (currentContent !== this.lastSavedContent || currentTitle !== this.lastSavedTitle) {
       try {
@@ -754,11 +754,18 @@ class ZenNoteEditor {
 
     try {
       // Try localStorage first
-      localStorage.setItem(`zen-note-${noteData.id}`, JSON.stringify(noteData));
-      return noteData;
+      let request = indexedDB.open("ZenNotesDB", 1);
+      request.onupgradeneeded = e => {
+        e.target.result.createObjectStore("notes", { keyPath: "id" });
+      };
+      request.onsuccess = e => {
+        const db = e.target.result;
+        const tx = db.transaction("notes", "readwrite");
+        tx.objectStore("notes").put(noteData);
+      };
+
     } catch (localStorageError) {
       console.warn('[ZenNoteEditor] localStorage failed, trying alternative storage:', localStorageError);
-      
       // Fallback: try to store in memory or use a different approach
       try {
         // For now, just store in a global variable as fallback
@@ -795,9 +802,9 @@ class ZenNoteEditor {
   updateTabTitle() {
     const title = this.titleInput.value.trim();
     if (title) {
-      document.title = `${title} - Zen Notes`;
+      document.title = `${title}`;
     } else {
-      document.title = 'New Note - Zen Notes';
+      document.title = 'New Note';
     }
   }
 

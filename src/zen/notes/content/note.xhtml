@@ -3,11 +3,14 @@
 
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
+
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8" />
   <title>New Note</title>
-  <script type="text/javascript" src="chrome://browser/content/zen-notes/note.mjs"></script>
+  <link rel="icon" href="chrome://browser/skin/zen-icons/page-portrait.svg" type="image/svg+xml" />
+  <script type="module" src="chrome://browser/content/zen-notes/note.mjs"></script>
 </head>
+
 <body>
   <div id="note-container">
     <!-- Note Content -->
@@ -19,7 +22,7 @@
         <div id="note-text" contenteditable="true" placeholder="Type '/' for commands or # for headings..."></div>
       </div>
     </div>
-    
+
     <!-- Bottom Toolbar -->
     <div id="note-toolbar">
       <button class="toolbar-btn" data-command="bold" title="Bold (Ctrl+B)">
@@ -31,9 +34,9 @@
       <button class="toolbar-btn" data-command="underline" title="Underline (Ctrl+U)">
         <span style="text-decoration: underline;">U</span>
       </button>
-      
+
       <div class="toolbar-separator"></div>
-      
+
       <button class="toolbar-btn" data-command="insertUnorderedList" title="Bullet List">
         •
       </button>
@@ -44,7 +47,7 @@
         🔗
       </button>
     </div>
-    
+
     <!-- Slash Menu (Hidden by default) -->
     <div id="slash-menu" class="slash-menu">
       <div class="slash-item" data-command="heading1">
@@ -90,4 +93,5 @@
     </div>
   </div>
 </body>
+
 </html>

@@ -1,5 +1,18 @@
 /* Zen Notes - Notion-like Minimal Design */
-@import url('chrome://browser/skin/zen-common.css');
+
+/* CRITICAL FIX: ProseMirror CSS requirements */
+.ProseMirror {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  outline: none;
+}
+
+/* Tiptap editor specific styles */
+.tiptap {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  outline: none;
+}
 
 :root {
   --zen-notes-bg: transparent;
@@ -105,6 +118,33 @@ body {
   min-height: 0;
   padding: 24px;
   background: var(--zen-notes-content-bg);
+}
+
+/* CRITICAL FIX: Tiptap editor element styles */
+#tiptap-editor {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  outline: none;
+  min-height: 400px;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--zen-notes-text);
+  background: transparent;
+  overflow-y: auto;
+}
+
+#tiptap-editor:focus {
+  outline: none;
+}
+
+/* Ensure Tiptap content is properly styled */
+#tiptap-editor .ProseMirror {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  outline: none;
 }
 
 #note-text {

@@ -2,46 +2,41 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-var gZenNotes = new (class extends nsZenMultiWindowFeature {
+// Zen Notes Module
+class ZenNotes {
   constructor() {
-    super();
-    this.notes = new Map();
-    this.activeNote = null;
-    XPCOMUtils.defineLazyPreferenceGetter(this, 'notesEnabled', 'zen.notes.enabled', true);
     console.log('[ZenNotes] Constructor called');
   }
 
-  async init() {
-    console.log('[ZenNotes] Init called');
-    if (!this.notesEnabled) {
-      console.log('[ZenNotes] Notes disabled, returning');
-      return;
-    }
-    this.ownerWindow = window;
+  init() {
     console.log('[ZenNotes] Initialized successfully');
   }
 
   openNoteCreation() {
     console.log('[ZenNotes] openNoteCreation called');
     
-    // Try using the browser chrome namespace instead
-    const noteURL = 'chrome://browser/content/zen-notes/note.xhtml';
-    
-    // Get the system principal for chrome URLs
-    const systemPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
-    
-    const newTab = window.gBrowser.addTab(noteURL, {
-      triggeringPrincipal: systemPrincipal,
-      relatedToCurrent: true
-    });
-    
-    // Switch to the new tab
-    window.gBrowser.selectedTab = newTab;
-    
-    console.log('[ZenNotes] Note tab opened:', noteURL);
+    try {
+      const noteURL = 'chrome://browser/content/zen-notes/note.xhtml';
+      
+      let triggeringPrincipal;
+      try {
+        triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
+      } catch (e) {
+        triggeringPrincipal = null;
+      }
+      
+      const newTab = window.gBrowser.addTab(noteURL, {
+        triggeringPrincipal: triggeringPrincipal
+      });
+      
+      window.gBrowser.selectedTab = newTab;
+      console.log('[ZenNotes] Note tab opened:', noteURL);
+    } catch (error) {
+      console.error('[ZenNotes] Failed to open note:', error);
+    }
   }
+}
 
-  // ... rest of implementation will come later
-});
-
+// Create global instance
+window.gZenNotes = new ZenNotes();
 console.log('[ZenNotes] Module loaded, gZenNotes created');

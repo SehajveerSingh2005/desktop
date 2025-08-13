@@ -6,6 +6,9 @@
 <head>
   <meta charset="utf-8"/>
   <title>New Note</title>
+  <!-- Load Tiptap bundle first -->
+  <script type="text/javascript" src="chrome://browser/content/zen-vendor/tiptap.bundle.js"></script>
+  <!-- Then load our note editor -->
   <script type="text/javascript" src="chrome://browser/content/zen-notes/note.mjs"></script>
 </head>
 <body>
@@ -16,7 +19,7 @@
         <input type="text" id="note-title" placeholder="Untitled" />
       </div>
       <div id="note-body">
-        <div id="note-text" contenteditable="true" placeholder="Type '/' for commands or # for headings..."></div>
+        <div id="tiptap-editor" placeholder="Type '/' for commands or # for headings..."></div>
       </div>
     </div>
     
@@ -34,14 +37,23 @@
       
       <div class="toolbar-separator"></div>
       
-      <button class="toolbar-btn" data-command="insertUnorderedList" title="Bullet List">
+      <button class="toolbar-btn" data-command="heading1" title="Heading 1">
+        H1
+      </button>
+      <button class="toolbar-btn" data-command="heading2" title="Heading 2">
+        H2
+      </button>
+      <button class="toolbar-btn" data-command="bulletList" title="Bullet List">
         •
       </button>
-      <button class="toolbar-btn" data-command="insertOrderedList" title="Numbered List">
+      <button class="toolbar-btn" data-command="orderedList" title="Numbered List">
         1.
       </button>
-      <button class="toolbar-btn" data-command="insertLink" title="Insert Link (Ctrl+K)">
-        🔗
+      <button class="toolbar-btn" data-command="blockquote" title="Quote">
+        "
+      </button>
+      <button class="toolbar-btn" data-command="codeBlock" title="Code Block">
+        { }
       </button>
     </div>
     

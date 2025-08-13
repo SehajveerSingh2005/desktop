@@ -3,14 +3,17 @@
 
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
+
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8" />
   <title>New Note</title>
+  <link rel="icon" href="chrome://browser/skin/zen-icons/page-portrait.svg" type="image/svg+xml" />
   <!-- Load Tiptap bundle first -->
   <script type="text/javascript" src="chrome://browser/content/zen-vendor/tiptap.bundle.js"></script>
   <!-- Then load our note editor -->
   <script type="text/javascript" src="chrome://browser/content/zen-notes/note.mjs"></script>
 </head>
+
 <body>
   <div id="note-container">
     <!-- Note Content -->
@@ -22,7 +25,7 @@
         <div id="tiptap-editor" placeholder="Type '/' for commands or # for headings..."></div>
       </div>
     </div>
-    
+
     <!-- Bottom Toolbar -->
     <div id="note-toolbar">
       <button class="toolbar-btn" data-command="bold" title="Bold (Ctrl+B)">
@@ -34,9 +37,9 @@
       <button class="toolbar-btn" data-command="underline" title="Underline (Ctrl+U)">
         <span style="text-decoration: underline;">U</span>
       </button>
-      
+
       <div class="toolbar-separator"></div>
-      
+
       <button class="toolbar-btn" data-command="heading1" title="Heading 1">
         H1
       </button>
@@ -56,7 +59,7 @@
         { }
       </button>
     </div>
-    
+
     <!-- Slash Menu (Hidden by default) -->
     <div id="slash-menu" class="slash-menu">
       <div class="slash-item" data-command="heading1">
@@ -102,4 +105,5 @@
     </div>
   </div>
 </body>
+
 </html>

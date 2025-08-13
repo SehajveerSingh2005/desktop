@@ -14,7 +14,7 @@ class ZenNoteEditor {
 
   async init() {
     console.log('[ZenNoteEditor] Initializing...');
-    
+
     this.titleInput = document.getElementById('note-title');
     this.editorElement = document.getElementById('tiptap-editor');
     this.toolbar = document.getElementById('note-toolbar');
@@ -264,7 +264,7 @@ class ZenNoteEditor {
     if (this.autoSaveTimer) {
       clearTimeout(this.autoSaveTimer);
     }
-    
+
     this.autoSaveTimer = setTimeout(() => {
       this.performAutoSave();
     }, this.autoSaveDelay);
@@ -275,7 +275,7 @@ class ZenNoteEditor {
       this.tiptapEditor.getHTML() : 
       this.editorElement.innerHTML;
     const currentTitle = this.titleInput.value.trim();
-    
+
     // Only save if content has actually changed
     if (currentContent !== this.lastSavedContent || currentTitle !== this.lastSavedTitle) {
       try {
@@ -382,9 +382,9 @@ class ZenNoteEditor {
   updateTabTitle() {
     const title = this.titleInput.value.trim();
     if (title) {
-      document.title = `${title} - Zen Notes`;
+      document.title = `${title}`;
     } else {
-      document.title = 'New Note - Zen Notes';
+      document.title = 'New Note';
     }
   }
 

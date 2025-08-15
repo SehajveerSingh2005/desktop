@@ -85,15 +85,19 @@ body {
   width: 100%;
 }
 
-/* Note header */
+/* Note header - Notion-like with status */
 #note-header {
   padding: 40px 24px 24px 24px;
   border-bottom: 1px solid var(--zen-notes-border);
   background: var(--zen-notes-content-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 #note-title {
-  width: 100%;
+  flex: 1; /* Take remaining space */
   border: none;
   outline: none;
   background: transparent;
@@ -110,6 +114,65 @@ body {
 #note-title::placeholder {
   color: var(--zen-notes-text-secondary);
   opacity: 0.8;
+}
+
+/* Notion-like status indicators */
+#note-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.status-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--zen-notes-text-muted);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.status-dot:not(.hidden) {
+  opacity: 1;
+}
+
+.status-dot .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444; /* Red for saving */
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot .dot.saved {
+  background: #10b981; /* Green for saved */
+  animation: none;
+}
+
+.options-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--zen-notes-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.options-btn:hover {
+  background: var(--zen-notes-hover);
+}
+
+.hidden {
+  display: none !important;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 /* Note body */
@@ -316,15 +379,18 @@ body {
   position: absolute;
   background: var(--zen-notes-toolbar-bg);
   border: 1px solid var(--zen-notes-toolbar-border);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px var(--zen-notes-shadow);
-  padding: 8px 0;
-  min-width: 220px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--zen-notes-shadow);
+  padding: 4px 0;
+  min-width: 180px;
+  max-width: 200px;
+  max-height: 240px;
+  overflow-y: auto;
   z-index: 1001;
   display: none;
   opacity: 0;
-  transform: translateY(-10px);
-  transition: all 0.2s ease;
+  transform: translateY(-2px);
+  transition: all 0.15s ease;
 }
 
 .slash-menu.visible {
@@ -334,14 +400,14 @@ body {
 }
 
 .slash-item {
-  padding: 10px 16px;
+  padding: 6px 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   transition: background 0.15s ease;
-  border-radius: 8px;
-  margin: 0 4px;
+  border-radius: 6px;
+  margin: 0 2px;
 }
 
 .slash-item:hover {
@@ -354,25 +420,25 @@ body {
 }
 
 .slash-icon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .slash-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   flex: 1;
 }
 
 .slash-description {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--zen-notes-text-muted);
-  opacity: 0.8;
+  opacity: 0.7;
 }
 
 /* Responsive design */

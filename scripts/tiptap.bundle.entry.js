@@ -20,6 +20,7 @@ window.ZenTiptap = {
         StarterKit.configure({
           underline: false,
           link: false,
+          // Keep default history for now
         }),
         Underline,
         Link,

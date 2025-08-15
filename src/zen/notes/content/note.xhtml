@@ -20,6 +20,18 @@
     <div id="note-content-area">
       <div id="note-header">
         <input type="text" id="note-title" placeholder="Untitled" />
+        <!-- Notion-like status indicators -->
+        <div id="note-status">
+          <div id="autosave-indicator" class="status-dot hidden">
+            <div class="dot"></div>
+            <span class="status-text">Saving...</span>
+          </div>
+          <div id="saved-indicator" class="status-dot hidden">
+            <div class="dot saved"></div>
+            <span class="status-text">Saved</span>
+          </div>
+          <button id="options-menu" class="options-btn" title="Options">⋯</button>
+        </div>
       </div>
       <div id="note-body">
         <div id="tiptap-editor" placeholder="Type '/' for commands or # for headings..."></div>

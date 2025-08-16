@@ -50,57 +50,41 @@ class ZenNoteEditor {
     
     if (window.ZenTiptap) {
       console.log('[ZenNoteEditor] Tiptap bundle found, initializing editor...');
-      this.initializeTiptapEditor();
+      await this.initializeTiptapEditor();
     } else {
       console.error('[ZenNoteEditor] Tiptap bundle not found - cannot proceed without it');
-      // REMOVED: fallbackToContenteditable() call that was causing conflicts
     }
   }
 
-  initializeTiptapEditor() {
+  async initializeTiptapEditor() {
     try {
       this.tiptapEditor = window.ZenTiptap.createEditor(this.editorElement, {
-        content: '<p></p>', // CRITICAL FIX: Start with proper paragraph structure
+        content: '<p></p>',
         onUpdate: ({ editor }) => {
           this.markAsChanged();
           this.debouncedAutoSave();
         },
         onSelectionUpdate: ({ editor }) => {
           this.updateToolbarState();
-          // Handle slash detection on selection/content changes
           this.handleSlashDetection();
         },
-        // Enhanced options to fix cursor and backspace issues
         editable: true,
         injectCSS: false,
         enableInputRules: true,
         enablePasteRules: true,
-        // CRITICAL FIX: Use TipTap's proper event handling instead of DOM listeners
         editorProps: {
           handleKeyDown: (view, event) => {
-            // REMOVED: Enter override - let TipTap handle Enter naturally for better compatibility
-            
             if (event.key === 'Backspace') {
               const { from, to } = view.state.selection;
               const doc = view.state.doc;
               
-              console.warn('[BACKSPACE DEBUG]', {
-                from, to, 
-                docSize: doc.content.size,
-                isEmpty: doc.content.size <= 2,
-                cursorAtStart: from <= 1
-              });
-              
-              // NUCLEAR OPTION: Always handle backspace manually in Firefox extension context
               if (from === to && from > 0 && doc.content.size > 1) {
                 event.preventDefault();
                 event.stopPropagation();
                 
-                // Always use TipTap's deleteRange instead of browser default
                 this.tiptapEditor.commands.deleteRange({ from: from - 1, to: from });
                 this.tiptapEditor.commands.focus();
                 
-                console.warn('[BACKSPACE FIX] Manual backspace at position', from);
                 return true;
               }
             }
@@ -111,65 +95,25 @@ class ZenNoteEditor {
       
       console.log('[ZenNoteEditor] Tiptap editor initialized successfully');
       
-      // REMOVED: DOM event listener slash detection - now handled via editorProps
-      
-      // Focus the editor with proper cursor positioning
       setTimeout(() => {
-        this.tiptapEditor.commands.focus('end');
+        if (this.tiptapEditor && this.tiptapEditor.commands) {
+          this.tiptapEditor.commands.focus('end');
+        }
       }, 100);
       
-      // Set up auto-scroll to keep cursor near center
       this.setupAutoScroll();
       
-      // REMOVED: Click handler was interfering with normal editing
+      // Check storage health first
+      await this.checkStorageHealth();
+      
+      // Load any saved note data after editor is ready
+      this.loadSavedNote();
       
     } catch (error) {
       console.error('[ZenNoteEditor] Failed to initialize Tiptap:', error);
-      // REMOVED: fallbackToContenteditable() call that was causing conflicts
-      throw error; // Re-throw to prevent partial initialization
+      throw error;
     }
   }
-
-  // REMOVED: Old contenteditable fallback that was causing conflicts
-  // fallbackToContenteditable() {
-  //   console.log('[ZenNoteEditor] Using contenteditable fallback');
-  //   
-  //   // Make the editor element contenteditable
-  //   this.editorElement.contentEditable = true;
-  //   this.editorElement.focus();
-  //   
-  //   // Add basic contenteditable event listeners
-  //   this.editorElement.addEventListener('input', () => {
-  //     this.markAsChanged();
-  //     this.debouncedAutoSave();
-  //   });
-  //   
-  //   this.editorElement.addEventListener('keydown', (e) => {
-  //     this.handleContenteditableKeydown(e);
-  //   });
-  // }
-
-  // REMOVED: Old contenteditable keydown handler that was interfering
-  // handleContenteditableKeydown(event) {
-  //   // Basic markdown shortcuts for contenteditable
-  //   if (event.key === ' ' && event.target.textContent) {
-  //     const text = event.target.textContent;
-  //     
-  //     if (text.startsWith('#')) {
-  //       event.preventDefault();
-  //       event.target.innerHTML = `<h1>${text.substring(1).trim()}</h1>`;
-  //       this.markAsChanged();
-  //     } else if (text.startsWith('##')) {
-  //       event.preventDefault();
-  //       event.target.innerHTML = `<h2>${text.substring(2).trim()}</h2>`;
-  //       this.markAsChanged();
-  //     } else if (text.startsWith('-') || text.startsWith('*')) {
-  //       event.preventDefault();
-  //       event.target.innerHTML = `<ul><li>${text.substring(1).trim()}</li></ul>`;
-  //       this.markAsChanged();
-  //     }
-  //   }
-  // }
 
   setupEventListeners() {
     // Title input events
@@ -177,6 +121,12 @@ class ZenNoteEditor {
     
     // Toolbar button events
     this.toolbar.addEventListener('click', (e) => this.handleToolbarClick(e));
+    
+    // New board button event
+    const newBoardBtn = document.getElementById('new-board-btn');
+    if (newBoardBtn) {
+      newBoardBtn.addEventListener('click', (e) => this.handleNewBoard(e));
+    }
     
     // Before unload warning
     window.addEventListener('beforeunload', (e) => this.handleBeforeUnload(e));
@@ -199,13 +149,57 @@ class ZenNoteEditor {
     }
   }
 
+  handleNewBoard(event) {
+    event.preventDefault();
+    
+    // Save current note before switching
+    if (this.isChanged) {
+      this.performAutoSave();
+    }
+    
+    // Switch to canvas mode
+    this.switchToCanvas();
+  }
+
+  switchToCanvas() {
+    try {
+      // Use the EXACT same URL pattern that works for notes
+      const canvasUrl = 'chrome://browser/content/zen-notes/canvas.xhtml';
+      
+      // Use the same pattern that works for notes
+      if (typeof window !== 'undefined' && window.gBrowser) {
+        let triggeringPrincipal;
+        try {
+          triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
+        } catch (e) {
+          triggeringPrincipal = null;
+        }
+        
+        const newTab = window.gBrowser.addTab(canvasUrl, {
+          triggeringPrincipal: triggeringPrincipal
+        });
+        
+        window.gBrowser.selectedTab = newTab;
+        console.log('[ZenNoteEditor] Canvas tab opened:', canvasUrl);
+      } else {
+        // Fallback for other contexts
+        window.open(canvasUrl, '_blank');
+      }
+      
+      console.log('[ZenNoteEditor] Switching to canvas mode');
+    } catch (error) {
+      console.error('[ZenNoteEditor] Failed to switch to canvas:', error);
+      // Fallback: try to navigate directly
+      window.location.href = 'chrome://browser/content/zen-notes/canvas.xhtml';
+    }
+  }
+
   executeCommand(command) {
-    if (!this.tiptapEditor) {
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) {
       console.warn('[ZenNoteEditor] Tiptap editor not available');
       return;
     }
     
-    // Use Tiptap commands only
     switch (command) {
       case 'bold':
         this.tiptapEditor.chain().focus().toggleBold().run();
@@ -243,7 +237,7 @@ class ZenNoteEditor {
   }
 
   updateToolbarState() {
-    if (!this.tiptapEditor) return;
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) return;
     
     const buttons = this.toolbar.querySelectorAll('.toolbar-btn[data-command]');
     buttons.forEach(button => {
@@ -256,7 +250,7 @@ class ZenNoteEditor {
   }
 
   isTiptapCommandActive(command) {
-    if (!this.tiptapEditor) return false;
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) return false;
     
     switch (command) {
       case 'bold':
@@ -289,26 +283,22 @@ class ZenNoteEditor {
     this.showSavingStatus();
   }
 
-  // Autosave with debouncing
   debouncedAutoSave() {
     if (this.autoSaveTimer) {
       clearTimeout(this.autoSaveTimer);
     }
 
-    // Increased delay to reduce interference with typing
     this.autoSaveTimer = setTimeout(() => {
       this.performAutoSave();
-    }, 2000); // Increased from 5s to 8s
+    }, 2000);
   }
 
   async performAutoSave() {
-    // Only save if editor is stable (not in middle of command execution)
-    if (!this.tiptapEditor || this.tiptapEditor.isDestroyed) return;
+    if (!this.tiptapEditor || !this.tiptapEditor.commands || this.tiptapEditor.isDestroyed) return;
     
     const currentContent = this.tiptapEditor.getHTML();
     const currentTitle = this.titleInput.value.trim();
 
-    // Only save if content has actually changed
     if (currentContent !== this.lastSavedContent || currentTitle !== this.lastSavedTitle) {
       try {
         console.log('[ZenNoteEditor] Auto-saving...', {
@@ -321,7 +311,7 @@ class ZenNoteEditor {
         this.lastSavedContent = currentContent;
         this.lastSavedTitle = currentTitle;
         this.isChanged = false;
-        this.showSavedStatus(); // Show green "Saved" indicator
+        this.showSavedStatus();
         console.log('[ZenNoteEditor] Auto-saved successfully');
       } catch (error) {
         console.error('[ZenNoteEditor] Auto-save failed:', error);
@@ -330,7 +320,7 @@ class ZenNoteEditor {
   }
 
   async saveNote() {
-    if (!this.tiptapEditor) {
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) {
       console.warn('[ZenNoteEditor] Cannot save - Tiptap editor not available');
       return null;
     }
@@ -343,71 +333,403 @@ class ZenNoteEditor {
     };
 
     try {
-      // Try multiple storage methods for chrome context
-      let saved = false;
+      console.log('[ZenNoteEditor] Saving note:', { id: noteData.id, title: noteData.title, contentLength: noteData.content.length });
       
-      // Method 1: Try browser.storage.local (WebExtensions API)
-      if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
-        try {
-          await browser.storage.local.set({ [`zen-note-${noteData.id}`]: noteData });
-          saved = true;
-          console.log('[ZenNoteEditor] Saved to browser.storage.local');
-        } catch (e) {
-          console.warn('[ZenNoteEditor] browser.storage.local failed:', e);
+      // PRIMARY: Save to IndexedDB (most reliable browser storage)
+      let savedToIndexedDB = false;
+      try {
+        savedToIndexedDB = await this.saveToIndexedDB(noteData);
+        if (savedToIndexedDB) {
+          console.log('[ZenNoteEditor] ✅ Successfully saved to IndexedDB');
         }
+      } catch (e) {
+        console.warn('[ZenNoteEditor] IndexedDB save failed:', e.message);
       }
       
-      // Method 2: Try localStorage (might work in some contexts)
-      if (!saved && typeof localStorage !== 'undefined') {
-        try {
-          localStorage.setItem(`zen-note-${noteData.id}`, JSON.stringify(noteData));
-          saved = true;
-          console.log('[ZenNoteEditor] Saved to localStorage');
-        } catch (e) {
-          console.warn('[ZenNoteEditor] localStorage failed:', e);
-        }
-      }
+      // SECONDARY: Always save to memory storage (session backup)
+      this.saveToMemoryStorage(noteData);
       
-      // Method 3: Fallback to memory storage
-      if (!saved) {
-        if (!window.zenNotesStorage) {
-          window.zenNotesStorage = new Map();
-        }
-        window.zenNotesStorage.set(noteData.id, noteData);
-        console.log('[ZenNoteEditor] Stored in memory (chrome context limitation)');
+      // TERTIARY: Try other storage methods if IndexedDB failed
+      if (!savedToIndexedDB) {
+        console.log('[ZenNoteEditor] IndexedDB failed, trying alternative storage...');
         
-        // Try to persist to sessionStorage as backup
-        try {
-          if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.setItem(`zen-note-${noteData.id}`, JSON.stringify(noteData));
-            console.log('[ZenNoteEditor] Also backed up to sessionStorage');
+        // Try browser.storage.local if available
+        if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+          try {
+            await this.saveToBrowserStorage(noteData);
+            console.log('[ZenNoteEditor] ✅ Saved to browser.storage.local as backup');
+          } catch (e) {
+            console.warn('[ZenNoteEditor] browser.storage.local backup failed:', e.message);
           }
-        } catch (e) {
-          console.warn('[ZenNoteEditor] sessionStorage backup failed:', e);
         }
+        
+        // Try localStorage as backup
+        try {
+          this.saveToLocalStorage(noteData);
+          console.log('[ZenNoteEditor] ✅ Saved to localStorage as backup');
+        } catch (e) {
+          console.warn('[ZenNoteEditor] localStorage backup failed:', e.message);
+        }
+        
+        // Try sessionStorage as additional backup
+        try {
+          this.saveToSessionStorage(noteData);
+          console.log('[ZenNoteEditor] ✅ Saved to sessionStorage as backup');
+        } catch (e) {
+          console.warn('[ZenNoteEditor] sessionStorage backup failed:', e.message);
+        }
+        
+        // LAST RESORT: Save to file (guaranteed to work)
+        try {
+          await this.saveToFileStorage(noteData);
+          console.log('[ZenNoteEditor] ✅ Saved to file as last resort');
+        } catch (e) {
+          console.warn('[ZenNoteEditor] File save failed:', e.message);
+        }
+      }
+      
+      if (savedToIndexedDB) {
+        console.log('[ZenNoteEditor] Note saved successfully to persistent storage');
+      } else {
+        console.warn('[ZenNoteEditor] Note saved to memory only - will not persist across restarts');
       }
       
       return noteData;
     } catch (error) {
-      console.error('[ZenNoteEditor] Save failed:', error);
-      // Don't throw, just log the error
+      console.error('[ZenNoteEditor] Save failed completely:', error);
+      // Even if everything fails, save to memory as last resort
+      this.saveToMemoryStorage(noteData);
       return noteData;
+    }
+  }
+  
+  // Save to browser.storage.local (Firefox extension API)
+  async saveToBrowserStorage(noteData) {
+    try {
+      await browser.storage.local.set({ [`zen-note-${noteData.id}`]: noteData });
+      await browser.storage.local.set({ 'zen-current-note-id': noteData.id });
+      console.log('[ZenNoteEditor] Saved to browser.storage.local');
+      return true;
+    } catch (e) {
+      throw e;
+    }
+  }
+  
+  // Save to IndexedDB (most reliable browser storage)
+  async saveToIndexedDB(noteData) {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('[ZenNoteEditor] Opening IndexedDB...');
+        
+        // Always use version 2 to ensure consistency with health check
+        const version = 2;
+        console.log(`[ZenNoteEditor] Opening IndexedDB with version ${version}...`);
+        
+        const request = indexedDB.open('ZenNotesDB', version);
+        
+        request.onerror = () => {
+          console.error('[ZenNoteEditor] IndexedDB open failed:', request.error);
+          reject(new Error('IndexedDB open failed: ' + request.error.message));
+        };
+        
+        request.onsuccess = (event) => {
+          const db = event.target.result;
+          console.log('[ZenNoteEditor] IndexedDB opened successfully');
+          
+          try {
+            // Check if the object store exists
+            if (!db.objectStoreNames.contains('notes')) {
+              console.error('[ZenNoteEditor] Object store "notes" not found in IndexedDB');
+              reject(new Error('Object store "notes" not found - database schema issue'));
+              return;
+            }
+            
+            const transaction = db.transaction(['notes'], 'readwrite');
+            const store = transaction.objectStore('notes');
+            
+            // Save note data
+            const noteRequest = store.put(noteData);
+            noteRequest.onsuccess = () => {
+              console.log('[ZenNoteEditor] Note data saved to IndexedDB successfully');
+              
+              // Also save the current note ID for persistence
+              const idData = { id: 'zen-current-note-id', value: noteData.id, timestamp: Date.now() };
+              const idRequest = store.put(idData);
+              idRequest.onsuccess = () => {
+                console.log('[ZenNoteEditor] Note ID saved to IndexedDB successfully');
+                resolve(true);
+              };
+              idRequest.onerror = () => {
+                console.error('[ZenNoteEditor] Failed to save note ID to IndexedDB:', idRequest.error);
+                // Note data was saved, so we consider this a partial success
+                resolve(true);
+              };
+            };
+            noteRequest.onerror = () => {
+              console.error('[ZenNoteEditor] Failed to save note to IndexedDB:', noteRequest.error);
+              reject(new Error('Failed to save note to IndexedDB: ' + noteRequest.error.message));
+            };
+          } catch (e) {
+            console.error('[ZenNoteEditor] IndexedDB transaction error:', e);
+            reject(e);
+          }
+        };
+        
+        request.onupgradeneeded = (event) => {
+          console.log('[ZenNoteEditor] IndexedDB upgrade needed, creating schema...');
+          const db = event.target.result;
+          
+          // Create the notes object store if it doesn't exist
+          if (!db.objectStoreNames.contains('notes')) {
+            const store = db.createObjectStore('notes', { keyPath: 'id' });
+            console.log('[ZenNoteEditor] ✅ Created IndexedDB object store: notes');
+          }
+        };
+        
+        request.onblocked = () => {
+          console.warn('[ZenNoteEditor] IndexedDB blocked - another tab might have it open');
+          reject(new Error('IndexedDB blocked by another tab'));
+        };
+        
+      } catch (e) {
+        console.error('[ZenNoteEditor] IndexedDB setup error:', e);
+        reject(e);
+      }
+    });
+  }
+  
+  // Save to localStorage
+  saveToLocalStorage(noteData) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(`zen-note-${noteData.id}`, JSON.stringify(noteData));
+        localStorage.setItem('zen-current-note-id', noteData.id);
+        console.log('[ZenNoteEditor] Saved to localStorage');
+        return Promise.resolve(true);
+      }
+      return Promise.resolve(false);
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+  
+  // Save to memory storage
+  saveToMemoryStorage(noteData) {
+    if (!window.zenNotesStorage) {
+      window.zenNotesStorage = new Map();
+    }
+    window.zenNotesStorage.set(noteData.id, noteData);
+    window.zenNotesStorage.set('zen-current-note-id', noteData.id);
+    console.log('[ZenNoteEditor] Saved to memory storage');
+  }
+  
+  // Save to sessionStorage
+  saveToSessionStorage(noteData) {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(`zen-note-${noteData.id}`, JSON.stringify(noteData));
+        sessionStorage.setItem('zen-current-note-id', noteData.id);
+        console.log('[ZenNoteEditor] Saved to sessionStorage');
+        return Promise.resolve(true);
+      }
+      return Promise.resolve(false);
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+  
+  // Save to a simple file-based storage (most reliable fallback)
+  saveToFileStorage(noteData) {
+    try {
+      // Create a download link with the note data
+      const dataStr = JSON.stringify(noteData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      // Create a unique filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `zen-note-${noteData.id}-${timestamp}.json`;
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = filename;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      URL.revokeObjectURL(link.href);
+      
+      console.log('[ZenNoteEditor] ✅ Saved to file:', filename);
+      return Promise.resolve(true);
+    } catch (e) {
+      console.error('[ZenNoteEditor] File save failed:', e);
+      return Promise.resolve(false);
     }
   }
 
   getNoteId() {
+    // Try to get existing ID from memory storage first
+    if (window.zenNotesStorage && window.zenNotesStorage.has('zen-current-note-id')) {
+      const existingId = window.zenNotesStorage.get('zen-current-note-id');
+      if (existingId) {
+        console.log('[ZenNoteEditor] Using existing note ID from memory:', existingId);
+        return existingId;
+      }
+    }
+    
+    // If no existing ID, create a new one based on the title
     const title = this.titleInput.value.trim() || 'untitled';
-    const timestamp = Date.now();
-    return `${title.toLowerCase().replace(/\s+/g, '-')}-${timestamp}`;
+    const titleHash = this.hashString(title);
+    const newId = `note-${titleHash}`;
+    
+    console.log('[ZenNoteEditor] Generated new note ID:', newId, 'for title:', title);
+    
+    // Store this ID in memory storage
+    if (!window.zenNotesStorage) {
+      window.zenNotesStorage = new Map();
+    }
+    window.zenNotesStorage.set('zen-current-note-id', newId);
+    
+    return newId;
+  }
+  
+  // Simple hash function to create consistent IDs
+  hashString(str) {
+    let hash = 0;
+    if (str.length === 0) return hash;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36); // Convert to base36 for shorter IDs
+  }
+
+  async loadSavedNote() {
+    try {
+      console.log('[ZenNoteEditor] Loading saved note...');
+      let noteData = null;
+      let noteId = null;
+      
+      // PRIMARY: Try to load from IndexedDB first (most reliable)
+      try {
+        console.log('[ZenNoteEditor] Attempting to load from IndexedDB...');
+        noteData = await this.loadFromIndexedDB();
+        if (noteData) {
+          noteId = noteData.id;
+          console.log('[ZenNoteEditor] ✅ Successfully loaded from IndexedDB:', { title: noteData.title, contentLength: noteData.content?.length || 0 });
+        }
+      } catch (e) {
+        console.warn('[ZenNoteEditor] IndexedDB load failed:', e.message);
+      }
+      
+      // SECONDARY: If IndexedDB failed, try browser.storage.local
+      if (!noteData && typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+        try {
+          console.log('[ZenNoteEditor] Attempting to load from browser.storage.local...');
+          const idResult = await browser.storage.local.get('zen-current-note-id');
+          noteId = idResult['zen-current-note-id'];
+          
+          if (noteId) {
+            const result = await browser.storage.local.get(`zen-note-${noteId}`);
+            noteData = result[`zen-note-${noteId}`];
+            if (noteData) {
+              console.log('[ZenNoteEditor] ✅ Successfully loaded from browser.storage.local');
+            }
+          }
+        } catch (e) {
+          console.warn('[ZenNoteEditor] browser.storage.local load failed:', e.message);
+        }
+      }
+      
+      // TERTIARY: If still no data, try to find any note by scanning storage
+      if (!noteData) {
+        console.log('[ZenNoteEditor] No note found by ID, scanning storage for any notes...');
+        
+        // Try to find any note in IndexedDB
+        try {
+          const allNotes = await this.getAllNotesFromIndexedDB();
+          if (allNotes.length > 0) {
+            // Use the most recently modified note
+            const mostRecentNote = allNotes.sort((a, b) => 
+              new Date(b.lastModified || 0) - new Date(a.lastModified || 0)
+            )[0];
+            noteData = mostRecentNote;
+            noteId = mostRecentNote.id;
+            console.log('[ZenNoteEditor] ✅ Found note by scanning IndexedDB:', { title: noteData.title, contentLength: noteData.content?.length || 0 });
+          }
+        } catch (e) {
+          console.warn('[ZenNoteEditor] Failed to scan IndexedDB:', e.message);
+        }
+        
+        // If still no data, try browser.storage.local scan
+        if (!noteData && typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+          try {
+            const allNotes = await browser.storage.local.get(null);
+            for (const [key, value] of Object.entries(allNotes)) {
+              if (key.startsWith('zen-note-') && value && value.title) {
+                noteId = value.id;
+                noteData = value;
+                console.log('[ZenNoteEditor] ✅ Found note by scanning browser.storage.local:', { title: value.title, contentLength: value.content?.length || 0 });
+                break;
+              }
+            }
+          } catch (e) {
+            console.warn('[ZenNoteEditor] Failed to scan browser.storage.local:', e.message);
+          }
+        }
+      }
+      
+      // FINAL: If we found data, load it and update memory storage
+      if (noteData) {
+        // Store the note ID for future use
+        if (!window.zenNotesStorage) {
+          window.zenNotesStorage = new Map();
+        }
+        window.zenNotesStorage.set('zen-current-note-id', noteId);
+        window.zenNotesStorage.set(noteId, noteData);
+        
+        // Load the saved content
+        if (noteData.title) {
+          this.titleInput.value = noteData.title;
+          this.updateTabTitle();
+        }
+        
+        if (noteData.content && this.tiptapEditor && this.tiptapEditor.commands) {
+          this.tiptapEditor.commands.setContent(noteData.content);
+        }
+        
+        // Update saved state
+        this.lastSavedContent = noteData.content || '';
+        this.lastSavedTitle = noteData.title || '';
+        this.isChanged = false;
+        
+        console.log('[ZenNoteEditor] Note loaded successfully:', {
+          title: noteData.title,
+          contentLength: noteData.content?.length || 0,
+          noteId: noteId,
+          source: noteData.source || 'unknown'
+        });
+      } else {
+        console.log('[ZenNoteEditor] No saved note found, starting with empty note');
+        this.loadNoteData();
+      }
+      
+    } catch (error) {
+      console.error('[ZenNoteEditor] Failed to load saved note:', error);
+      this.loadNoteData();
+    }
   }
 
   loadNoteData() {
-    // For now, just set default values
     this.titleInput.value = '';
-    if (this.tiptapEditor) {
+    if (this.tiptapEditor && this.tiptapEditor.commands) {
       this.tiptapEditor.commands.setContent('');
     }
-    // REMOVED: contenteditable fallback that was causing conflicts
     this.isChanged = false;
     this.lastSavedContent = '';
     this.lastSavedTitle = '';
@@ -422,16 +744,7 @@ class ZenNoteEditor {
     }
   }
 
-  handleBeforeUnload(event) {
-    if (this.isChanged) {
-      event.preventDefault();
-      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-      return event.returnValue;
-    }
-  }
-
   setupSlashMenu() {
-    // Add click listener for slash menu items
     const slashMenu = document.getElementById('slash-menu');
     if (slashMenu) {
       slashMenu.addEventListener('click', (e) => {
@@ -443,63 +756,16 @@ class ZenNoteEditor {
       });
     }
     
-    // REMOVED: setupSlashMenuKeyboard() call - keyboard handling moved to TipTap's event system
-    
-    // Hide slash menu when clicking outside
     document.addEventListener('click', (e) => {
       if (!slashMenu?.contains(e.target) && !this.editorElement.contains(e.target)) {
         this.hideSlashMenu();
       }
     });
-    
-    // REMOVED: Conflicting fallback slash detection
-    // REMOVED: Multiple keydown handlers
   }
-
-  // REMOVED: setupSlashMenuKeyboard() - all keyboard handling moved to handleTipTapKeyDown()
-  // This was causing event conflicts with TipTap's internal event handling
 
   isSlashMenuVisible() {
     const slashMenu = document.getElementById('slash-menu');
     return slashMenu && slashMenu.classList.contains('visible');
-  }
-
-  navigateSlashMenu(direction) {
-    const slashMenu = document.getElementById('slash-menu');
-    if (!slashMenu) return;
-    
-    const items = slashMenu.querySelectorAll('.slash-item');
-    if (items.length === 0) return;
-    
-    // Find currently selected item
-    let currentIndex = -1;
-    items.forEach((item, index) => {
-      if (item.classList.contains('selected')) {
-        currentIndex = index;
-      }
-    });
-    
-    // Remove current selection
-    items.forEach(item => item.classList.remove('selected'));
-    
-    // Calculate new index
-    let newIndex = currentIndex + direction;
-    if (newIndex < 0) newIndex = items.length - 1;
-    if (newIndex >= items.length) newIndex = 0;
-    
-    // Select new item
-    items[newIndex].classList.add('selected');
-  }
-
-  executeSelectedSlashCommand() {
-    const slashMenu = document.getElementById('slash-menu');
-    if (!slashMenu) return;
-    
-    const selectedItem = slashMenu.querySelector('.slash-item.selected');
-    if (selectedItem) {
-      const command = selectedItem.dataset.command;
-      this.executeSlashCommand(command);
-    }
   }
 
   showSlashMenu() {
@@ -507,13 +773,10 @@ class ZenNoteEditor {
     if (slashMenu) {
       slashMenu.classList.add('visible');
       
-      // CRITICAL FIX: Use Tiptap's cursor position instead of DOM selection
-      // This fixes the first line positioning issue
-      let cursorPos = { left: 20, top: 100 }; // Default fallback
+      let cursorPos = { left: 20, top: 100 };
       
-      if (this.tiptapEditor && this.tiptapEditor.view) {
+      if (this.tiptapEditor && this.tiptapEditor.view && this.tiptapEditor.state) {
         try {
-          // Get cursor position from Tiptap's view
           const { from } = this.tiptapEditor.state.selection;
           const coords = this.tiptapEditor.view.coordsAtPos(from);
           
@@ -528,63 +791,9 @@ class ZenNoteEditor {
         }
       }
       
-      // Smart positioning to stay in viewport
       slashMenu.style.position = 'fixed';
-      slashMenu.style.visibility = 'hidden'; // Hide while positioning
       slashMenu.style.left = `${cursorPos.left}px`;
       slashMenu.style.top = `${cursorPos.top + 5}px`;
-      
-      // Force layout to get accurate dimensions
-      const menuRect = slashMenu.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const margin = 10;
-      
-      // Smart horizontal positioning
-      let finalLeft = cursorPos.left;
-      if (finalLeft + menuRect.width > viewportWidth - margin) {
-        finalLeft = viewportWidth - menuRect.width - margin;
-      }
-      if (finalLeft < margin) {
-        finalLeft = margin;
-      }
-      
-      // Smart vertical positioning - prefer below cursor, but go above if needed
-      let finalTop = cursorPos.top + 5;
-      const spaceBelow = viewportHeight - cursorPos.top;
-      const spaceAbove = cursorPos.top;
-      
-      if (menuRect.height > spaceBelow - margin && spaceAbove > spaceBelow) {
-        // Show above cursor if more space there
-        finalTop = cursorPos.top - menuRect.height - 5;
-      }
-      
-      // Ensure it doesn't go off top/bottom
-      if (finalTop < margin) {
-        finalTop = margin;
-      } else if (finalTop + menuRect.height > viewportHeight - margin) {
-        finalTop = viewportHeight - menuRect.height - margin;
-      }
-      
-      // Apply final position
-      slashMenu.style.left = `${finalLeft}px`;
-      slashMenu.style.top = `${finalTop}px`;
-      slashMenu.style.visibility = 'visible'; // Show after positioning
-      
-      // Select first item by default
-      this.selectFirstSlashMenuItem();
-    }
-  }
-
-  selectFirstSlashMenuItem() {
-    const slashMenu = document.getElementById('slash-menu');
-    if (!slashMenu) return;
-    
-    const items = slashMenu.querySelectorAll('.slash-item');
-    if (items.length > 0) {
-      // CRITICAL FIX: Clear ALL selections first
-      items.forEach(item => item.classList.remove('selected'));
-      items[0].classList.add('selected');
     }
   }
 
@@ -594,14 +803,12 @@ class ZenNoteEditor {
     
     slashMenu.classList.remove('visible');
     
-    // Remove all selections
     const items = slashMenu.querySelectorAll('.slash-item');
     items.forEach(item => item.classList.remove('selected'));
   }
 
   executeSlashCommand(command) {
-    if (this.tiptapEditor) {
-      // Delete the '/' and any filter text before executing command
+    if (this.tiptapEditor && this.tiptapEditor.commands) {
       const { state } = this.tiptapEditor;
       const { from } = state.selection;
       const text = this.getTextBeforeCursor();
@@ -614,50 +821,25 @@ class ZenNoteEditor {
         this.tiptapEditor.commands.deleteRange({ from: deleteFrom, to: from });
       }
       
-      // Execute the command
       this.executeCommand(command);
-      
-      // Hide the menu
       this.hideSlashMenu();
-      
-      // Ensure proper cursor state
       this.tiptapEditor.commands.focus();
     }
   }
 
-  // REMOVED: Complex ensureEditorState logic that was causing cursor issues
-  // Tiptap handles cursor state naturally
-
-  // CRITICAL FIX: Proper TipTap event handling (no DOM listeners!)
   handleTipTapKeyDown(view, event) {
-    // Handle slash menu navigation if visible
     if (this.isSlashMenuVisible()) {
-      if (event.key === 'ArrowDown') {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || 
+          event.key === 'Enter' || event.key === 'Escape') {
         event.preventDefault();
-        this.navigateSlashMenu(1);
-        return true; // Prevent TipTap from handling
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        this.navigateSlashMenu(-1);
-        return true; // Prevent TipTap from handling
-      } else if (event.key === 'Enter') {
-        event.preventDefault();
-        this.executeSelectedSlashCommand();
-        return true; // Prevent TipTap from handling
-      } else if (event.key === 'Escape') {
-        event.preventDefault();
-        this.hideSlashMenu();
-        return true; // Prevent TipTap from handling
+        return true;
       }
     }
-    
-    // Let TipTap handle ALL other keys naturally (including backspace!)
-    // This is the key fix - no interference with TipTap's event handling
     return false;
   }
   
   getTextBeforeCursor() {
-    if (!this.tiptapEditor) return '';
+    if (!this.tiptapEditor || !this.tiptapEditor.state) return '';
     
     const { state } = this.tiptapEditor;
     const { from } = state.selection;
@@ -668,25 +850,19 @@ class ZenNoteEditor {
   }
   
   handleSlashDetection() {
-    if (!this.tiptapEditor) return;
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) return;
     
     const { from } = this.tiptapEditor.state.selection;
     const text = this.getTextBeforeCursor();
     const lastSlashIndex = text.lastIndexOf('/');
     
     if (lastSlashIndex !== -1) {
-      // Show slash menu with filter text
-      const filterText = text.substring(lastSlashIndex + 1);
-      this.showSlashMenu(from, filterText);
+      this.showSlashMenu(from);
     } else if (this.isSlashMenuVisible()) {
-      // Hide slash menu if no slash found
       this.hideSlashMenu();
     }
   }
 
-  // REMOVED: setupClickToFocus() - was interfering with normal text editing
-
-  // Notion-like status indicators
   showSavingStatus() {
     const savingIndicator = document.getElementById('autosave-indicator');
     const savedIndicator = document.getElementById('saved-indicator');
@@ -705,75 +881,455 @@ class ZenNoteEditor {
       savingIndicator.classList.add('hidden');
       savedIndicator.classList.remove('hidden');
       
-      // Hide saved indicator after 3 seconds
       setTimeout(() => {
         savedIndicator.classList.add('hidden');
       }, 3000);
     }
   }
 
-  // Auto-scroll to keep cursor near center (Notion-like behavior)
   setupAutoScroll() {
-    if (!this.tiptapEditor) return;
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) return;
     
-    // Listen for cursor position changes
     this.tiptapEditor.on('selectionUpdate', ({ editor }) => {
       this.autoScrollToCursor();
     });
   }
   
   autoScrollToCursor() {
-    if (!this.tiptapEditor) return;
+    if (!this.tiptapEditor || !this.tiptapEditor.commands) return;
     
     const { state } = this.tiptapEditor;
     const { from } = state.selection;
     
-    // Get the DOM node at the cursor position
-    const dom = this.tiptapEditor.view.dom;
     const coords = this.tiptapEditor.view.coordsAtPos(from);
-    
     if (!coords) return;
     
     const viewportHeight = window.innerHeight;
     const viewportCenter = viewportHeight / 2;
-    
-    // Calculate the cursor position relative to the viewport
     const cursorTop = coords.top;
     const targetScrollTop = cursorTop - viewportCenter;
-    
-    // Get current scroll position
     const currentScrollTop = window.pageYOffset;
     
-    // Only scroll if cursor is too close to edges (within 150px)
     const edgeThreshold = 150;
     const isNearTop = cursorTop < edgeThreshold;
     const isNearBottom = cursorTop > viewportHeight - edgeThreshold;
     
     if (isNearTop || isNearBottom) {
-      // Calculate new scroll position
       const newScrollTop = currentScrollTop + targetScrollTop;
       
-      // Always use window.scrollTo for better compatibility
       window.scrollTo({
         top: newScrollTop,
         behavior: 'smooth'
       });
-      
-      console.log('[AUTO-SCROLL] Scrolling to center cursor:', {
-        cursorTop,
-        viewportCenter,
-        targetScrollTop,
-        newScrollTop,
-        currentScrollTop,
-        isNearTop,
-        isNearBottom
-      });
     }
   }
 
-  // REMOVED: Multiple conflicting event handlers that were causing bugs
-  // REMOVED: Custom backspace handler - Tiptap handles backspace naturally
-  // REMOVED: Complex cursor positioning logic that interfered with typing
+  handleBeforeUnload(event) {
+    if (this.isChanged) {
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  }
+  
+  // Check storage health and log what's working
+  async checkStorageHealth() {
+    console.log('[ZenNoteEditor] Checking storage health...');
+    
+    const results = {
+      browserStorage: false,
+      indexedDB: false,
+      localStorage: false,
+      sessionStorage: false,
+      memoryStorage: false
+    };
+    
+    // Check browser.storage.local
+    if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+      try {
+        console.log('[ZenNoteEditor] Testing browser.storage.local...');
+        await browser.storage.local.set({ 'test': 'test' });
+        const result = await browser.storage.local.get('test');
+        if (result.test === 'test') {
+          await browser.storage.local.remove('test');
+          results.browserStorage = true;
+          console.log('✅ browser.storage.local: WORKING');
+        } else {
+          console.log('❌ browser.storage.local: FAILED - data not persisted');
+        }
+      } catch (e) {
+        console.log('❌ browser.storage.local: FAILED -', e.message);
+      }
+    } else {
+      console.log('❌ browser.storage.local: NOT AVAILABLE');
+    }
+    
+    // Check IndexedDB
+    try {
+      console.log('[ZenNoteEditor] Testing IndexedDB...');
+      
+      // Always use version 2 for health check
+      const version = 2;
+      const request = indexedDB.open('ZenNotesDB', version);
+      
+      await new Promise((resolve, reject) => {
+        request.onerror = () => reject(new Error('IndexedDB open failed'));
+        request.onsuccess = () => resolve();
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('notes')) {
+            const store = db.createObjectStore('notes', { keyPath: 'id' });
+            console.log('[ZenNoteEditor] ✅ Created IndexedDB object store: notes (health check)');
+          }
+        };
+      });
+      
+      // Test actual save/retrieve
+      const testData = { id: 'test', title: 'Test Note', content: 'Test content' };
+      const retrievedData = await this.testIndexedDB(testData);
+      
+      if (retrievedData && retrievedData.title === testData.title) {
+        // Clean up test data
+        await this.clearTestData('test');
+        results.indexedDB = true;
+        console.log('✅ IndexedDB: WORKING (save/retrieve verified)');
+      } else {
+        console.log('❌ IndexedDB: FAILED - data not retrieved correctly');
+      }
+    } catch (e) {
+      console.log('❌ IndexedDB: FAILED -', e.message);
+      
+      // If IndexedDB is corrupted, try to reset it
+      if (e.message.includes('object store not found') || e.message.includes('schema')) {
+        console.log('[ZenNoteEditor] IndexedDB appears corrupted, attempting reset...');
+        try {
+          await this.resetIndexedDB();
+          console.log('[ZenNoteEditor] IndexedDB reset successful, will retry on next save');
+        } catch (resetError) {
+          console.error('[ZenNoteEditor] IndexedDB reset failed:', resetError.message);
+        }
+      }
+    }
+    
+    // Check localStorage
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('test', 'test');
+        localStorage.removeItem('test');
+        results.localStorage = true;
+        console.log('✅ localStorage: WORKING');
+      } else {
+        console.log('❌ localStorage: NOT AVAILABLE');
+      }
+    } catch (e) {
+      console.log('❌ localStorage: FAILED -', e.message);
+    }
+    
+    // Check sessionStorage
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('test', 'test');
+        sessionStorage.removeItem('test');
+        results.sessionStorage = true;
+        console.log('✅ sessionStorage: WORKING');
+      } else {
+        console.log('❌ sessionStorage: NOT AVAILABLE');
+      }
+    } catch (e) {
+      console.log('❌ sessionStorage: FAILED -', e.message);
+    }
+    
+    // Check memory storage
+    if (window.zenNotesStorage) {
+      results.memoryStorage = true;
+      console.log('✅ Memory storage: WORKING');
+    } else {
+      console.log('❌ Memory storage: NOT AVAILABLE');
+    }
+    
+    const workingCount = Object.values(results).filter(Boolean).length;
+    console.log(`[ZenNoteEditor] Storage health: ${workingCount}/5 storage methods working`);
+    
+    return results;
+  }
+  
+  // Load from IndexedDB
+  async loadFromIndexedDB() {
+    return new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open('ZenNotesDB', 2);
+        
+        request.onerror = () => reject(new Error('IndexedDB open failed'));
+        
+        request.onsuccess = (event) => {
+          const db = event.target.result;
+          try {
+            // First, try to get the current note ID
+            const idTransaction = db.transaction(['notes'], 'readonly');
+            const idStore = idTransaction.objectStore('notes');
+            
+            const idRequest = idStore.get('zen-current-note-id');
+            idRequest.onsuccess = () => {
+              const idData = idRequest.result;
+              if (!idData || !idData.value) {
+                console.log('[ZenNoteEditor] No current note ID found in IndexedDB');
+                resolve(null);
+                return;
+              }
+              
+              const noteId = idData.value;
+              console.log('[ZenNoteEditor] Found current note ID in IndexedDB:', noteId);
+              
+              // Now load the actual note data
+              const noteTransaction = db.transaction(['notes'], 'readonly');
+              const noteStore = noteTransaction.objectStore('notes');
+              
+              const noteRequest = noteStore.get(noteId);
+              noteRequest.onsuccess = () => {
+                const noteData = noteRequest.result;
+                if (noteData) {
+                  noteData.source = 'IndexedDB';
+                  resolve(noteData);
+                } else {
+                  console.log('[ZenNoteEditor] Note data not found for ID:', noteId);
+                  resolve(null);
+                }
+              };
+              noteRequest.onerror = () => reject(new Error('Failed to get note from IndexedDB'));
+            };
+            idRequest.onerror = () => reject(new Error('Failed to get note ID from IndexedDB'));
+          } catch (e) {
+            reject(e);
+          }
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('notes')) {
+            const store = db.createObjectStore('notes', { keyPath: 'id' });
+            console.log('[ZenNoteEditor] Created IndexedDB object store: notes (load method)');
+          }
+        };
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async getAllNotesFromIndexedDB() {
+    return new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open('ZenNotesDB', 2);
+        
+        request.onerror = () => reject(new Error('IndexedDB open failed for getAllNotes'));
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(['notes'], 'readonly');
+          const store = transaction.objectStore('notes');
+          
+          const getAllRequest = store.getAll();
+          getAllRequest.onsuccess = () => {
+            resolve(getAllRequest.result);
+          };
+          getAllRequest.onerror = () => reject(new Error('Failed to get all notes from IndexedDB'));
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('notes')) {
+            const store = db.createObjectStore('notes', { keyPath: 'id' });
+            console.log('[ZenNoteEditor] Created IndexedDB object store: notes (getAllNotes method)');
+          }
+        };
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async testIndexedDB(testData) {
+    return new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open('ZenNotesDB', 2);
+        
+        request.onerror = () => reject(new Error('IndexedDB open failed for test'));
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(['notes'], 'readwrite');
+          const store = transaction.objectStore('notes');
+
+          const putRequest = store.put(testData);
+          putRequest.onsuccess = () => {
+            const getRequest = store.get(testData.id);
+            getRequest.onsuccess = () => {
+              resolve(getRequest.result);
+            };
+            getRequest.onerror = () => reject(new Error('Failed to retrieve test data from IndexedDB'));
+          };
+          putRequest.onerror = () => reject(new Error('Failed to save test data to IndexedDB'));
+        };
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('notes')) {
+            const store = db.createObjectStore('notes', { keyPath: 'id' });
+            console.log('[ZenNoteEditor] Created IndexedDB object store: notes (test method)');
+          }
+        };
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+  
+  async clearTestData(testId) {
+    return new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open('ZenNotesDB', 2);
+        
+        request.onerror = () => reject(new Error('IndexedDB open failed for cleanup'));
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(['notes'], 'readwrite');
+          const store = transaction.objectStore('notes');
+
+          const deleteRequest = store.delete(testId);
+          deleteRequest.onsuccess = () => {
+            resolve();
+          };
+          deleteRequest.onerror = () => reject(new Error('Failed to delete test data from IndexedDB'));
+        };
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+  
+  // Clear and reset IndexedDB database (for troubleshooting)
+  async resetIndexedDB() {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('[ZenNoteEditor] Resetting IndexedDB database...');
+        
+        // Close any existing connections
+        if (this.indexedDBConnection) {
+          this.indexedDBConnection.close();
+          this.indexedDBConnection = null;
+        }
+        
+        // Delete the database completely
+        const deleteRequest = indexedDB.deleteDatabase('ZenNotesDB');
+        
+        deleteRequest.onsuccess = () => {
+          console.log('[ZenNoteEditor] IndexedDB database deleted successfully');
+          resolve(true);
+        };
+        
+        deleteRequest.onerror = () => {
+          console.error('[ZenNoteEditor] Failed to delete IndexedDB database:', deleteRequest.error);
+          reject(new Error('Failed to delete IndexedDB database'));
+        };
+        
+        deleteRequest.onblocked = () => {
+          console.warn('[ZenNoteEditor] IndexedDB delete blocked - another tab might have it open');
+          reject(new Error('IndexedDB delete blocked by another tab'));
+        };
+        
+      } catch (e) {
+        console.error('[ZenNoteEditor] IndexedDB reset error:', e);
+        reject(e);
+      }
+    });
+  }
+  
+  // Manual database reset method (exposed globally for debugging)
+  async forceResetDatabase() {
+    try {
+      console.log('[ZenNoteEditor] Force resetting IndexedDB database...');
+      await this.resetIndexedDB();
+      
+      // Wait a moment for the delete to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Try to save a test note to verify the reset worked
+      const testData = { id: 'test-reset', title: 'Test Reset', content: 'Testing database reset' };
+      const success = await this.saveToIndexedDB(testData);
+      
+      if (success) {
+        console.log('[ZenNoteEditor] ✅ Database reset successful - IndexedDB is now working');
+        // Clean up test data
+        await this.clearTestData('test-reset');
+        return true;
+      } else {
+        console.log('[ZenNoteEditor] ❌ Database reset failed - IndexedDB still not working');
+        return false;
+      }
+    } catch (error) {
+      console.error('[ZenNoteEditor] Force reset failed:', error);
+      return false;
+    }
+  }
+
+  // Load from a JSON file
+  async loadFromFile() {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a file input element
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.style.display = 'none';
+        
+        fileInput.onchange = (event) => {
+          const file = event.target.files[0];
+          if (!file) {
+            resolve(null);
+            return;
+          }
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const noteData = JSON.parse(e.target.result);
+              if (noteData && noteData.title && noteData.content) {
+                noteData.source = 'File';
+                console.log('[ZenNoteEditor] ✅ Successfully loaded note from file:', noteData.title);
+                resolve(noteData);
+              } else {
+                console.warn('[ZenNoteEditor] Invalid note file format');
+                resolve(null);
+              }
+            } catch (parseError) {
+              console.error('[ZenNoteEditor] Failed to parse note file:', parseError);
+              resolve(null);
+            }
+          };
+          
+          reader.onerror = () => {
+            console.error('[ZenNoteEditor] Failed to read note file');
+            resolve(null);
+          };
+          
+          reader.readAsText(file);
+        };
+        
+        // Trigger file selection
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
+        
+        // Clean up after a delay
+        setTimeout(() => {
+          if (fileInput.parentNode) {
+            fileInput.parentNode.removeChild(fileInput);
+          }
+        }, 1000);
+        
+      } catch (e) {
+        console.error('[ZenNoteEditor] File load setup failed:', e);
+        resolve(null);
+      }
+    });
+  }
 }
 
 // Initialize the editor when the page loads
@@ -781,4 +1337,18 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[ZenNoteEditor] DOM loaded, initializing...');
   const editor = new ZenNoteEditor();
   editor.init();
+  
+  // Expose debugging methods globally
+  window.zenNotesDebug = {
+    forceResetDatabase: () => editor.forceResetDatabase(),
+    checkStorageHealth: () => editor.checkStorageHealth(),
+    resetIndexedDB: () => editor.resetIndexedDB(),
+    loadFromFile: () => editor.loadFromFile(),
+    saveToFile: (noteData) => editor.saveToFileStorage(noteData)
+  };
+  
+  console.log('[ZenNoteEditor] Debug methods exposed globally: window.zenNotesDebug');
+  console.log('[ZenNoteEditor] Use window.zenNotesDebug.forceResetDatabase() to reset the database');
+  console.log('[ZenNoteEditor] Use window.zenNotesDebug.loadFromFile() to load a note from file');
+  console.log('[ZenNoteEditor] Use window.zenNotesDebug.saveToFile(noteData) to save current note to file');
 });

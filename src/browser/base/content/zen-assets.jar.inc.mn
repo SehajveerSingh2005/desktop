@@ -97,6 +97,7 @@
         content/browser/zen-vendor/tsparticles.confetti.bundle.min.js           (../../zen/vendor/tsparticles.confetti.bundle.min.js)
         content/browser/zen-vendor/motion.min.mjs                               (../../zen/vendor/motion.min.mjs)
         content/browser/zen-vendor/tiptap.bundle.js                             (../../zen/vendor/tiptap.bundle.js)
+        content/browser/zen-vendor/canvas.bundle.js                             (../../zen/vendor/canvas.bundle.js)
 
         # FavIcons for startup
         content/browser/zen-images/favicons/calendar.ico                        (../../zen/images/favicons/calendar.ico)
@@ -114,3 +115,8 @@
         content/browser/zen-notes/note.xhtml                                    (../../zen/notes/content/note.xhtml)
         content/browser/zen-notes/note.mjs                                      (../../zen/notes/content/note.mjs)
         content/browser/zen-notes/note.css                                         (../../zen/notes/skin/note.css)
+
+        # Canvas chrome namespace (using browser namespace)
+        content/browser/zen-notes/canvas.xhtml                                  (../../zen/notes/content/canvas.xhtml)
+        content/browser/zen-notes/canvas.mjs                                    (../../zen/notes/content/canvas.mjs)
+        content/browser/zen-notes/canvas.css                                    (../../zen/notes/skin/canvas.css)

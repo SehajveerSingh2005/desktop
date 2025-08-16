@@ -166,6 +166,23 @@ body {
   background: var(--zen-notes-hover);
 }
 
+.new-board-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--zen-notes-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.new-board-btn:hover {
+  background: var(--zen-notes-hover);
+  color: var(--zen-notes-accent);
+  transform: scale(1.1);
+}
+
 .hidden {
   display: none !important;
 }
@@ -350,7 +367,7 @@ body {
 
 .toolbar-btn:hover {
   background: var(--zen-notes-hover);
-  color: var(--zen-notes-text);
+  transform: scale(1.05);
 }
 
 .toolbar-btn:active {

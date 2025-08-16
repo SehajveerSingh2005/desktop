@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://browser/content/zen-notes/canvas.css" type="text/css"?>
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <meta charset="utf-8" />
+  <title>New Canvas</title>
+  <link rel="icon" href="chrome://browser/skin/zen-icons/page-portrait.svg" type="image/svg+xml" />
+            <!-- Load Excalidraw bundle first -->
+          <script type="text/javascript" src="chrome://browser/content/zen-vendor/canvas.bundle.js"></script>
+          <!-- Load our canvas interface -->
+          <script type="text/javascript" src="chrome://browser/content/zen-notes/canvas.mjs"></script>
+</head>
+
+<body>
+  <div id="canvas-container">
+    <!-- Canvas Header -->
+    <div id="canvas-header">
+      <input type="text" id="canvas-title" placeholder="Untitled Canvas" />
+      <!-- Status indicators -->
+      <div class="status-indicators">
+        <span id="saving-status" class="status-text">Saving...</span>
+        <span id="saved-status" class="status-text">Saved</span>
+        <button id="new-note-btn" class="new-note-btn" title="New Note">📝</button>
+      </div>
+    </div>
+
+    <!-- Canvas Content Area -->
+    <div id="excalidraw-container">
+      <!-- Canvas will be created here by JavaScript -->
+    </div>
+
+    <!-- Canvas Toolbar -->
+    <div id="canvas-toolbar">
+      <!-- Excalidraw will provide its own toolbar -->
+    </div>
+  </div>
+</body>
+
+</html>

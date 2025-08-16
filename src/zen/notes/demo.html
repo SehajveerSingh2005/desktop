@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zen Canvas Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .demo-buttons {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .demo-btn {
+            padding: 10px 20px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .demo-btn:hover {
+            background: #555;
+        }
+        .demo-info {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .demo-info h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🎨 Zen Canvas Demo</h1>
+        
+        <div class="demo-info">
+            <h3>✨ Features Implemented</h3>
+            <ul>
+                <li><strong>Canvas Interface:</strong> Clean, minimal design with Excalidraw integration</li>
+                <li><strong>Drawing Tools:</strong> Rectangle, ellipse, diamond, arrow, line, text, free draw</li>
+                <li><strong>Undo/Redo:</strong> Full history support</li>
+                <li><strong>Auto-save:</strong> Automatic saving with visual indicators</li>
+                <li><strong>Seamless Switching:</strong> Easy toggle between notes and canvas modes</li>
+                <li><strong>Transparent UI:</strong> Minimal, distraction-free interface</li>
+            </ul>
+        </div>
+
+        <div class="demo-buttons">
+            <a href="content/note.xhtml" class="demo-btn">📝 Open Notes Editor</a>
+            <a href="content/canvas.xhtml" class="demo-btn">🎨 Open Canvas Editor</a>
+        </div>
+
+        <div class="demo-info">
+            <h3>🚀 How to Use</h3>
+            <ol>
+                <li><strong>Notes Mode:</strong> Click "📝 Open Notes Editor" for rich text editing</li>
+                <li><strong>Canvas Mode:</strong> Click "🎨 Open Canvas Editor" for drawing and diagrams</li>
+                <li><strong>Switch Between:</strong> Use the 🎨 and 📝 buttons in the headers to switch modes</li>
+                <li><strong>Auto-save:</strong> Your work is automatically saved as you type or draw</li>
+            </ol>
+        </div>
+
+        <div class="demo-info">
+            <h3>🔧 Technical Details</h3>
+            <ul>
+                <li><strong>Notes:</strong> Powered by Tiptap with markdown shortcuts</li>
+                <li><strong>Canvas:</strong> Powered by Excalidraw for professional drawing tools</li>
+                <li><strong>Storage:</strong> Automatic saving to browser storage</li>
+                <li><strong>UI:</strong> Minimal, transparent design that integrates with Zen Browser</li>
+                <li><strong>Bundle Size:</strong> Notes: ~307KB, Canvas: ~1.5MB</li>
+            </ul>
+        </div>
+
+        <div class="demo-info">
+            <h3>🎯 Next Steps (v1)</h3>
+            <ul>
+                <li><strong>Integration:</strong> Embed notes within canvas for hybrid documents</li>
+                <li><strong>Collaboration:</strong> Real-time collaborative editing</li>
+                <li><strong>Export:</strong> Save as PNG, SVG, or PDF</li>
+                <li><strong>Templates:</strong> Pre-built canvas templates for common use cases</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

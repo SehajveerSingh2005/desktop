@@ -183,6 +183,27 @@ body {
   transform: scale(1.1);
 }
 
+.manual-save-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--zen-notes-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.manual-save-btn:hover {
+  background: var(--zen-notes-hover);
+  color: #10b981; /* Green color for save */
+  transform: scale(1.1);
+}
+
+.manual-save-btn:active {
+  transform: scale(0.95);
+}
+
 .hidden {
   display: none !important;
 }

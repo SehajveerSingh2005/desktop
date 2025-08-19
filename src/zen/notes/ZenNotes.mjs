@@ -15,9 +15,13 @@ class ZenNotes {
   openNoteCreation() {
     console.log('[ZenNotes] openNoteCreation called');
     
+    // Generate a UNIQUE note ID for each new note
+    const uniqueId = `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Open the note in a new tab with NEW parameter and UNIQUE ID
+    const noteURL = `chrome://browser/content/zen-notes/note.xhtml?new=true&id=${uniqueId}`;
+    
     try {
-      const noteURL = 'chrome://browser/content/zen-notes/note.xhtml';
-      
       let triggeringPrincipal;
       try {
         triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
@@ -30,7 +34,7 @@ class ZenNotes {
       });
       
       window.gBrowser.selectedTab = newTab;
-      console.log('[ZenNotes] Note tab opened:', noteURL);
+      console.log('[ZenNotes] Note tab opened with unique ID:', noteURL);
     } catch (error) {
       console.error('[ZenNotes] Failed to open note:', error);
     }

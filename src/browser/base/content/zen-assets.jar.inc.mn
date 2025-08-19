@@ -97,7 +97,7 @@
         content/browser/zen-vendor/tsparticles.confetti.bundle.min.js           (../../zen/vendor/tsparticles.confetti.bundle.min.js)
         content/browser/zen-vendor/motion.min.mjs                               (../../zen/vendor/motion.min.mjs)
         content/browser/zen-vendor/tiptap.bundle.js                             (../../zen/vendor/tiptap.bundle.js)
-        content/browser/zen-vendor/canvas.bundle.js                             (../../zen/vendor/canvas.bundle.js)
+        content/browser/zen-vendor/excalidraw.bundle.js                         (../../zen/vendor/excalidraw.bundle.js)
 
         # FavIcons for startup
         content/browser/zen-images/favicons/calendar.ico                        (../../zen/images/favicons/calendar.ico)

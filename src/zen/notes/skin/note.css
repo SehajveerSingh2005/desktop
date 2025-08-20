@@ -154,27 +154,37 @@ body {
 .options-btn {
   background: none;
   border: none;
-  font-size: 18px;
   color: var(--zen-notes-text-muted);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 8px;
   border-radius: 6px;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .options-btn:hover {
   background: var(--zen-notes-hover);
+  color: var(--zen-notes-text);
+}
+
+.options-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .new-board-btn {
   background: none;
   border: none;
-  font-size: 18px;
   color: var(--zen-notes-text-muted);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 8px;
   border-radius: 6px;
   transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .new-board-btn:hover {
@@ -183,15 +193,22 @@ body {
   transform: scale(1.1);
 }
 
+.new-board-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .manual-save-btn {
   background: none;
   border: none;
-  font-size: 18px;
   color: var(--zen-notes-text-muted);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 8px;
   border-radius: 6px;
   transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .manual-save-btn:hover {
@@ -202,6 +219,42 @@ body {
 
 .manual-save-btn:active {
   transform: scale(0.95);
+}
+
+.manual-save-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Zen Icon Classes */
+.zen-icon-save {
+  background-image: url('chrome://browser/skin/zen-icons/save.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+}
+
+.zen-icon-canvas {
+  background-image: url('chrome://browser/skin/zen-icons/page-portrait.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+}
+
+.zen-icon-menu {
+  background-image: url('chrome://browser/skin/zen-icons/menu.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
 }
 
 .hidden {

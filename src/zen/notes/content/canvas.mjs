@@ -1,172 +1,452 @@
-// Zen Canvas - Excalidraw Integration
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 class ZenCanvasEditor {
   constructor() {
     this.titleInput = null;
-    this.excalidrawContainer = null;
+    this.canvas = null;
+    this.fabricCanvas = null;
     this.toolbar = null;
-    this.excalidrawApp = null;
+    
+    // Current tool and drawing state
+    this.currentTool = 'select';
+    this.isDrawing = false;
+    this.startPoint = null;
+    
+    // Style properties
+    this.strokeColor = '#000000';
+    this.fillColor = 'transparent';
+    this.strokeWidth = 3;
+    this.fontSize = 16;
+    this.fontFamily = 'Arial';
+    
+    // History for undo/redo
+    this.history = [];
+    this.historyIndex = -1;
+    this.maxHistory = 50;
+    
+    // Autosave
     this.isChanged = false;
     this.autoSaveTimer = null;
     this.lastSavedContent = '';
     this.lastSavedTitle = '';
+    
+    // Database
+    this.db = null;
+    this.dbName = 'ZenCanvasDB';
+    this.dbVersion = 1;
   }
 
   async init() {
     console.log('[ZenCanvasEditor] Initializing...');
-
-    this.titleInput = document.getElementById('canvas-title');
-    this.excalidrawContainer = document.getElementById('excalidraw-container');
-    this.toolbar = document.getElementById('canvas-toolbar');
     
-    if (!this.titleInput || !this.excalidrawContainer || !this.toolbar) {
-      console.error('[ZenCanvasEditor] Required elements not found');
-      return;
-    }
-
-    // Wait for Excalidraw to be available
-    await this.waitForExcalidraw();
+    // Initialize IndexedDB
+    await this.initDatabase();
     
-    // Initialize Excalidraw
-    this.initExcalidraw();
+    // Wait for DOM elements
+    await this.waitForElements();
+    
+    // Initialize Fabric.js canvas
+    this.initFabricCanvas();
     
     // Setup event listeners
     this.setupEventListeners();
     
-    // Load any saved content
-    this.loadContent();
+    // Setup autosave
+    this.setupAutoSave();
+    
+    // Load saved content
+    await this.loadContent();
     
     console.log('[ZenCanvasEditor] Initialized successfully');
   }
 
-  async waitForExcalidraw() {
-    // Wait for Excalidraw to be loaded
+  async initDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.dbVersion);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve();
+      };
+      
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        
+        if (!db.objectStoreNames.contains('canvases')) {
+          const store = db.createObjectStore('canvases', { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+        }
+      };
+    });
+  }
+
+  async waitForElements() {
     let attempts = 0;
     const maxAttempts = 50;
     
     while (attempts < maxAttempts) {
-      if (window.Excalidraw) {
-        console.log('[ZenCanvasEditor] Excalidraw loaded successfully');
+      this.titleInput = document.getElementById('canvas-title');
+      this.canvas = document.getElementById('drawing-canvas');
+      this.toolbar = document.getElementById('canvas-toolbar');
+      
+      if (this.titleInput && this.canvas && this.toolbar) {
+        console.log('[ZenCanvasEditor] All elements found');
         return;
       }
+      
       await new Promise(resolve => setTimeout(resolve, 100));
       attempts++;
     }
     
-    throw new Error('Excalidraw failed to load');
+    throw new Error('Required elements not found after waiting');
   }
 
-  initExcalidraw() {
-    try {
-      // Clear container
-      this.excalidrawContainer.innerHTML = '';
-      
-      // Create Excalidraw app
-      this.excalidrawApp = new window.Excalidraw({
-        target: this.excalidrawContainer,
-        props: {
-          initialData: {
-            elements: [],
-            appState: {
-              viewBackgroundColor: 'rgba(255, 255, 255, 0.05)',
-              theme: 'dark'
-            }
-          },
-          onChange: (elements, appState) => {
-            this.handleExcalidrawChange(elements, appState);
-          }
-        }
-      });
-      
-      console.log('[ZenCanvasEditor] Excalidraw initialized');
-    } catch (error) {
-      console.error('[ZenCanvasEditor] Failed to initialize Excalidraw:', error);
-      // Fallback to simple message
-      this.excalidrawContainer.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: rgba(255,255,255,0.7);">
-          <div style="text-align: center;">
-            <h3>Canvas Loading...</h3>
-            <p>If this persists, please refresh the page.</p>
-          </div>
-        </div>
-      `;
-    }
-  }
-
-  handleExcalidrawChange(elements, appState) {
-    this.isChanged = true;
-    this.autoSave();
+  initFabricCanvas() {
+    // Initialize Fabric.js canvas
+    this.fabricCanvas = new fabric.Canvas(this.canvas, {
+      isDrawingMode: false,
+      selection: true,
+      preserveObjectStacking: true
+    });
+    
+    // Set canvas background
+    this.fabricCanvas.setBackgroundColor('#ffffff', () => {
+      this.fabricCanvas.renderAll();
+    });
+    
+    // Setup canvas events
+    this.fabricCanvas.on('object:added', () => {
+      this.isChanged = true;
+      this.autoSave();
+      this.saveToHistory();
+    });
+    
+    this.fabricCanvas.on('object:modified', () => {
+      this.isChanged = true;
+      this.autoSave();
+      this.saveToHistory();
+    });
+    
+    this.fabricCanvas.on('object:removed', () => {
+      this.isChanged = true;
+      this.autoSave();
+      this.saveToHistory();
+    });
+    
+    console.log('[ZenCanvasEditor] Fabric.js canvas initialized');
   }
 
   setupEventListeners() {
-    // Title input events
-    this.titleInput.addEventListener('input', (e) => this.handleTitleChange(e));
+    // Toolbar events
+    this.setupToolbarEvents();
     
-    // New note button event
-    const newNoteBtn = document.getElementById('new-note-btn');
-    if (newNoteBtn) {
-      newNoteBtn.addEventListener('click', (e) => this.handleNewNote(e));
-    }
+    // Title input
+    this.titleInput.addEventListener('input', () => {
+      this.isChanged = true;
+      this.autoSave();
+    });
     
-    // Before unload warning
-    window.addEventListener('beforeunload', (e) => this.handleBeforeUnload(e));
+    // Keyboard events
+    document.addEventListener('keydown', this.handleKeyDown.bind(this));
     
-    // Window resize
-    window.addEventListener('resize', () => this.handleResize());
+    console.log('[ZenCanvasEditor] Event listeners set up');
   }
 
-  handleTitleChange(e) {
+  setupToolbarEvents() {
+    // Tool selection
+    document.getElementById('select-tool').addEventListener('click', () => this.setTool('select'));
+    document.getElementById('pen-tool').addEventListener('click', () => this.setTool('pen'));
+    document.getElementById('text-tool').addEventListener('click', () => this.setTool('text'));
+    document.getElementById('rectangle-tool').addEventListener('click', () => this.setTool('rectangle'));
+    document.getElementById('circle-tool').addEventListener('click', () => this.setTool('circle'));
+    document.getElementById('line-tool').addEventListener('click', () => this.setTool('line'));
+    document.getElementById('arrow-tool').addEventListener('click', () => this.setTool('arrow'));
+    
+    // Controls
+    const brushSizeSlider = document.getElementById('brush-size');
+    const brushSizeValue = document.getElementById('brush-size-value');
+    brushSizeSlider.addEventListener('input', (e) => {
+      this.strokeWidth = parseInt(e.target.value);
+      brushSizeValue.textContent = this.strokeWidth;
+      this.updateCanvasContext();
+    });
+    
+    document.getElementById('color-picker').addEventListener('change', (e) => {
+      this.strokeColor = e.target.value;
+      this.updateCanvasContext();
+    });
+    
+    // Actions
+    document.getElementById('clear-canvas').addEventListener('click', () => this.clearCanvas());
+    document.getElementById('undo-btn').addEventListener('click', () => this.undo());
+    document.getElementById('redo-btn').addEventListener('click', () => this.redo());
+    document.getElementById('save-canvas').addEventListener('click', () => this.saveContent());
+    document.getElementById('load-canvas').addEventListener('click', () => this.loadContent());
+    document.getElementById('export-png').addEventListener('click', () => this.exportPNG());
+    
+    // New note button
+    document.getElementById('new-note-btn').addEventListener('click', () => this.createNewCanvas());
+  }
+
+  setTool(tool) {
+    this.currentTool = tool;
+    
+    // Update active tool button
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`${tool}-tool`).classList.add('active');
+    
+    // Configure canvas for current tool
+    if (tool === 'select') {
+      this.fabricCanvas.isDrawingMode = false;
+      this.fabricCanvas.selection = true;
+      this.fabricCanvas.defaultCursor = 'default';
+    } else if (tool === 'pen') {
+      this.fabricCanvas.isDrawingMode = true;
+      this.fabricCanvas.selection = false;
+      this.fabricCanvas.defaultCursor = 'crosshair';
+      this.updateCanvasContext();
+    } else {
+      this.fabricCanvas.isDrawingMode = false;
+      this.fabricCanvas.selection = false;
+      this.fabricCanvas.defaultCursor = 'crosshair';
+      this.setupShapeDrawing();
+    }
+    
+    console.log(`[ZenCanvasEditor] Tool changed to: ${tool}`);
+  }
+
+  setupShapeDrawing() {
+    this.fabricCanvas.on('mouse:down', this.handleShapeMouseDown.bind(this));
+    this.fabricCanvas.on('mouse:move', this.handleShapeMouseMove.bind(this));
+    this.fabricCanvas.on('mouse:up', this.handleShapeMouseUp.bind(this));
+  }
+
+  handleShapeMouseDown(e) {
+    if (this.currentTool === 'select') return;
+    
+    const pointer = this.fabricCanvas.getPointer(e.e);
+    this.startPoint = pointer;
+    this.isDrawing = true;
+  }
+
+  handleShapeMouseMove(e) {
+    if (!this.isDrawing || !this.startPoint) return;
+    
+    const pointer = this.fabricCanvas.getPointer(e.e);
+    
+    // Remove previous preview object
+    if (this.previewObject) {
+      this.fabricCanvas.remove(this.previewObject);
+    }
+    
+    // Create preview object
+    this.previewObject = this.createShapeObject(this.startPoint, pointer);
+    this.fabricCanvas.add(this.previewObject);
+    this.fabricCanvas.renderAll();
+  }
+
+  handleShapeMouseUp(e) {
+    if (!this.isDrawing || !this.startPoint) return;
+    
+    const pointer = this.fabricCanvas.getPointer(e.e);
+    
+    // Remove preview object
+    if (this.previewObject) {
+      this.fabricCanvas.remove(this.previewObject);
+      this.previewObject = null;
+    }
+    
+    // Create final object
+    const object = this.createShapeObject(this.startPoint, pointer);
+    this.fabricCanvas.add(object);
+    this.fabricCanvas.renderAll();
+    
+    // Reset state
+    this.isDrawing = false;
+    this.startPoint = null;
+  }
+
+  createShapeObject(startPoint, endPoint) {
+    switch (this.currentTool) {
+      case 'rectangle':
+        return new fabric.Rect({
+          left: Math.min(startPoint.x, endPoint.x),
+          top: Math.min(startPoint.y, endPoint.y),
+          width: Math.abs(endPoint.x - startPoint.x),
+          height: Math.abs(endPoint.y - startPoint.y),
+          stroke: this.strokeColor,
+          strokeWidth: this.strokeWidth,
+          fill: this.fillColor,
+          selectable: true,
+          evented: true
+        });
+        
+      case 'circle':
+        const radius = Math.sqrt(
+          Math.pow(endPoint.x - startPoint.x, 2) + 
+          Math.pow(endPoint.y - startPoint.y, 2)
+        ) / 2;
+        const centerX = (startPoint.x + endPoint.x) / 2;
+        const centerY = (startPoint.y + endPoint.y) / 2;
+        
+        return new fabric.Circle({
+          left: centerX - radius,
+          top: centerY - radius,
+          radius: radius,
+          stroke: this.strokeColor,
+          strokeWidth: this.strokeWidth,
+          fill: this.fillColor,
+          selectable: true,
+          evented: true
+        });
+        
+      case 'line':
+        return new fabric.Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
+          stroke: this.strokeColor,
+          strokeWidth: this.strokeWidth,
+          selectable: true,
+          evented: true
+        });
+        
+      case 'arrow':
+        const line = new fabric.Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
+          stroke: this.strokeColor,
+          strokeWidth: this.strokeWidth,
+          selectable: true,
+          evented: true
+        });
+        
+        // Add arrow head
+        const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+        const arrowLength = 15;
+        const arrowAngle = Math.PI / 6;
+        
+        const arrowHead = new fabric.Triangle({
+          left: endPoint.x,
+          top: endPoint.y,
+          width: arrowLength,
+          height: arrowLength,
+          fill: this.strokeColor,
+          angle: (angle * 180 / Math.PI) + 90,
+          selectable: false,
+          evented: false
+        });
+        
+        return new fabric.Group([line, arrowHead], {
+          selectable: true,
+          evented: true
+        });
+        
+      default:
+        return null;
+    }
+  }
+
+  updateCanvasContext() {
+    if (this.fabricCanvas.isDrawingMode) {
+      this.fabricCanvas.freeDrawingBrush.color = this.strokeColor;
+      this.fabricCanvas.freeDrawingBrush.width = this.strokeWidth;
+    }
+  }
+
+  handleKeyDown(e) {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      this.deleteSelectedObjects();
+    } else if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          this.redo();
+        } else {
+          this.undo();
+        }
+      } else if (e.key === 'a') {
+        e.preventDefault();
+        this.selectAll();
+      }
+    }
+  }
+
+  deleteSelectedObjects() {
+    const activeObjects = this.fabricCanvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      this.fabricCanvas.remove(...activeObjects);
+      this.fabricCanvas.discardActiveObject();
+      this.fabricCanvas.renderAll();
+    }
+  }
+
+  selectAll() {
+    this.fabricCanvas.selectAll();
+    this.fabricCanvas.renderAll();
+  }
+
+  saveToHistory() {
+    // Remove any history after current index
+    this.history = this.history.slice(0, this.historyIndex + 1);
+    
+    // Add current state
+    const currentState = this.fabricCanvas.toJSON();
+    this.history.push(JSON.stringify(currentState));
+    
+    // Limit history size
+    if (this.history.length > this.maxHistory) {
+      this.history.shift();
+    } else {
+      this.historyIndex++;
+    }
+  }
+
+  undo() {
+    if (this.historyIndex > 0) {
+      this.historyIndex--;
+      const previousState = JSON.parse(this.history[this.historyIndex]);
+      this.fabricCanvas.loadFromJSON(previousState, () => {
+        this.fabricCanvas.renderAll();
+      });
+    }
+  }
+
+  redo() {
+    if (this.historyIndex < this.history.length - 1) {
+      this.historyIndex++;
+      const nextState = JSON.parse(this.history[this.historyIndex]);
+      this.fabricCanvas.loadFromJSON(nextState, () => {
+        this.fabricCanvas.renderAll();
+      });
+    }
+  }
+
+  clearCanvas() {
+    this.fabricCanvas.clear();
+    this.fabricCanvas.setBackgroundColor('#ffffff', () => {
+      this.fabricCanvas.renderAll();
+    });
+    
+    this.history = [];
+    this.historyIndex = -1;
     this.isChanged = true;
     this.autoSave();
   }
 
-  handleNewNote(e) {
-    e.preventDefault();
-    this.switchToNotes();
+  createNewCanvas() {
+    this.clearCanvas();
+    this.titleInput.value = '';
+    this.lastSavedContent = '';
+    this.lastSavedTitle = '';
+    this.isChanged = false;
+    this.updateStatus('saved');
   }
 
-  switchToNotes() {
-    try {
-      // Use the correct URL format - same as notes: zen-notes (with hyphen)
-      const notesUrl = 'chrome://browser/content/zen-notes/note.xhtml';
-      
-      // Use the same pattern that works for notes
-      if (typeof window !== 'undefined' && window.gBrowser) {
-        let triggeringPrincipal;
-        try {
-          triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
-        } catch (e) {
-          triggeringPrincipal = null;
-        }
-        
-        const newTab = window.gBrowser.addTab(notesUrl, {
-          triggeringPrincipal: triggeringPrincipal
-        });
-        
-        window.gBrowser.selectedTab = newTab;
-        console.log('[ZenCanvasEditor] Notes tab opened:', notesUrl);
-      } else {
-        // Fallback for other contexts
-        window.open(notesUrl, '_blank');
+  setupAutoSave() {
+    setInterval(() => {
+      if (this.isChanged) {
+        this.autoSave();
       }
-      
-    } catch (error) {
-      console.error('[ZenCanvasEditor] Error switching to notes:', error);
-      // Fallback: just navigate
-      window.location.href = 'chrome://browser/content/zen-notes/note.xhtml';
-    }
-  }
-
-  handleBeforeUnload(e) {
-    if (this.isChanged) {
-      e.preventDefault();
-      e.returnValue = '';
-    }
-  }
-
-  handleResize() {
-    if (this.excalidrawApp && this.excalidrawApp.refresh) {
-      this.excalidrawApp.refresh();
-    }
+    }, 5000);
   }
 
   autoSave() {
@@ -179,76 +459,102 @@ class ZenCanvasEditor {
     }, 1000);
   }
 
-  saveContent() {
+  async saveContent() {
     try {
+      const title = this.titleInput.value || 'Untitled Canvas';
+      const canvasData = this.fabricCanvas.toJSON();
+      
       const content = {
-        title: this.titleInput.value || 'Untitled Board',
+        id: 'current-canvas',
+        title: title,
+        canvasData: canvasData,
         timestamp: Date.now()
       };
       
-      if (this.excalidrawApp && this.excalidrawApp.getSceneData) {
-        const sceneData = this.excalidrawApp.getSceneData();
-        content.sceneData = sceneData;
-      }
+      await this.saveToIndexedDB(content);
       
-      localStorage.setItem('zen-canvas-content', JSON.stringify(content));
       this.lastSavedContent = JSON.stringify(content);
-      this.lastSavedTitle = content.title;
+      this.lastSavedTitle = title;
       this.isChanged = false;
       
-      this.updateSavingStatus('Saved');
-      console.log('[ZenCanvasEditor] Content saved');
+      this.updateStatus('saved');
+      console.log('[ZenCanvasEditor] Canvas saved successfully');
     } catch (error) {
-      console.error('[ZenCanvasEditor] Failed to save content:', error);
-      this.updateSavingStatus('Save failed');
+      console.error('[ZenCanvasEditor] Failed to save canvas:', error);
+      this.updateStatus('saving');
     }
   }
 
-  loadContent() {
+  async saveToIndexedDB(content) {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(['canvases'], 'readwrite');
+      const store = transaction.objectStore('canvases');
+      const request = store.put(content);
+      
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async loadContent() {
     try {
-      const saved = localStorage.getItem('zen-canvas-content');
-      if (saved) {
-        const content = JSON.parse(saved);
-        
+      const content = await this.loadFromIndexedDB();
+      
+      if (content && content.canvasData) {
+        // Load title
         if (content.title) {
           this.titleInput.value = content.title;
+          this.lastSavedTitle = content.title;
         }
         
-        if (content.sceneData && this.excalidrawApp && this.excalidrawApp.updateScene) {
-          this.excalidrawApp.updateScene(content.sceneData);
-        }
+        // Load canvas data
+        this.fabricCanvas.loadFromJSON(content.canvasData, () => {
+          this.fabricCanvas.renderAll();
+        });
         
-        this.lastSavedContent = saved;
-        this.lastSavedTitle = content.title || '';
-        this.isChanged = false;
-        
-        console.log('[ZenCanvasEditor] Content loaded');
+        console.log('[ZenCanvasEditor] Canvas loaded successfully');
+      } else {
+        this.createNewCanvas();
       }
     } catch (error) {
-      console.error('[ZenCanvasEditor] Failed to load content:', error);
+      console.error('[ZenCanvasEditor] Failed to load canvas:', error);
+      this.createNewCanvas();
     }
   }
 
-  updateSavingStatus(status) {
+  async loadFromIndexedDB() {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(['canvases'], 'readonly');
+      const store = transaction.objectStore('canvases');
+      const request = store.get('current-canvas');
+      
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  exportPNG() {
+    const dataURL = this.fabricCanvas.toDataURL({
+      format: 'png',
+      quality: 1
+    });
+    
+    const link = document.createElement('a');
+    link.download = `${this.titleInput.value || 'canvas'}.png`;
+    link.href = dataURL;
+    link.click();
+  }
+
+  updateStatus(status) {
     const savingStatus = document.getElementById('saving-status');
     const savedStatus = document.getElementById('saved-status');
     
-    if (savingStatus && savedStatus) {
-      if (status === 'Saving...') {
-        savingStatus.style.display = 'inline';
-        savedStatus.style.display = 'none';
-      } else if (status === 'Saved') {
-        savingStatus.style.display = 'none';
-        savedStatus.style.display = 'inline';
-        
-        // Hide saved status after 2 seconds
-        setTimeout(() => {
-          savedStatus.style.display = 'none';
-        }, 2000);
-      } else {
-        savingStatus.style.display = 'none';
-        savedStatus.style.display = 'none';
-      }
+    if (status === 'saving') {
+      savingStatus.classList.remove('hidden');
+      savedStatus.classList.add('hidden');
+    } else if (status === 'saved') {
+      savingStatus.classList.add('hidden');
+      savedStatus.classList.remove('hidden');
     }
   }
 }
@@ -256,8 +562,10 @@ class ZenCanvasEditor {
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    new ZenCanvasEditor();
+    const editor = new ZenCanvasEditor();
+    editor.init();
   });
 } else {
-  new ZenCanvasEditor();
+  const editor = new ZenCanvasEditor();
+  editor.init();
 }

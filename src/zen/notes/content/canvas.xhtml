@@ -1,4 +1,6 @@
 <?xml version="1.0"?>
+<?xml-stylesheet href="chrome://browser/content/zen-styles/zen-theme.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/content/zen-styles/zen-browser-ui.css" type="text/css"?>
 <?xml-stylesheet href="chrome://browser/content/zen-notes/canvas.css" type="text/css"?>
 
 <!DOCTYPE html>
@@ -8,10 +10,10 @@
   <meta charset="utf-8" />
   <title>New Canvas</title>
   <link rel="icon" href="chrome://browser/skin/zen-icons/page-portrait.svg" type="image/svg+xml" />
-            <!-- Load Excalidraw bundle first -->
-          <script type="text/javascript" src="chrome://browser/content/zen-vendor/canvas.bundle.js"></script>
-          <!-- Load our canvas interface -->
-          <script type="text/javascript" src="chrome://browser/content/zen-notes/canvas.mjs"></script>
+  <!-- Load Fabric.js -->
+  <script type="text/javascript" src="chrome://browser/content/zen-vendor/fabric.min.js"></script>
+  <!-- Load our canvas interface -->
+  <script type="text/javascript" src="chrome://browser/content/zen-notes/canvas.mjs"></script>
 </head>
 
 <body>
@@ -23,18 +25,86 @@
       <div class="status-indicators">
         <span id="saving-status" class="status-text">Saving...</span>
         <span id="saved-status" class="status-text">Saved</span>
-        <button id="new-note-btn" class="new-note-btn" title="New Note">📝</button>
+        <button id="new-note-btn" class="new-note-btn" title="New Note">
+          <span>+</span>
+        </button>
       </div>
     </div>
 
     <!-- Canvas Content Area -->
-    <div id="excalidraw-container">
-      <!-- Canvas will be created here by JavaScript -->
+    <div id="canvas-content">
+      <canvas id="drawing-canvas" width="800" height="600"></canvas>
     </div>
 
     <!-- Canvas Toolbar -->
     <div id="canvas-toolbar">
-      <!-- Excalidraw will provide its own toolbar -->
+      <!-- Drawing Tools -->
+      <div class="tool-group">
+        <button id="select-tool" class="tool-btn active" title="Select Tool">
+          <span>✋</span>
+        </button>
+        <button id="pen-tool" class="tool-btn" title="Pen Tool">
+          <span>✏️</span>
+        </button>
+        <button id="text-tool" class="tool-btn" title="Text Tool">
+          <span>T</span>
+        </button>
+      </div>
+      
+      <!-- Shape Tools -->
+      <div class="tool-group">
+        <button id="rectangle-tool" class="tool-btn" title="Rectangle">
+          <span>⬜</span>
+        </button>
+        <button id="circle-tool" class="tool-btn" title="Circle">
+          <span>⭕</span>
+        </button>
+        <button id="line-tool" class="tool-btn" title="Line">
+          <span>➖</span>
+        </button>
+        <button id="arrow-tool" class="tool-btn" title="Arrow">
+          <span>➡️</span>
+        </button>
+      </div>
+      
+      <!-- Brush Controls -->
+      <div class="tool-group">
+        <label for="brush-size">Size:</label>
+        <input type="range" id="brush-size" min="1" max="20" value="3" />
+        <span id="brush-size-value">3</span>
+      </div>
+      
+      <!-- Color Picker -->
+      <div class="tool-group">
+        <label for="color-picker">Color:</label>
+        <input type="color" id="color-picker" value="#000000" />
+      </div>
+      
+      <!-- Actions -->
+      <div class="tool-group">
+        <button id="clear-canvas" class="tool-btn" title="Clear Canvas">
+          <span>🗑️</span>
+        </button>
+        <button id="undo-btn" class="tool-btn" title="Undo">
+          <span>↶</span>
+        </button>
+        <button id="redo-btn" class="tool-btn" title="Redo">
+          <span>↷</span>
+        </button>
+      </div>
+      
+      <!-- Save/Load -->
+      <div class="tool-group">
+        <button id="save-canvas" class="tool-btn" title="Save Canvas">
+          <span>💾</span>
+        </button>
+        <button id="load-canvas" class="tool-btn" title="Load Canvas">
+          <span>📁</span>
+        </button>
+        <button id="export-canvas" class="tool-btn" title="Export as PNG">
+          <span>📤</span>
+        </button>
+      </div>
     </div>
   </div>
 </body>

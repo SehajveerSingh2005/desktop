@@ -77,7 +77,6 @@
 
         content/browser/zen-components/ZenNotes.mjs                             (../../zen/notes/ZenNotes.mjs)
 
-
         # Images
         content/browser/zen-images/brand-header.svg                             (../../zen/images/brand-header.svg)
         content/browser/zen-images/layouts/collapsed.png                        (../../zen/images/layouts/collapsed.png)

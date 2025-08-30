@@ -1,8 +1,3 @@
-<?xml version="1.0"?>
-<?xml-stylesheet href="chrome://browser/content/zen-styles/zen-theme.css" type="text/css"?>
-<?xml-stylesheet href="chrome://browser/content/zen-styles/zen-browser-ui.css" type="text/css"?>
-<?xml-stylesheet href="chrome://browser/content/zen-notes/canvas.css" type="text/css"?>
-
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
 
@@ -10,6 +5,7 @@
   <meta charset="utf-8" />
   <title>New Canvas</title>
   <link rel="icon" href="chrome://browser/skin/zen-icons/page-portrait.svg" type="image/svg+xml" />
+  <link rel="stylesheet" type="text/css" href="chrome://browser/content/zen-notes/canvas.css" />
   <!-- Load Fabric.js -->
   <script type="text/javascript" src="chrome://browser/content/zen-vendor/fabric.min.js"></script>
   <!-- Load our canvas interface -->
@@ -26,14 +22,37 @@
         <span id="saving-status" class="status-text">Saving...</span>
         <span id="saved-status" class="status-text">Saved</span>
         <button id="new-note-btn" class="new-note-btn" title="New Note">
-          <span>+</span>
+          <span class="btn-text">📝</span>
         </button>
       </div>
     </div>
 
     <!-- Canvas Content Area -->
     <div id="canvas-content">
-      <canvas id="drawing-canvas" width="800" height="600"></canvas>
+      <canvas id="drawing-canvas"></canvas>  
+      <!-- Panning Overlay -->
+      <div class="panning-overlay" id="panning-overlay"></div>
+      
+      <!-- Zoom Indicator -->
+      <div id="zoom-indicator" class="zoom-indicator">
+        <span id="zoom-level">100%</span>
+      </div>
+      
+      <!-- Canvas Instructions -->
+      <div id="canvas-instructions" class="canvas-instructions">
+        <div class="instruction">
+          <span class="key">Ctrl</span> + <span class="key">Left Click</span> to pan
+        </div>
+        <div class="instruction">
+          <span class="key">Mouse Wheel</span> to zoom
+        </div>
+        <div class="instruction">
+          <span class="key">Touch</span> to pan, <span class="key">Pinch</span> to zoom
+        </div>
+        <div class="instruction">
+          <span class="key">Ctrl</span> + <span class="key">H</span> to toggle help
+        </div>
+      </div>
     </div>
 
     <!-- Canvas Toolbar -->
@@ -41,31 +60,35 @@
       <!-- Drawing Tools -->
       <div class="tool-group">
         <button id="select-tool" class="tool-btn active" title="Select Tool">
-          <span>✋</span>
+          <span class="btn-text">👆</span>
         </button>
         <button id="pen-tool" class="tool-btn" title="Pen Tool">
-          <span>✏️</span>
+          <span class="btn-text">✏️</span>
         </button>
         <button id="text-tool" class="tool-btn" title="Text Tool">
-          <span>T</span>
+          <span class="btn-text">T</span>
         </button>
       </div>
+
+      <div class="toolbar-separator"></div>
       
       <!-- Shape Tools -->
       <div class="tool-group">
         <button id="rectangle-tool" class="tool-btn" title="Rectangle">
-          <span>⬜</span>
+          <span class="btn-text">⬜</span>
         </button>
         <button id="circle-tool" class="tool-btn" title="Circle">
-          <span>⭕</span>
+          <span class="btn-text">⭕</span>
         </button>
         <button id="line-tool" class="tool-btn" title="Line">
-          <span>➖</span>
+          <span class="btn-text">➖</span>
         </button>
         <button id="arrow-tool" class="tool-btn" title="Arrow">
-          <span>➡️</span>
+          <span class="btn-text">➡️</span>
         </button>
       </div>
+      
+      <div class="toolbar-separator"></div>
       
       <!-- Brush Controls -->
       <div class="tool-group">
@@ -80,29 +103,45 @@
         <input type="color" id="color-picker" value="#000000" />
       </div>
       
+      <div class="toolbar-separator"></div>
+      
       <!-- Actions -->
       <div class="tool-group">
         <button id="clear-canvas" class="tool-btn" title="Clear Canvas">
-          <span>🗑️</span>
+          <span class="btn-text">🗑️</span>
         </button>
         <button id="undo-btn" class="tool-btn" title="Undo">
-          <span>↶</span>
+          <span class="btn-text">↶</span>
         </button>
         <button id="redo-btn" class="tool-btn" title="Redo">
-          <span>↷</span>
+          <span class="btn-text">↷</span>
         </button>
       </div>
+      
+      <div class="toolbar-separator"></div>
       
       <!-- Save/Load -->
       <div class="tool-group">
         <button id="save-canvas" class="tool-btn" title="Save Canvas">
-          <span>💾</span>
+          <span class="btn-text">💾</span>
         </button>
         <button id="load-canvas" class="tool-btn" title="Load Canvas">
-          <span>📁</span>
+          <span class="btn-text">📂</span>
         </button>
-        <button id="export-canvas" class="tool-btn" title="Export as PNG">
-          <span>📤</span>
+        <button id="export-png" class="tool-btn" title="Export as PNG">
+          <span class="btn-text">📥</span>
+        </button>
+      </div>
+      
+      <div class="toolbar-separator"></div>
+      
+      <!-- Viewport Controls -->
+      <div class="tool-group">
+        <button id="reset-viewport" class="tool-btn" title="Reset View (Ctrl+0)">
+          <span class="btn-text">🎯</span>
+        </button>
+        <button id="center-viewport" class="tool-btn" title="Center View (Home)">
+          <span class="btn-text">🏠</span>
         </button>
       </div>
     </div>

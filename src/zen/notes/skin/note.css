@@ -169,9 +169,9 @@ body {
   color: var(--zen-notes-text);
 }
 
-.options-btn svg {
-  width: 16px;
-  height: 16px;
+.options-btn .btn-text {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .new-board-btn {
@@ -193,9 +193,9 @@ body {
   transform: scale(1.1);
 }
 
-.new-board-btn svg {
-  width: 16px;
-  height: 16px;
+.new-board-btn .btn-text {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .manual-save-btn {
@@ -221,40 +221,9 @@ body {
   transform: scale(0.95);
 }
 
-.manual-save-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Zen Icon Classes */
-.zen-icon-save {
-  background-image: url('chrome://browser/skin/zen-icons/save.svg');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 16px 16px;
-  width: 16px;
-  height: 16px;
-  display: inline-block;
-}
-
-.zen-icon-canvas {
-  background-image: url('chrome://browser/skin/zen-icons/page-portrait.svg');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 16px 16px;
-  width: 16px;
-  height: 16px;
-  display: inline-block;
-}
-
-.zen-icon-menu {
-  background-image: url('chrome://browser/skin/zen-icons/menu.svg');
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 16px 16px;
-  width: 16px;
-  height: 16px;
-  display: inline-block;
+.manual-save-btn .btn-text {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .hidden {

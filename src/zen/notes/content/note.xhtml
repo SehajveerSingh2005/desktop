@@ -1,7 +1,4 @@
 <?xml version="1.0"?>
-<?xml-stylesheet href="chrome://browser/content/zen-styles/zen-theme.css" type="text/css"?>
-<?xml-stylesheet href="chrome://browser/content/zen-styles/zen-browser-ui.css" type="text/css"?>
-<?xml-stylesheet href="chrome://browser/content/zen-notes/note.css" type="text/css"?>
 
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -10,6 +7,7 @@
   <meta charset="utf-8" />
   <title>New Note</title>
   <link rel="icon" href="chrome://browser/skin/zen-icons/page-portrait.svg" type="image/svg+xml" />
+  <link rel="stylesheet" type="text/css" href="chrome://browser/content/zen-notes/note.css" />
   <!-- Load Tiptap bundle first -->
   <script type="text/javascript" src="chrome://browser/content/zen-vendor/tiptap.bundle.js"></script>
   <!-- Then load our note editor -->
@@ -33,13 +31,13 @@
             <span class="status-text">Saved</span>
           </div>
           <button id="manual-save-btn" class="manual-save-btn" title="Save Now">
-            <span class="zen-icon-save"></span>
+            <span class="btn-text">💾</span>
           </button>
           <button id="new-board-btn" class="new-board-btn" title="New Board">
-            <span class="zen-icon-canvas"></span>
+            <span class="btn-text">📋</span>
           </button>
           <button id="options-menu" class="options-btn" title="Options">
-            <span class="zen-icon-menu"></span>
+            <span class="btn-text">⚙️</span>
           </button>
         </div>
       </div>

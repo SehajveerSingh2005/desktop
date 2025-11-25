@@ -129,6 +129,9 @@ document.addEventListener(
             gZenWorkspaces.unloadWorkspace();
             break;
           }
+          case 'cmd_zenNewBoard':
+            gZenWorkspaces.openNewBoard();
+            break;
           default:
             gZenGlanceManager.handleMainCommandSet(event);
             if (event.target.id.startsWith('cmd_zenWorkspaceSwitch')) {

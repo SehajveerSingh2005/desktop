@@ -19,6 +19,19 @@ let JSPROCESSACTORS = {};
  * available at https://firefox-source-docs.mozilla.org/dom/ipc/jsactors.html
  */
 let JSWINDOWACTORS = {
+  ThemeActor: {
+    parent: {
+      esModuleURI: 'resource:///actors/ThemeActorParent.sys.mjs',
+    },
+    child: {
+      esModuleURI: 'resource:///actors/ThemeActorChild.sys.mjs',
+      events: {
+        DOMContentLoaded: {},
+      },
+    },
+    matches: ['chrome://browser/content/zen-board/board.html'],
+    allFrames: true, // Ensure it runs in the correct frame
+  },
   ZenModsMarketplace: {
     parent: {
       esModuleURI: 'resource:///actors/ZenModsMarketplaceParent.sys.mjs',

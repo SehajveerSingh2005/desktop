@@ -1,20 +1,34 @@
-// modules/tools.js
-
 import { canvas, ctx, redrawCanvas } from './canvas.js';
 import { scene, addToScene, generateId, Path, Text } from './scene.js';
+
+// =================================================================
+// === DOM Elements ================================================
+// =================================================================
+const penOptionsPanel = document.getElementById('pen-options');
+const brushSizeSlider = document.getElementById('brush-size');
 
 // =================================================================
 // === State =======================================================
 // =================================================================
 export let currentTool = 'pen';
+let currentBrushSize = 5; // Default brush size
 let isDrawing = false;
 let currentDrawingPath = null;
 let activeTextInput = null;
+let isInitialized = false; // Flag to check if initial tool selection has happened
 
 // =================================================================
-// === Text Tool Implementation (Simplified) =======================
+// === Event Handlers for Options ==================================
 // =================================================================
 
+brushSizeSlider.addEventListener('input', (e) => {
+  currentBrushSize = e.target.value;
+});
+
+
+// =================================================================
+// === Text Tool Implementation ====================================
+// =================================================================
 function finalizeTextInput() {
   if (!activeTextInput) return;
 
@@ -40,7 +54,6 @@ function finalizeTextInput() {
 }
 
 function placeTextInput(x, y) {
-  // If an old textbox exists, finalize it before creating a new one.
   if (activeTextInput) {
     finalizeTextInput();
   }
@@ -56,7 +69,7 @@ function placeTextInput(x, y) {
   input.style.font = '24px Arial';
   input.style.color = '#000';
   input.style.background = 'transparent';
-  input.style.border = '1px dashed #007bff';
+  input.style.border = '2px dashed #007bff';
   input.style.outline = 'none';
   input.style.resize = 'none';
   input.style.overflow = 'hidden';
@@ -98,7 +111,8 @@ export const toolHandlers = {
     onMouseDown(e) {
       isDrawing = true;
       ctx.globalCompositeOperation = 'source-over';
-      currentDrawingPath = new Path(generateId(), ctx.strokeStyle, ctx.lineWidth);
+      // Use the current brush size from the state
+      currentDrawingPath = new Path(generateId(), ctx.strokeStyle, currentBrushSize);
       currentDrawingPath.addPoint(e.offsetX, e.offsetY);
       addToScene(currentDrawingPath);
     },
@@ -109,7 +123,7 @@ export const toolHandlers = {
     },
     onMouseUp() {
       if (isDrawing) {
-        redrawCanvas();
+        redrawCanvas(); // Final draw for the dot-on-click case
         isDrawing = false;
         currentDrawingPath = null;
       }
@@ -176,6 +190,16 @@ export const toolHandlers = {
 // =================================================================
 
 export function selectTool(toolName) {
+  const isFirstSelection = !isInitialized;
+
+  // If clicking the pen tool when it's already active, toggle its options.
+  // Do not toggle on the very first selection.
+  if (toolName === 'pen' && currentTool === 'pen' && !isFirstSelection) {
+    penOptionsPanel.classList.toggle('visible');
+  } else {
+    penOptionsPanel.classList.remove('visible');
+  }
+  
   // Finalize text input if switching away from the text tool
   if (activeTextInput && toolName !== 'text') {
       finalizeTextInput();
@@ -186,4 +210,8 @@ export function selectTool(toolName) {
     btn.classList.remove('active');
   });
   document.getElementById(`${toolName}-tool`).classList.add('active');
+
+  if (isFirstSelection) {
+    isInitialized = true;
+  }
 }

@@ -19,15 +19,13 @@ function resetContext() {
 
 export function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
-  // We no longer fill the background here; it's handled by CSS on the body.
-
-  // Reset context to defaults before redrawing scene
-  resetContext();
 
   for (const obj of scene) {
-    ctx.save();
-    obj.draw(ctx);
-    ctx.restore();
+    if (obj.visible) { // Only draw visible objects
+      ctx.save();
+      obj.draw(ctx);
+      ctx.restore();
+    }
   }
 }
 

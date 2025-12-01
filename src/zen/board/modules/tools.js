@@ -108,8 +108,11 @@ export const toolHandlers = {
       redrawCanvas();
     },
     onMouseUp() {
-      isDrawing = false;
-      currentDrawingPath = null;
+      if (isDrawing) {
+        redrawCanvas();
+        isDrawing = false;
+        currentDrawingPath = null;
+      }
     },
   },
   eraser: {

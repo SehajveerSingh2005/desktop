@@ -102,3 +102,20 @@ body {
 .tool-button.active {
   background-color: var(--board-accent-color, #777);
 }
+
+.canvas-text-input {
+  position: absolute;
+  background: transparent;
+  border: 2px dashed var(--board-accent-color, #007bff);
+  border-radius: 8px;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  min-height: 28px;
+  line-height: 1.2;
+  padding: 2px;
+  margin: 0;
+  font: 24px Arial;
+  color: #000;
+}

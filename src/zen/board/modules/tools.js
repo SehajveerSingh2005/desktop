@@ -1,3 +1,5 @@
+// modules/tools.js
+
 import { canvas, ctx, redrawCanvas } from './canvas.js';
 import { scene, addToScene, generateId, Path, Text } from './scene.js';
 
@@ -6,101 +8,172 @@ import { scene, addToScene, generateId, Path, Text } from './scene.js';
 // =================================================================
 const penOptionsPanel = document.getElementById('pen-options');
 const brushSizeSlider = document.getElementById('brush-size');
+const textEditor = document.getElementById('text-editor');
 
 // =================================================================
 // === State =======================================================
 // =================================================================
 export let currentTool = 'pen';
-let currentBrushSize = 5; // Default brush size
+let currentBrushSize = 5;
 let isDrawing = false;
 let currentDrawingPath = null;
-let activeTextInput = null;
-let isInitialized = false; // Flag to check if initial tool selection has happened
+let editingTextId = null; // ID of the Text object being edited
+let isInitialized = false;
+
+// For moving text
+let isDraggingText = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let initialTextLeft = 0;
+let initialTextTop = 0;
 
 // =================================================================
 // === Event Handlers for Options ==================================
 // =================================================================
 
 brushSizeSlider.addEventListener('input', (e) => {
-  currentBrushSize = e.target.value;
+  currentBrushSize = parseFloat(e.target.value);
 });
 
 
 // =================================================================
+// === Helper Functions ============================================
+// =================================================================
+
+function findTextObjectAt(x, y) {
+  for (let i = scene.length - 1; i >= 0; i--) {
+    const object = scene[i];
+    if (object instanceof Text) {
+      ctx.font = object.font;
+      const textWidth = ctx.measureText(object.text).width;
+      const textHeight = parseFloat(object.font);
+      if (
+        x > object.x && x < object.x + textWidth &&
+        y > object.y && y < object.y + textHeight
+      ) {
+        return object;
+      }
+    }
+  }
+  return null;
+}
+
+// =================================================================
 // === Text Tool Implementation ====================================
 // =================================================================
-function finalizeTextInput() {
-  if (!activeTextInput) return;
 
-  const textValue = activeTextInput.value.trim();
-  if (textValue !== '') {
-    const newTextObject = new Text(
-      generateId(),
-      textValue,
-      parseFloat(activeTextInput.style.left),
-      parseFloat(activeTextInput.style.top),
-      '24px Arial',
-      '#000'
-    );
-    addToScene(newTextObject);
+function activateTextEditor(x, y, existingObject = null) {
+  // If there's an existing editor active, deactivate it first
+  deactivateTextEditor();
+
+  const textToEdit = existingObject ? existingObject.text : '';
+  editingTextId = existingObject ? existingObject.id : null;
+  
+  // Hide the object from the scene while it's being edited
+  if (existingObject) {
+    existingObject.visible = false;
     redrawCanvas();
   }
 
-  if (activeTextInput.parentNode) {
-    activeTextInput.parentNode.removeChild(activeTextInput);
-  }
-  activeTextInput = null;
-  canvas.style.pointerEvents = 'auto';
+  // Position and show the single textarea
+  textEditor.style.left = `${x}px`;
+  textEditor.style.top = `${y}px`;
+  textEditor.value = textToEdit;
+  textEditor.style.font = existingObject ? existingObject.font : '24px Arial';
+  textEditor.style.color = existingObject ? existingObject.color : '#000';
+  textEditor.style.visibility = 'visible';
+  
+  textEditor.focus();
+  autoResizeTextEditor(); // Resize to fit content
+
+  // Add drag listeners
+  textEditor.addEventListener('mousedown', onTextareaMouseDown);
+  window.addEventListener('mousemove', onTextareaMouseMove);
+  window.addEventListener('mouseup', onTextareaMouseUp);
 }
 
-function placeTextInput(x, y) {
-  if (activeTextInput) {
-    finalizeTextInput();
-  }
-  
-  canvas.style.pointerEvents = 'none';
+function deactivateTextEditor() {
+  if (!textEditor || textEditor.style.visibility === 'hidden') return;
 
-  activeTextInput = document.createElement('textarea');
-  const input = activeTextInput;
-  
-  input.style.position = 'absolute';
-  input.style.left = `${x}px`;
-  input.style.top = `${y}px`;
-  input.style.font = '24px Arial';
-  input.style.color = '#000';
-  input.style.background = 'transparent';
-  input.style.border = '2px dashed #007bff';
-  input.style.outline = 'none';
-  input.style.resize = 'none';
-  input.style.overflow = 'hidden';
-  input.style.whiteSpace = 'pre';
-  input.style.minHeight = '28px';
-  input.style.lineHeight = '1.2';
-  input.style.padding = '2px';
-  input.style.margin = '0';
-  input.classList.add('canvas-text-input');
+  const newText = textEditor.value.trim();
+  const newX = parseFloat(textEditor.style.left);
+  const newY = parseFloat(textEditor.style.top);
+  const newFont = textEditor.style.font;
+  const newColor = textEditor.style.color;
 
-  document.body.appendChild(input);
-  input.focus();
-
-  function autoResize() {
-    input.style.height = 'auto';
-    input.style.height = `${input.scrollHeight}px`;
-    input.style.width = 'auto';
-    input.style.width = `${input.scrollWidth}px`;
-  }
-  input.addEventListener('input', autoResize);
-  autoResize();
-
-  // We only finalize on Enter or by switching tools/clicking elsewhere.
-  // The 'blur' listener is removed.
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      finalizeTextInput();
+  if (editingTextId) {
+    // We were editing an existing object
+    const originalObject = scene.find(obj => obj.id === editingTextId);
+    if (newText === '') {
+      // If user deleted all text, remove the object
+      const index = scene.findIndex(obj => obj.id === editingTextId);
+      if (index > -1) scene.splice(index, 1);
+    } else if (originalObject) {
+      // Update the original object
+      originalObject.text = newText;
+      originalObject.x = newX;
+      originalObject.y = newY;
+      originalObject.font = newFont;
+      originalObject.color = newColor;
+      originalObject.visible = true; // Make it visible again
     }
-  });
+  } else if (newText !== '') {
+    // We were creating a new object
+    const newTextObject = new Text(generateId(), newText, newX, newY, newFont, newColor);
+    addToScene(newTextObject);
+  }
+
+  // Reset and hide the editor
+  textEditor.value = '';
+  textEditor.style.visibility = 'hidden';
+  editingTextId = null;
+  
+  // Remove drag listeners to prevent memory leaks
+  textEditor.removeEventListener('mousedown', onTextareaMouseDown);
+  window.removeEventListener('mousemove', onTextareaMouseMove);
+  window.removeEventListener('mouseup', onTextareaMouseUp);
+
+  redrawCanvas();
 }
+
+function onTextareaMouseDown(e) {
+  isDraggingText = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  initialTextLeft = parseFloat(textEditor.style.left);
+  initialTextTop = parseFloat(textEditor.style.top);
+  textEditor.style.cursor = 'grab';
+}
+
+function onTextareaMouseMove(e) {
+  if (!isDraggingText) return;
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+  textEditor.style.left = `${initialTextLeft + dx}px`;
+  textEditor.style.top = `${initialTextTop + dy}px`;
+}
+
+function onTextareaMouseUp() {
+  isDraggingText = false;
+  textEditor.style.cursor = 'default';
+}
+
+function autoResizeTextEditor() {
+    textEditor.style.height = 'auto';
+    textEditor.style.height = `${textEditor.scrollHeight}px`;
+    textEditor.style.width = 'auto';
+    textEditor.style.width = `${textEditor.scrollWidth}px`;
+}
+
+// Add listeners to the single text editor instance
+textEditor.addEventListener('input', autoResizeTextEditor);
+textEditor.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        deactivateTextEditor();
+    }
+});
+
 
 // =================================================================
 // === Tool Handlers ===============================================
@@ -109,9 +182,9 @@ function placeTextInput(x, y) {
 export const toolHandlers = {
   pen: {
     onMouseDown(e) {
+      deactivateTextEditor(); // Ensure text editor is closed
       isDrawing = true;
       ctx.globalCompositeOperation = 'source-over';
-      // Use the current brush size from the state
       currentDrawingPath = new Path(generateId(), ctx.strokeStyle, currentBrushSize);
       currentDrawingPath.addPoint(e.offsetX, e.offsetY);
       addToScene(currentDrawingPath);
@@ -123,7 +196,7 @@ export const toolHandlers = {
     },
     onMouseUp() {
       if (isDrawing) {
-        redrawCanvas(); // Final draw for the dot-on-click case
+        redrawCanvas();
         isDrawing = false;
         currentDrawingPath = null;
       }
@@ -131,6 +204,7 @@ export const toolHandlers = {
   },
   eraser: {
     onMouseDown(e) {
+      deactivateTextEditor();
       isDrawing = true;
       this.erase(e);
     },
@@ -144,10 +218,14 @@ export const toolHandlers = {
     erase(e) {
       const eraserRadius = 10;
       let needsRedraw = false;
+      // Iterate backwards to safely remove items from the array
       for (let i = scene.length - 1; i >= 0; i--) {
         const object = scene[i];
+        if (!object.visible) continue; // Don't erase hidden objects
+
         let hit = false;
         if (object instanceof Path) {
+          // Check if any point in the path is near the eraser
           for (const point of object.points) {
             const distance = Math.hypot(point.x - e.offsetX, point.y - e.offsetY);
             if (distance < eraserRadius + object.lineWidth / 2) {
@@ -156,9 +234,10 @@ export const toolHandlers = {
             }
           }
         } else if (object instanceof Text) {
+          // Check if the eraser is within the bounding box of the text
           ctx.font = object.font;
           const textWidth = ctx.measureText(object.text).width;
-          const textHeight = parseFloat(object.font);
+          const textHeight = parseFloat(object.font); // Approximate height
           if (
             e.offsetX > object.x && e.offsetX < object.x + textWidth &&
             e.offsetY > object.y && e.offsetY < object.y + textHeight
@@ -166,11 +245,13 @@ export const toolHandlers = {
             hit = true;
           }
         }
+        
         if (hit) {
-          scene.splice(i, 1);
+          scene.splice(i, 1); // Remove the object from the scene
           needsRedraw = true;
         }
       }
+
       if (needsRedraw) {
         redrawCanvas();
       }
@@ -178,10 +259,15 @@ export const toolHandlers = {
   },
   text: {
     onMouseDown(e) {
-      placeTextInput(e.offsetX, e.offsetY);
+      const hitObject = findTextObjectAt(e.offsetX, e.offsetY);
+      if (hitObject) {
+        activateTextEditor(hitObject.x, hitObject.y, hitObject);
+      } else {
+        activateTextEditor(e.offsetX, e.offsetY);
+      }
     },
-    onMouseMove() { /* Do nothing */ },
-    onMouseUp() { /* Do nothing */ },
+    onMouseMove() {},
+    onMouseUp() {},
   },
 };
 
@@ -192,17 +278,14 @@ export const toolHandlers = {
 export function selectTool(toolName) {
   const isFirstSelection = !isInitialized;
 
-  // If clicking the pen tool when it's already active, toggle its options.
-  // Do not toggle on the very first selection.
+  if (toolName !== 'text') {
+    deactivateTextEditor();
+  }
+
   if (toolName === 'pen' && currentTool === 'pen' && !isFirstSelection) {
     penOptionsPanel.classList.toggle('visible');
   } else {
     penOptionsPanel.classList.remove('visible');
-  }
-  
-  // Finalize text input if switching away from the text tool
-  if (activeTextInput && toolName !== 'text') {
-      finalizeTextInput();
   }
 
   currentTool = toolName;

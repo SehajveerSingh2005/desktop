@@ -26,6 +26,7 @@ export class DrawingObject {
     this.lineWidth = lineWidth;
     this.x = 0;
     this.y = 0;
+    this.visible = true; // All objects are visible by default
   }
 
   draw(context) {

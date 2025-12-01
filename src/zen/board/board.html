@@ -9,10 +9,16 @@
 <body>
   <canvas id="canvas"></canvas>
   <div id="toolbar">
-    <button id="pen-tool" class="tool-button active"><img src="chrome://browser/content/zen-board/icons/pen.svg" alt="Pen"></button>
-    <button id="eraser-tool" class="tool-button"><img src="chrome://browser/content/zen-board/icons/eraser.svg" alt="Eraser"></button>
-    <button id="text-tool" class="tool-button"><img src="chrome://browser/content/zen-board/icons/text.svg" alt="Text"></button>
+      <button id="pen-tool" class="tool-button active" title="Pen"><img src="chrome://browser/content/zen-board/icons/pen.svg" alt="Pen"></button>
+      <button id="eraser-tool" class="tool-button" title="Eraser"><img src="chrome://browser/content/zen-board/icons/eraser.svg" alt="Eraser"></button>
+      <button id="text-tool" class="tool-button" title="Text"><img src="chrome://browser/content/zen-board/icons/text.svg" alt="Text"></button>
   </div>
+
+  <div id="pen-options" class="options-panel">
+    <label for="brush-size">Size</label>
+    <input type="range" id="brush-size" min="1" max="50" value="5">
+  </div>
+
   <script src="board.js" type="module"></script>
 </body>
 </html>

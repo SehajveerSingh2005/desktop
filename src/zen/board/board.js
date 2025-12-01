@@ -41,11 +41,10 @@ penToolBtn.addEventListener('click', () => selectTool('pen'));
 eraserToolBtn.addEventListener('click', () => selectTool('eraser'));
 textToolBtn.addEventListener('click', () => selectTool('text'));
 
-// Set the initial tool
-selectTool('pen');
-
-// Initial setup on DOMContentLoaded to ensure correct sizing
+// Initial setup on DOMContentLoaded to ensure everything is ready
 window.addEventListener('DOMContentLoaded', () => {
   resizeCanvas();
   redrawCanvas();
+  // Set the initial tool after the DOM is fully loaded
+  selectTool('pen');
 });

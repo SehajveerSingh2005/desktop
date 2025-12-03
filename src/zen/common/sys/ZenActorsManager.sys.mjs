@@ -29,8 +29,7 @@ let JSWINDOWACTORS = {
         DOMContentLoaded: {},
       },
     },
-    matches: ['chrome://browser/content/zen-board/board.html'],
-    allFrames: true, // Ensure it runs in the correct frame
+    matches: ['chrome://browser/content/zen-board/board.html']
   },
   ZenModsMarketplace: {
     parent: {

@@ -1,11 +1,11 @@
 body {
   margin: 0;
-  background-color: rgba(255,255,255,0.4);
+  background-color: transparent;
 }
 
 #canvas {
   display: block;
-  /*opacity: 0.2;*/
+  background-color: transparent;
 }
 
 #toolbar {
@@ -17,8 +17,32 @@ body {
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   display: flex;
+  align-items: center;
   gap: 6px;
-  z-index: 1001; /* Toolbar above options panel */
+  z-index: 1001;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center; /* Ensure items in group are vertically centered */
+  gap: 6px;
+}
+
+.tool-separator {
+  width: 1px;
+  height: 24px;
+  background-color: #555;
+  margin: 0 8px;
+}
+
+#zoom-display {
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 0 8px;
+  min-width: 50px;
+  text-align: center;
+  cursor: default;
 }
 
 .options-panel {
@@ -106,8 +130,7 @@ body {
 .canvas-text-input {
   position: absolute;
   background: transparent;
-  border: 2px dashed var(--board-accent-color, #007bff);
-  border-radius: 8px;
+  border: 2px solid var(--board-accent-color, #007bff);
   outline: none;
   resize: none;
   overflow: hidden;
@@ -118,4 +141,5 @@ body {
   margin: 0;
   font: 24px Arial;
   color: #000;
+  border-radius: 4px; /* Add slight rounding */
 }

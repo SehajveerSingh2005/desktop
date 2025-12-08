@@ -1470,7 +1470,7 @@ class nsZenWorkspaces extends nsZenMultiWindowFeature {
   }
 
   openNewBoard() {
-    gZenUIManager.openAndChangeToTab('chrome://browser/content/zen-board/board.html');
+    gZenUIManager.openAndChangeToTab('chrome://browser/content/zen-board/board.html', { _zenForEmptyTab: true });
   }
 
   // Workspaces management

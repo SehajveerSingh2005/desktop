@@ -1,49 +1,58 @@
-// This is the full, corrected content for tools.js
+// modules/tools.js
 
 import { canvas, ctx, redrawCanvas, getTransformedPoint, setTransform, scale, offsetX, offsetY } from './canvas.js';
 import { scene, addToScene, generateId, Path, Text } from './scene.js';
 
-// DOM Elements, to be initialized later
-let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay;
+// DOM Elements
+let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn;
 
 // State
 export let currentTool = 'select';
 export let selectedObjectId = null;
 let currentBrushSize = 5;
-let isDrawing = false;
-let isPanning = false;
-let isDraggingObject = false;
+let isDrawing = false, isPanning = false, isDraggingObject = false;
 let currentDrawingPath = null;
 let editingTextObject = null;
+let isInitialized = false;
 
-let dragStartX = 0;
-let dragStartY = 0;
+// Dragging State
+let dragStartX = 0, dragStartY = 0;
+let isDraggingText = false, initialTextLeft = 0, initialTextTop = 0;
 
-// Textarea Dragging State
-let isDraggingText = false;
-let initialTextLeft = 0;
-let initialTextTop = 0;
+// Font State
+const fontFamilies = ['Roboto', 'Archivo Black', 'Instrument Serif', 'Maple Mono'];
+let currentFontIndex = 0;
+let currentFontSize = 24;
 
 export function initTools() {
+  // DOM Elements Initialization
   penOptionsPanel = document.getElementById('pen-options');
   brushSizeSlider = document.getElementById('brush-size');
   textEditor = document.getElementById('text-editor');
   zoomDisplay = document.getElementById('zoom-display');
+  fontOptionsPanel = document.getElementById('font-options-panel');
+  fontCycleBtn = document.getElementById('font-cycle');
+  fontSizeIncreaseBtn = document.getElementById('font-size-increase');
+  fontSizeDecreaseBtn = document.getElementById('font-size-decrease');
   
   currentBrushSize = parseFloat(brushSizeSlider.value);
 
+  // Event Listeners
   brushSizeSlider.addEventListener('input', (e) => {
     currentBrushSize = parseFloat(e.target.value);
   });
   
   textEditor.addEventListener('input', autoResizeTextEditor);
-  
   textEditor.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         deactivateTextEditor();
     }
   });
+
+  fontCycleBtn.addEventListener('click', cycleFont);
+  fontSizeIncreaseBtn.addEventListener('click', () => changeFontSize(2));
+  fontSizeDecreaseBtn.addEventListener('click', () => changeFontSize(-2));
 }
 
 export function findObjectAt(x, y) {
@@ -59,6 +68,25 @@ export function findObjectAt(x, y) {
   return null;
 }
 
+// Font & Text Editor Functions
+function updateTextareaFont() {
+    if (textEditor) {
+        textEditor.style.font = `${currentFontSize}px '${fontFamilies[currentFontIndex]}'`;
+        fontCycleBtn.style.fontFamily = `'${fontFamilies[currentFontIndex]}', sans-serif`; // Update cycle button font
+        autoResizeTextEditor();
+    }
+}
+
+function cycleFont() {
+    currentFontIndex = (currentFontIndex + 1) % fontFamilies.length;
+    updateTextareaFont();
+}
+
+function changeFontSize(delta) {
+    currentFontSize = Math.max(8, currentFontSize + delta);
+    updateTextareaFont();
+}
+
 export function activateTextEditor(x, y, existingObject = null) {
   deactivateTextEditor();
   editingTextObject = existingObject;
@@ -66,18 +94,37 @@ export function activateTextEditor(x, y, existingObject = null) {
   if (existingObject) {
     existingObject.visible = false;
     redrawCanvas();
+    // Correctly parse the existing object's font to set the initial state
+    const fontParts = existingObject.font.match(/(\d+)px "?([^"]*)"?/);
+    if (fontParts && fontParts.length === 3) {
+      currentFontSize = parseFloat(fontParts[1]);
+      const fontName = fontParts[2].replace(/'/g, ""); // Clean font name
+      currentFontIndex = fontFamilies.indexOf(fontName);
+      if (currentFontIndex === -1) currentFontIndex = 0; // Fallback
+    }
+  } else {
+    // Reset to default for new text object
+    currentFontSize = 24;
+    currentFontIndex = 0;
   }
+
   const screenX = (existingObject ? existingObject.x : x) * scale + offsetX;
   const screenY = (existingObject ? existingObject.y : y) * scale + offsetY;
   
   textEditor.value = existingObject ? existingObject.text : '';
   textEditor.style.left = `${screenX}px`;
   textEditor.style.top = `${screenY}px`;
+  updateTextareaFont(); // Apply the correct font to the textarea and cycle button
+  textEditor.style.color = existingObject ? existingObject.color : '#000';
   textEditor.style.visibility = 'visible';
   textEditor.style.transform = `scale(${scale})`;
   
+  fontOptionsPanel.style.left = `${screenX - 60}px`;
+  fontOptionsPanel.style.top = `${screenY}px`;
+  fontOptionsPanel.style.transform = `scale(${scale})`;
+  fontOptionsPanel.classList.add('visible');
+
   setTimeout(() => textEditor.focus(), 0);
-  autoResizeTextEditor();
   
   textEditor.addEventListener('mousedown', onTextareaMouseDown);
   window.addEventListener('mousemove', onTextareaMouseMove);
@@ -87,6 +134,8 @@ export function activateTextEditor(x, y, existingObject = null) {
 function deactivateTextEditor() {
     if (!textEditor || textEditor.style.visibility === 'hidden') return;
     
+    fontOptionsPanel.classList.remove('visible');
+
     const newText = textEditor.value.trim();
     const newX = (parseFloat(textEditor.style.left) - offsetX) / scale;
     const newY = (parseFloat(textEditor.style.top) - offsetY) / scale;
@@ -99,10 +148,11 @@ function deactivateTextEditor() {
             editingTextObject.text = newText;
             editingTextObject.x = newX;
             editingTextObject.y = newY;
+            editingTextObject.font = textEditor.style.font; // Get final font from textarea
             editingTextObject.visible = true;
         }
     } else if (newText !== '') {
-        const newTextObject = new Text(generateId(), newText, newX, newY, '24px Arial', '#000');
+        const newTextObject = new Text(generateId(), newText, newX, newY, textEditor.style.font, '#000');
         addToScene(newTextObject);
     }
 
@@ -114,6 +164,7 @@ function deactivateTextEditor() {
     window.removeEventListener('mouseup', onTextareaMouseUp);
     redrawCanvas();
 }
+
 function onTextareaMouseDown(e) {
   isDraggingText = true;
   dragStartX = e.clientX;
@@ -121,6 +172,7 @@ function onTextareaMouseDown(e) {
   initialTextLeft = parseFloat(textEditor.style.left);
   initialTextTop = parseFloat(textEditor.style.top);
   textEditor.style.cursor = 'grab';
+  fontOptionsPanel.style.cursor = 'grab';
 }
 function onTextareaMouseMove(e) {
   if (!isDraggingText) return;
@@ -128,11 +180,14 @@ function onTextareaMouseMove(e) {
   const dy = e.clientY - dragStartY;
   textEditor.style.left = `${initialTextLeft + dx}px`;
   textEditor.style.top = `${initialTextTop + dy}px`;
+  fontOptionsPanel.style.left = `${initialTextLeft + dx - 60}px`;
+  fontOptionsPanel.style.top = `${initialTextTop + dy}px`;
 }
 function onTextareaMouseUp() {
   if (isDraggingText) {
     isDraggingText = false;
     textEditor.style.cursor = 'default';
+    fontOptionsPanel.style.cursor = 'default';
   }
 }
 function autoResizeTextEditor() {
@@ -142,6 +197,7 @@ function autoResizeTextEditor() {
     textEditor.style.width = `${textEditor.scrollWidth}px`;
 }
 
+// Tool Handlers
 export const toolHandlers = {
   select: {
     onMouseDown(e) {
@@ -151,13 +207,13 @@ export const toolHandlers = {
       if (hitObject) {
         selectedObjectId = hitObject.id;
         isDraggingObject = true;
-        dragStartX = e.clientX; // Use screen coordinates for drag reference
+        dragStartX = e.clientX;
         dragStartY = e.clientY;
         canvas.style.cursor = 'move';
       } else {
         selectedObjectId = null;
         isPanning = true;
-        dragStartX = e.clientX; // Use screen coordinates for pan reference
+        dragStartX = e.clientX;
         dragStartY = e.clientY;
         canvas.style.cursor = 'grabbing';
       }
@@ -167,17 +223,11 @@ export const toolHandlers = {
       if (isDraggingObject) {
         const selectedObject = scene.find(obj => obj.id === selectedObjectId);
         if (selectedObject) {
-          // Calculate delta in screen space
           const dx = e.clientX - dragStartX;
           const dy = e.clientY - dragStartY;
-          
-          // Apply the scaled delta to the object
           selectedObject.move(dx / scale, dy / scale);
-
-          // Update the start position for the next frame
           dragStartX = e.clientX;
           dragStartY = e.clientY;
-
           redrawCanvas();
         }
       } else if (isPanning) {
@@ -200,7 +250,6 @@ export const toolHandlers = {
       deactivateTextEditor();
       const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
       isDrawing = true;
-      // Create the Path with its starting origin
       currentDrawingPath = new Path(generateId(), '#000', currentBrushSize / scale, x, y);
       addToScene(currentDrawingPath);
     },
@@ -212,7 +261,6 @@ export const toolHandlers = {
     },
     onMouseUp() {
       if (isDrawing) {
-        // No redraw needed here if it's in onMouseMove, but let's keep it for single-click dots
         redrawCanvas();
         isDrawing = false;
         currentDrawingPath = null;
@@ -241,12 +289,8 @@ export const toolHandlers = {
         if (!object.visible) continue;
         let hit = false;
         if (object instanceof Path) {
-          // The points are now relative to the object's origin.
-          // We must check them by transforming the eraser's world coordinates
-          // into the object's local coordinates.
           const localEraserX = x - object.x;
           const localEraserY = y - object.y;
-          // Use object.smoothedRelativePoints for hit detection, as that's what's rendered
           for (const point of object.smoothedRelativePoints) {
             const distance = Math.hypot(point.x - localEraserX, point.y - localEraserY);
             if (distance < eraserRadius + object.lineWidth / 2) {
@@ -285,15 +329,19 @@ export const toolHandlers = {
   },
 };
 
+// Tool Selection
 export function selectTool(toolName) {
   if (currentTool === 'text' && toolName !== 'text') {
     deactivateTextEditor();
   }
-  if (toolName === 'pen' && currentTool === 'pen') {
+
+  const isFirstSelection = !isInitialized;
+  if (toolName === 'pen' && currentTool === 'pen' && !isFirstSelection) {
     if(penOptionsPanel) penOptionsPanel.classList.toggle('visible');
-  } else {
-    if(penOptionsPanel) penOptionsPanel.classList.remove('visible');
+  } else if (penOptionsPanel) {
+    penOptionsPanel.classList.remove('visible');
   }
+
   currentTool = toolName;
   document.querySelectorAll('.tool-button').forEach(btn => {
     btn.classList.remove('active');
@@ -302,10 +350,15 @@ export function selectTool(toolName) {
   if (toolButton) {
     toolButton.classList.add('active');
   }
+  
   if (toolName === 'select') {
     canvas.style.cursor = 'grab';
   } else {
     canvas.style.cursor = 'crosshair';
+  }
+
+  if(!isInitialized) {
+      isInitialized = true;
   }
 }
 

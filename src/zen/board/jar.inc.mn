@@ -14,3 +14,8 @@
         content/browser/zen-board/icons/select.svg                              (../../zen/board/icons/select.svg)
         content/browser/zen-board/icons/zoom-in.svg                             (../../zen/board/icons/zoom-in.svg)
         content/browser/zen-board/icons/zoom-out.svg                            (../../zen/board/icons/zoom-out.svg)
+
+        content/browser/zen-board/fonts/ArchivoBlack.ttf                        (../../zen/board/fonts/ArchivoBlack.ttf)
+        content/browser/zen-board/fonts/InstrumentSerif.ttf                     (../../zen/board/fonts/InstrumentSerif.ttf)
+        content/browser/zen-board/fonts/MapleMono.ttf                           (../../zen/board/fonts/MapleMono.ttf)
+        content/browser/zen-board/fonts/Roboto.ttf                              (../../zen/board/fonts/Roboto.ttf)

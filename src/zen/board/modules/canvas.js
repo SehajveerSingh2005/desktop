@@ -1,22 +1,17 @@
+import { getState, setState } from './state.js';
 import { scene } from './scene.js';
-import { selectedObjectId } from './tools.js'; // Import selectedObjectId
+import { drawScene } from './renderer.js';
 
 export const canvas = document.getElementById('canvas');
 export const ctx = canvas.getContext('2d', { alpha: true });
 
-// --- Viewport State ---
-export let scale = 1;
-export let offsetX = 0;
-export let offsetY = 0;
-
 export function setTransform(newScale, newOffsetX, newOffsetY) {
-  scale = newScale;
-  offsetX = newOffsetX;
-  offsetY = newOffsetY;
+  setState({ scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY });
 }
 
 // --- Coordinate Transformation ---
 export function getTransformedPoint(x, y) {
+  const { scale, offsetX, offsetY } = getState();
   return {
     x: (x - offsetX) / scale,
     y: (y - offsetY) / scale,
@@ -43,18 +38,16 @@ export function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Apply the viewport transform
+  const { scale, offsetX, offsetY } = getState();
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
   resetContext();
   
-  for (const obj of scene) {
-    if (obj.visible) {
-      obj.draw(ctx);
-    }
-  }
+  drawScene(ctx, scene);
 
   // Draw selection box for the selected object
+  const { selectedObjectId } = getState();
   if (selectedObjectId) {
     const selectedObject = scene.find(obj => obj.id === selectedObjectId);
     if (selectedObject) {

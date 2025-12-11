@@ -1,7 +1,10 @@
 // main.js (board.js) - Main Entry Point
 
-import { canvas, resizeCanvas, redrawCanvas, scale, setTransform, offsetX, offsetY, getTransformedPoint } from './modules/canvas.js';
-import { toolHandlers, selectTool, currentTool, updateZoomDisplay, findObjectAt, activateTextEditor, initTools } from './modules/tools.js';
+import { canvas, resizeCanvas, redrawCanvas, setTransform, getTransformedPoint } from './modules/canvas.js';
+import { toolHandlers } from './modules/tools.js';
+import { getState } from './modules/state.js';
+import { initTools, selectTool, updateZoomDisplay, activateTextEditor } from './modules/ui.js';
+import { findObjectAt } from './modules/interactions.js';
 import { Text } from './modules/scene.js';
 
 // =================================================================
@@ -11,6 +14,7 @@ const penToolBtn = document.getElementById('pen-tool');
 const eraserToolBtn = document.getElementById('eraser-tool');
 const textToolBtn = document.getElementById('text-tool');
 const selectToolBtn = document.getElementById('select-tool');
+const shapesToolBtn = document.getElementById('shapes-tool');
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomOutBtn = document.getElementById('zoom-out-btn');
 
@@ -18,6 +22,7 @@ const zoomOutBtn = document.getElementById('zoom-out-btn');
 // === Zoom Logic ==================================================
 // =================================================================
 function zoom(direction) {
+  const { scale, offsetX, offsetY } = getState();
   const zoomFactor = 1.1;
   const oldScale = scale;
   let newScale = direction > 0 ? oldScale * zoomFactor : oldScale / zoomFactor;
@@ -41,14 +46,17 @@ function zoom(direction) {
 
 function onMouseDown(e) {
   if (e.target !== canvas) return;
+  const { currentTool } = getState();
   toolHandlers[currentTool].onMouseDown(e);
 }
 
 function onMouseMove(e) {
+  const { currentTool } = getState();
   toolHandlers[currentTool].onMouseMove(e);
 }
 
 function onMouseUp(e) {
+  const { currentTool } = getState();
   toolHandlers[currentTool].onMouseUp(e);
 }
 
@@ -80,6 +88,7 @@ window.addEventListener('DOMContentLoaded', () => {
   eraserToolBtn.addEventListener('click', () => selectTool('eraser'));
   textToolBtn.addEventListener('click', () => selectTool('text'));
   selectToolBtn.addEventListener('click', () => selectTool('select'));
+  shapesToolBtn.addEventListener('click', () => selectTool('shape'));
   zoomInBtn.addEventListener('click', () => zoom(1));
   zoomOutBtn.addEventListener('click', () => zoom(-1));
 

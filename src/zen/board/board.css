@@ -15,14 +15,14 @@
   src: url('chrome://browser/content/zen-board/fonts/MapleMono.ttf');
 }
 
-body {
+html, body {
   margin: 0;
   background-color: transparent;
 }
 
 #canvas {
   display: block;
-  background-color: transparent;
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 #toolbar {
@@ -203,7 +203,7 @@ body {
   resize: none;
   overflow: hidden;
   white-space: pre;
-  min-height: 28px;
+  min-height: 32px;
   line-height: 1.2;
   padding: 2px;
   margin: 0;

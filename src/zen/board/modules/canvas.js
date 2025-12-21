@@ -19,6 +19,21 @@ export function getTransformedPoint(x, y) {
 }
 
 // --- Drawing ---
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  ctx.stroke();
+}
+
 function resetContext() {
   // Set all default drawing properties
   ctx.strokeStyle = '#000';
@@ -47,16 +62,24 @@ export function redrawCanvas() {
   drawScene(ctx, scene);
 
   // Draw selection box for the selected object
-  const { selectedObjectId } = getState();
-  if (selectedObjectId) {
+  const { selectedObjectId, editingTextObject } = getState();
+  // Don't draw the canvas selection highlight if the object is currently
+  // being edited via the DOM, as this would create a confusing "double border".
+  if (selectedObjectId && (!editingTextObject || editingTextObject.id !== selectedObjectId)) {
     const selectedObject = scene.find(obj => obj.id === selectedObjectId);
     if (selectedObject) {
       const box = selectedObject.getBoundingBox(ctx);
-      ctx.strokeStyle = 'rgba(0, 123, 255, 0.8)';
-      ctx.lineWidth = 1 / scale; // Make the selection line appear constant width
-      ctx.setLineDash([6 / scale, 4 / scale]); // Dashed line that also scales
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
-      ctx.setLineDash([]); // Reset line dash
+      const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--board-accent-color').trim();
+      
+      ctx.strokeStyle = accentColor ? accentColor : '#007bff';
+      // To ensure the highlight appears as a consistent 2px line on the screen,
+      // we must set its "world space" thickness as the inverse of the current scale.
+      ctx.lineWidth = 2 / scale;
+      
+      // The same inverse-scale logic applies to the corner radius.
+      const cornerRadius = 8 / scale;
+
+      drawRoundedRect(ctx, box.x, box.y, box.width, box.height, cornerRadius);
     }
   }
 

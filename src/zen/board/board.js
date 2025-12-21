@@ -2,7 +2,7 @@
 
 import { canvas, resizeCanvas, redrawCanvas, setTransform, getTransformedPoint } from './modules/canvas.js';
 import { toolHandlers } from './modules/tools.js';
-import { getState } from './modules/state.js';
+import { getState, setState } from './modules/state.js';
 import { initTools, selectTool, updateZoomDisplay, activateTextEditor } from './modules/ui.js';
 import { findObjectAt } from './modules/interactions.js';
 import { Text } from './modules/scene.js';
@@ -45,7 +45,6 @@ function zoom(direction) {
 // =================================================================
 
 function onMouseDown(e) {
-  if (e.target !== canvas) return;
   const { currentTool } = getState();
   toolHandlers[currentTool].onMouseDown(e);
 }
@@ -64,8 +63,10 @@ function onDoubleClick(e) {
   const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
   const hitObject = findObjectAt(x, y);
   if (hitObject && hitObject instanceof Text) {
-    // No need to switch tool, just activate the editor
+    // Activate the editor, select the object, and switch to the select tool
     activateTextEditor(hitObject.x, hitObject.y, hitObject);
+    setState({ selectedObjectId: hitObject.id });
+    selectTool('select');
   }
 }
 

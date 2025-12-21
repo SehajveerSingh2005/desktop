@@ -14,9 +14,8 @@ const state = {
   isShapeFilled: false,
   dragStartX: 0,
   dragStartY: 0,
+  isPotentialDrag: false, // For text editor dragging
   isDraggingText: false,
-  initialTextLeft: 0,
-  initialTextTop: 0,
   fontFamilies: ['Roboto', 'Archivo Black', 'Instrument Serif', 'Maple Mono'],
   currentFontIndex: 0,
   currentFontSize: 24,

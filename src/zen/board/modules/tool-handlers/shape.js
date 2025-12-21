@@ -4,7 +4,7 @@ import { getTransformedPoint } from '../canvas.js';
 import { addToScene, generateId, Rectangle, Ellipse } from '../scene.js';
 import { getState, setState } from '../state.js';
 import { redrawCanvas } from '../canvas.js';
-import { deactivateTextEditor } from '../ui.js';
+import { deactivateTextEditor, selectTool } from '../ui.js';
 
 export const shape = {
   onMouseDown(e) {
@@ -53,10 +53,13 @@ export const shape = {
     redrawCanvas();
   },
   onMouseUp() {
-    const { isDrawing } = getState();
+    const { isDrawing, currentDrawingObject } = getState();
     if (isDrawing) {
+      if (currentDrawingObject) {
+        setState({ selectedObjectId: currentDrawingObject.id });
+      }
       setState({ isDrawing: false, currentDrawingObject: null });
-      redrawCanvas();
+      selectTool('select');
     }
   },
 };

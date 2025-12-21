@@ -15,6 +15,10 @@
   src: url('chrome://browser/content/zen-board/fonts/MapleMono.ttf');
 }
 
+:root{
+  --board-accent-color: #007bff;
+}
+
 html, body {
   margin: 0;
   background-color: transparent;

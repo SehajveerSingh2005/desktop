@@ -7,6 +7,71 @@ import { scene, addToScene, generateId, Text } from './scene.js';
 // DOM Elements
 let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn;
 
+// --- Drag handlers for the text editor (border-drag logic) ---
+function onDragMouseMove(e) {
+  const { dragStartX, dragStartY, editingTextObject, scale } = getState();
+  if (!editingTextObject) return;
+
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+
+  // Move the underlying scene object.
+  editingTextObject.move(dx / scale, dy / scale);
+  
+  // Update the drag origin for the next mousemove event.
+  setState({ dragStartX: e.clientX, dragStartY: e.clientY });
+
+  // Sync the DOM editor's position with the scene object and redraw.
+  updateTextEditorPosition();
+  redrawCanvas();
+}
+
+function onDragMouseUp() {
+  // The drag is over, so clean up the global listeners.
+  window.removeEventListener('mousemove', onDragMouseMove);
+  window.removeEventListener('mouseup', onDragMouseUp);
+}
+
+function onTextareaMouseDown(e) {
+  // This function implements "drag-from-border".
+  // A drag is only initiated if the mousedown occurs near the edge of the textarea.
+  const borderSize = 5; // A 5px area to make it easier to grab
+  const isonBorder = 
+    e.offsetX < borderSize ||
+    e.offsetY < borderSize ||
+    e.offsetX > textEditor.clientWidth - borderSize ||
+    e.offsetY > textEditor.clientHeight - borderSize;
+
+  if (isonBorder) {
+    // Prevent the browser's default text-selection behavior.
+    e.preventDefault();
+    // Record the starting point of the drag.
+    setState({
+      dragStartX: e.clientX,
+      dragStartY: e.clientY,
+    });
+    // Add temporary global listeners to track the drag.
+    window.addEventListener('mousemove', onDragMouseMove);
+    window.addEventListener('mouseup', onDragMouseUp);
+  }
+  // If the click is not on the border, we do nothing and allow the default
+  // browser behavior for text editing (moving cursor, selecting text, etc.).
+}
+
+// This handler provides cursor feedback, showing 'move' on the draggable
+// border and 'text' inside, so the user knows which part to drag.
+function onTextareaMouseMove(e) {
+  const borderSize = 5; 
+  const isonBorder = 
+    e.offsetX < borderSize ||
+    e.offsetY < borderSize ||
+    e.offsetX > textEditor.clientWidth - borderSize ||
+    e.offsetY > textEditor.clientHeight - borderSize;
+  
+  textEditor.style.cursor = isonBorder ? 'move' : 'text';
+}
+
+
 // Initialization
 export function initTools() {
   penOptionsPanel = document.getElementById('pen-options');
@@ -31,16 +96,17 @@ export function initTools() {
   });
   
   textEditor.addEventListener('input', autoResizeTextEditor);
-  textEditor.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        deactivateTextEditor();
-    }
-  });
 
+  // Prevent font controls from stealing focus from the text editor.
+  // Without this, clicking a font button would blur the textarea and
+  // incorrectly deactivate the editor.
+  const handleFontButtonMouseDown = (e) => e.preventDefault();
   fontCycleBtn.addEventListener('click', cycleFont);
+  fontCycleBtn.addEventListener('mousedown', handleFontButtonMouseDown);
   fontSizeIncreaseBtn.addEventListener('click', () => changeFontSize(2));
+  fontSizeIncreaseBtn.addEventListener('mousedown', handleFontButtonMouseDown);
   fontSizeDecreaseBtn.addEventListener('click', () => changeFontSize(-2));
+  fontSizeDecreaseBtn.addEventListener('mousedown', handleFontButtonMouseDown);
 
   shapeRectangleBtn.addEventListener('click', () => selectShape('rectangle'));
   shapeEllipseBtn.addEventListener('click', () => selectShape('ellipse'));
@@ -73,13 +139,43 @@ function changeFontSize(delta) {
     updateTextareaFont();
 }
 
+export function updateTextEditorPosition() {
+  const { editingTextObject, scale, offsetX, offsetY } = getState();
+  if (!editingTextObject) return;
+
+  const screenX = editingTextObject.x * scale + offsetX;
+  const screenY = editingTextgObject.y * scale + offsetY;
+  
+  textEditor.style.left = `${screenX}px`;
+  textEditor.style.top = `${screenY}px`;
+  textEditor.style.transform = `scale(${scale})`;
+
+  fontOptionsPanel.style.left = `${screenX - 60}px`;
+  fontOptionsPanel.style.top = `${screenY}px`;
+  fontOptionsPanel.style.transform = `scale(${scale})`;
+}
+
 export function activateTextEditor(x, y, existingObject = null) {
-  deactivateTextEditor();
-  setState({ editingTextObject: existingObject });
+  if (getState().editingTextObject) {
+    deactivateTextEditor();
+  }
+  
+  let objectToEdit = existingObject;
+
+  // For a brand-new text element, we create a temporary object immediately.
+  // This is crucial for the drag-from-border logic, which needs an object
+  // in the state to move, even before the text has been finalized.
+  if (!objectToEdit) {
+    const { currentFontSize, fontFamilies, currentFontIndex } = getState();
+    const font = `${currentFontSize}px '${fontFamilies[currentFontIndex]}'`;
+    objectToEdit = new Text(generateId(), '', x, y, font, '#000');
+    // Note: This object is NOT added to the main scene yet.
+  }
+
+  setState({ editingTextObject: objectToEdit });
 
   if (existingObject) {
     existingObject.visible = false;
-    redrawCanvas();
     const fontParts = existingObject.font.match(/(\d+)px "?([^"]*)"?/);
     if (fontParts && fontParts.length === 3) {
       let { fontFamilies } = getState();
@@ -89,32 +185,24 @@ export function activateTextEditor(x, y, existingObject = null) {
       if (currentFontIndex === -1) currentFontIndex = 0;
       setState({ currentFontSize, currentFontIndex });
     }
+    textEditor.value = existingObject.text;
+    textEditor.style.color = existingObject.color;
   } else {
     setState({ currentFontSize: 24, currentFontIndex: 0 });
+    textEditor.value = '';
+    textEditor.style.color = '#000';
   }
-
-  const { scale, offsetX, offsetY } = getState();
-  const screenX = (existingObject ? existingObject.x : x) * scale + offsetX;
-  const screenY = (existingObject ? existingObject.y : y) * scale + offsetY;
   
-  textEditor.value = existingObject ? existingObject.text : '';
-  textEditor.style.left = `${screenX}px`;
-  textEditor.style.top = `${screenY}px`;
+  updateTextEditorPosition();
   updateTextareaFont();
-  textEditor.style.color = existingObject ? existingObject.color : '#000';
+
   textEditor.style.visibility = 'visible';
-  textEditor.style.transform = `scale(${scale})`;
-  
-  fontOptionsPanel.style.left = `${screenX - 60}px`;
-  fontOptionsPanel.style.top = `${screenY}px`;
-  fontOptionsPanel.style.transform = `scale(${scale})`;
   fontOptionsPanel.classList.add('visible');
 
   setTimeout(() => textEditor.focus(), 0);
   
   textEditor.addEventListener('mousedown', onTextareaMouseDown);
-  window.addEventListener('mousemove', onTextareaMouseMove);
-  window.addEventListener('mouseup', onTextareaMouseUp);
+  textEditor.addEventListener('mousemove', onTextareaMouseMove);
 }
 
 export function deactivateTextEditor() {
@@ -122,65 +210,43 @@ export function deactivateTextEditor() {
     
     fontOptionsPanel.classList.remove('visible');
 
-    const { editingTextObject, scale, offsetX, offsetY } = getState();
-    const newText = textEditor.value.trim();
-    const newX = (parseFloat(textEditor.style.left) - offsetX) / scale;
-    const newY = (parseFloat(textEditor.style.top) - offsetY) / scale;
+    const { editingTextObject } = getState();
+    const newText = textEditor.value;
 
     if (editingTextObject) {
-        if (newText === '') {
-            const index = scene.findIndex(obj => obj.id === editingTextObject.id);
-            if (index > -1) scene.splice(index, 1);
+        const isInScene = scene.some(obj => obj.id === editingTextObject.id);
+
+        // If the editor is closed and there's no text, discard the object.
+        if (newText.trim() === '') {
+            // If the object was already in the scene, find and remove it.
+            if (isInScene) {
+                const index = scene.findIndex(obj => obj.id === editingTextObject.id);
+                if (index > -1) scene.splice(index, 1);
+            }
         } else {
+            // The object has text, so we update its properties.
             editingTextObject.text = newText;
-            editingTextObject.x = newX;
-            editingTextObject.y = newY;
             editingTextObject.font = textEditor.style.font;
+            editingTextObject.color = textEditor.style.color;
             editingTextObject.visible = true;
+
+            // If it was a new, temporary object, add it to the main scene now.
+            if (!isInScene) {
+                addToScene(editingTextObject);
+            }
         }
-    } else if (newText !== '') {
-        const newTextObject = new Text(generateId(), newText, newX, newY, textEditor.style.font, '#000');
-        addToScene(newTextObject);
     }
 
     textEditor.value = '';
     textEditor.style.visibility = 'hidden';
     setState({ editingTextObject: null });
+
     textEditor.removeEventListener('mousedown', onTextareaMouseDown);
-    window.removeEventListener('mousemove', onTextareaMouseMove);
-    window.removeEventListener('mouseup', onTextareaMouseUp);
+    textEditor.removeEventListener('mousemove', onTextareaMouseMove);
+
     redrawCanvas();
 }
 
-function onTextareaMouseDown(e) {
-  setState({
-    isDraggingText: true,
-    dragStartX: e.clientX,
-    dragStartY: e.clientY,
-    initialTextLeft: parseFloat(textEditor.style.left),
-    initialTextTop: parseFloat(textEditor.style.top),
-  });
-  textEditor.style.cursor = 'grab';
-  fontOptionsPanel.style.cursor = 'grab';
-}
-function onTextareaMouseMove(e) {
-  const { isDraggingText, dragStartX, dragStartY, initialTextLeft, initialTextTop } = getState();
-  if (!isDraggingText) return;
-  const dx = e.clientX - dragStartX;
-  const dy = e.clientY - dragStartY;
-  textEditor.style.left = `${initialTextLeft + dx}px`;
-  textEditor.style.top = `${initialTextTop + dy}px`;
-  fontOptionsPanel.style.left = `${initialTextLeft + dx - 60}px`;
-  fontOptionsPanel.style.top = `${initialTextTop + dy}px`;
-}
-function onTextareaMouseUp() {
-  const { isDraggingText } = getState();
-  if (isDraggingText) {
-    setState({ isDraggingText: false });
-    textEditor.style.cursor = 'default';
-    fontOptionsPanel.style.cursor = 'default';
-  }
-}
 function autoResizeTextEditor() {
     textEditor.style.height = 'auto';
     textEditor.style.height = `${textEditor.scrollHeight}px`;
@@ -204,12 +270,11 @@ function toggleFill() {
 
 // --- Tool Selection ---
 export function selectTool(toolName) {
-  let { currentTool } = getState();
-  if (currentTool === 'text' && toolName !== 'text') {
+  if (getState().editingTextObject) {
     deactivateTextEditor();
   }
 
-  const isSameTool = toolName === currentTool;
+  const isSameTool = toolName === getState().currentTool;
 
   // If different tool is selected, hide all panels
   if (!isSameTool) {
@@ -246,7 +311,6 @@ if (toolName === 'shape') {
 
   if (toolName === 'select') {
     canvas.style.cursor = 'grab';
-    setState({ selectedObjectId: null });
   } else {
     canvas.style.cursor = 'crosshair';
     setState({ selectedObjectId: null });
@@ -261,3 +325,4 @@ export function updateZoomDisplay() {
     zoomDisplay.textContent = `${Math.round(scale * 100)}%`;
   }
 }
+

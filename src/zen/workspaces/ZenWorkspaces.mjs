@@ -1404,6 +1404,33 @@ class nsZenWorkspaces {
     createForm.finishSetup();
   }
 
+  openNewBoard() {
+    const tab = gBrowser.addTrustedTab('chrome://browser/content/zen-board/board.html', { _forZenEmptyTab: true });
+    tab.removeAttribute('zen-empty-tab');
+    gBrowser.selectedTab = tab;
+  }
+
+  // Workspaces management
+
+  async #deleteAllTabsInWorkspace(workspaceID) {
+    const tabs = Array.from(this.allStoredTabs).filter(
+      (tab) =>
+        tab.getAttribute('zen-workspace-id') === workspaceID &&
+        !tab.hasAttribute('zen-empty-tab') &&
+        !tab.hasAttribute('zen-essential')
+    );
+    for (const tab of tabs) {
+      if (tab.pinned) {
+        await ZenPinnedTabsStorage.removePin(tab.getAttribute('zen-pin-id'));
+      }
+    }
+    gBrowser.removeTabs(tabs, {
+      animate: false,
+      skipSessionStore: true,
+      closeWindowWithLastTab: false,
+    });
+  }
+
   #unpinnedTabsInWorkspace(workspaceID) {
     return Array.from(this.allStoredTabs).filter(
       (tab) => tab.getAttribute('zen-workspace-id') === workspaceID && tab.visible && !tab.pinned

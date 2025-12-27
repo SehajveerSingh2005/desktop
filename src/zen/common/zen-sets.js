@@ -117,7 +117,23 @@ document.addEventListener(
               gBrowser.pinTab(currentTab);
             }
           }
-          break;
+          case 'cmd_zenCloseUnpinnedTabs':
+            gZenWorkspaces.closeAllUnpinnedTabs();
+            break;
+          case 'cmd_zenUnloadWorkspace': {
+            gZenWorkspaces.unloadWorkspace();
+            break;
+          }
+          case 'cmd_zenNewBoard':
+            gZenWorkspaces.openNewBoard();
+            break;
+          default:
+            gZenGlanceManager.handleMainCommandSet(event);
+            if (event.target.id.startsWith('cmd_zenWorkspaceSwitch')) {
+              const index = parseInt(event.target.id.replace('cmd_zenWorkspaceSwitch', ''), 10) - 1;
+              gZenWorkspaces.shortcutSwitchTo(index);
+            }
+            break;
         }
         case 'cmd_zenCloseUnpinnedTabs':
           gZenWorkspaces.closeAllUnpinnedTabs();

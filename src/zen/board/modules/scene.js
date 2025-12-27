@@ -1,129 +1,117 @@
 // scene.js
 
+import { smoothPoints } from './smoothing.js';
+
 export const scene = [];
 
 export function addToScene(object) {
   scene.push(object);
 }
 
-export function removeFromScene(objectId) {
-  const index = scene.findIndex(obj => obj.id === objectId);
-  if (index > -1) {
-    scene.splice(index, 1);
-  }
-}
-
 export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Base class for drawing objects
+// --- Base Classes ---
 export class DrawingObject {
-  constructor(id, type, color, lineWidth) {
+  constructor(id, type, x, y) {
     this.id = id;
     this.type = type;
-    this.color = color;
-    this.lineWidth = lineWidth;
-    this.x = 0;
-    this.y = 0;
-    this.visible = true; // All objects are visible by default
-  }
-
-  draw(context) {
-    // To be overridden by subclasses
-  }
-}
-
-// Helper function to average points
-function getAveragePoint(points) {
-  const total = points.reduce((acc, point) => {
-    acc.x += point.x;
-    acc.y += point.y;
-    return acc;
-  }, { x: 0, y: 0 });
-
-  return {
-    x: total.x / points.length,
-    y: total.y / points.length,
-  };
-}
-
-// Pen/Path drawing object
-export class Path extends DrawingObject {
-  constructor(id, color, lineWidth) {
-    super(id, 'path', color, lineWidth);
-    this.points = []; // This will now store the smoothed points
-    this.rawPoints = []; // We'll store the raw input here
-  }
-
-  addPoint(x, y) {
-    this.rawPoints.push({ x, y });
-    this.updateSmoothedPoints();
-  }
-
-  updateSmoothedPoints() {
-    if (this.rawPoints.length < 3) {
-      this.points = [...this.rawPoints];
-      return;
-    }
-
-    this.points = [this.rawPoints[0]];
-    // Use a simple sliding window average for smoothing
-    const windowSize = 4;
-    for (let i = 1; i < this.rawPoints.length - 1; i++) {
-        const startIndex = Math.max(0, i - windowSize);
-        const endIndex = Math.min(this.rawPoints.length, i + windowSize);
-        const window = this.rawPoints.slice(startIndex, endIndex);
-        this.points.push(getAveragePoint(window));
-    }
-    this.points.push(this.rawPoints[this.rawPoints.length - 1]);
-  }
-
-  draw(context) {
-    context.strokeStyle = this.color;
-    context.lineWidth = this.lineWidth;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-
-    if (this.points.length < 2) {
-      // Draw a dot for a single point
-      if (this.points.length === 1) {
-        context.beginPath();
-        context.arc(this.points[0].x, this.points[0].y, this.lineWidth / 2, 0, 2 * Math.PI);
-        context.fillStyle = this.color;
-        context.fill();
-      }
-      return;
-    }
-
-    context.beginPath();
-    context.moveTo(this.points[0].x, this.points[0].y);
-
-    for (let i = 1; i < this.points.length - 1; i++) {
-      const midPoint = getAveragePoint([this.points[i], this.points[i+1]]);
-      context.quadraticCurveTo(this.points[i].x, this.points[i].y, midPoint.x, midPoint.y);
-    }
-
-    // Draw the final segment to the last point
-    context.lineTo(this.points[this.points.length - 1].x, this.points[this.points.length - 1].y);
-    context.stroke();
-  }
-}
-
-// Text drawing object
-export class Text extends DrawingObject {
-  constructor(id, text, x, y, font, color) {
-    super(id, 'text', color, 1);
-    this.text = text;
     this.x = x;
     this.y = y;
-    this.font = font;
+    this.visible = true;
+  }
+  getBoundingBox() { return { x: this.x, y: this.y, width: 0, height: 0 }; }
+  move(dx, dy) {
+    this.x += dx;
+    this.y += dy;
+  }
+}
+
+class Shape extends DrawingObject {
+    constructor(id, type, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+        super(id, type, x, y);
+        this.width = width;
+        this.height = height;
+        this.strokeColor = strokeColor;
+        this.strokeWidth = strokeWidth;
+        this.isFilled = isFilled;
+        this.fillColor = fillColor;
+    }
+}
+
+// --- Concrete Object Classes ---
+export class Path extends DrawingObject {
+  constructor(id, color, lineWidth, startX, startY) {
+    super(id, 'path', startX, startY);
+    this.color = color;
+    this.lineWidth = lineWidth;
+    this.rawRelativePoints = [{ x: 0, y: 0 }];
+    this.smoothedRelativePoints = [{ x: 0, y: 0 }];
+    this.boundingBox = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
   }
 
-  draw(context) {
-    context.fillStyle = this.color;
-    context.font = this.font;
-    context.textBaseline = 'top';
-    context.fillText(this.text, this.x, this.y);
+  addPoint(worldX, worldY) {
+    const relativeX = worldX - this.x;
+    const relativeY = worldY - this.y;
+    this.rawRelativePoints.push({ x: relativeX, y: relativeY });
+
+    this.boundingBox.minX = Math.min(this.boundingBox.minX, relativeX);
+    this.boundingBox.minY = Math.min(this.boundingBox.minY, relativeY);
+    this.boundingBox.maxX = Math.max(this.boundingBox.maxX, relativeX);
+    this.boundingBox.maxY = Math.max(this.boundingBox.maxY, relativeY);
+    
+    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
+  }
+
+  getBoundingBox() {
+    const padding = this.lineWidth / 2;
+    return {
+      x: this.x + this.boundingBox.minX - padding,
+      y: this.y + this.boundingBox.minY - padding,
+      width: (this.boundingBox.maxX - this.boundingBox.minX) + this.lineWidth,
+      height: (this.boundingBox.maxY - this.boundingBox.minY) + this.lineWidth,
+    };
+  }
+}
+
+export class Rectangle extends Shape {
+    constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+        super(id, 'rectangle', x, y, width, height, strokeColor, strokeWidth);
+        this.isFilled = isFilled;
+        this.fillColor = fillColor;
+    }
+    
+    getBoundingBox() {
+        return { x: this.x, y: this.y, width: this.width, height: this.height };
+    }
+}
+
+export class Ellipse extends Shape {
+    constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+        super(id, 'ellipse', x, y, width, height, strokeColor, strokeWidth);
+        this.isFilled = isFilled;
+        this.fillColor = fillColor;
+    }
+
+    getBoundingBox() {
+        return { x: this.x, y: this.y, width: this.width, height: this.height };
+    }
+}
+
+
+export class Text extends DrawingObject {
+  constructor(id, text, x, y, font, color) {
+    super(id, 'text', x, y);
+    this.text = text;
+    this.font = font;
+    this.color = color;
+  }
+
+  getBoundingBox(ctx) {
+    ctx.font = this.font;
+    const width = ctx.measureText(this.text).width;
+    const height = parseFloat(this.font);
+    return { x: this.x, y: this.y, width, height };
   }
 }

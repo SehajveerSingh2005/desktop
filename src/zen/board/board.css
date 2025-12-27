@@ -1,11 +1,42 @@
+<<<<<<< HEAD
 body {
   margin: 0;
   background-color: rgba(255,255,255,0.4);
+=======
+@font-face {
+  font-family: 'Roboto';
+  src: url('chrome://browser/content/zen-board/fonts/Roboto.ttf');
+}
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('chrome://browser/content/zen-board/fonts/ArchivoBlack.ttf');
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('chrome://browser/content/zen-board/fonts/InstrumentSerif.ttf');
+}
+@font-face {
+  font-family: 'Maple Mono';
+  src: url('chrome://browser/content/zen-board/fonts/MapleMono.ttf');
+}
+
+:root{
+  --board-accent-color: #007bff;
+}
+
+html, body {
+  margin: 0;
+  background-color: transparent;
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
 }
 
 #canvas {
   display: block;
+<<<<<<< HEAD
   /*opacity: 0.2;*/
+=======
+  background-color: rgba(255, 255, 255, 0.5);
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
 }
 
 #toolbar {
@@ -17,27 +48,74 @@ body {
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   display: flex;
+<<<<<<< HEAD
   gap: 6px;
   z-index: 1001; /* Toolbar above options panel */
+=======
+  align-items: center;
+  gap: 6px;
+  z-index: 1001;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-separator {
+  width: 1px;
+  height: 24px;
+  background-color: #555;
+  margin: 0 8px;
+}
+
+#zoom-display {
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 0 8px;
+  min-width: 50px;
+  text-align: center;
+  cursor: default;
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
 }
 
 .options-panel {
   position: fixed;
+<<<<<<< HEAD
   bottom: 80px; /* Position above the main toolbar */
   left: 20px;
   background-color: color-mix(in srgb, #444 90%, transparent);
   padding: 12px;
+=======
+  background-color: color-mix(in srgb, #444 90%, transparent);
+  padding: 8px;
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   z-index: 1000;
   display: flex;
   align-items: center;
+<<<<<<< HEAD
   gap: 10px;
   visibility: hidden; /* Hide by default */
+=======
+  gap: 8px;
+  visibility: hidden;
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
   opacity: 0;
   transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
 }
 
+<<<<<<< HEAD
+=======
+#pen-options, #shape-options-panel {
+  bottom: 80px;
+  left: 20px;
+}
+
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
 .options-panel.visible {
   visibility: visible;
   opacity: 1;
@@ -48,6 +126,44 @@ body {
   font-size: 14px;
 }
 
+<<<<<<< HEAD
+=======
+.options-panel.vertical {
+  flex-direction: column;
+  padding: 4px;
+  gap: 2px;
+}
+
+.options-panel.vertical button {
+  width: 28px;
+  height: 28px;
+  background: #555;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.options-panel.vertical button img[src*="plus.svg"] {
+  filter: invert(1);
+}
+
+.options-panel.vertical button:hover {
+  background: #777;
+}
+
+#font-cycle {
+  font-family: serif;
+  font-weight: bold;
+}
+
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
 #brush-size {
   -webkit-appearance: none;
   appearance: none;
@@ -90,9 +206,28 @@ body {
   transition: background-color 0.2s ease;
 }
 
+<<<<<<< HEAD
 .tool-button img {
   width: 20px;
   height: 20px;
+=======
+.tool-button img, .shape-button img {
+  width: 20px;
+  height: 20px;
+  color: white; /* Ensure custom icons inherit white */
+}
+
+/* Specific rule for standard Zen icons to make them white on dark background */
+.tool-button img[src*="zen-icons/"], .shape-button img[src*="zen-icons/"] {
+  filter: invert(1);
+}
+
+.shape-button img {
+  width: 24px;
+  height: 24px;
+  /* Specific override for shape buttons if their default is different */
+  filter: invert(1);
+>>>>>>> 22f506e64e46d9636d1527720ded2ed5fdb7bb5d
 }
 
 .tool-button:hover {
@@ -100,22 +235,37 @@ body {
 }
 
 .tool-button.active {
-  background-color: var(--board-accent-color, #777);
+  background-color: color-mix(in srgb, var(--board-accent-color, #777) 40%, transparent);
 }
 
 .canvas-text-input {
   position: absolute;
   background: transparent;
-  border: 2px dashed var(--board-accent-color, #007bff);
-  border-radius: 8px;
+  border: 2px solid var(--board-accent-color, #007bff);
   outline: none;
   resize: none;
   overflow: hidden;
   white-space: pre;
-  min-height: 28px;
+  min-height: 32px;
   line-height: 1.2;
   padding: 2px;
   margin: 0;
   font: 24px Arial;
   color: #000;
+  border-radius: 4px;
+}
+
+.shape-button {
+  background-color: transparent;
+  border: 2px solid transparent;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shape-button.active {
+  border-color: var(--board-accent-color, #007bff);
 }

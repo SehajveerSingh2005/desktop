@@ -9,9 +9,8 @@
   "scripts": {
     "build": "surfer build",
     "build:ui": "surfer build --ui",
-    "start": "cd engine && python3 ./mach run --noprofile",
-    "import": "npm run ffprefs && npm run import:dumps && surfer import",
-    "import:dumps": "python3 scripts/update_service_dumps.py",
+    "start": "cd engine && python ./mach run --noprofile",
+    "import": "npm run ffprefs && surfer import",
     "export": "surfer export",
     "init": "npm run download && npm run import && npm run bootstrap",
     "download": "surfer download",

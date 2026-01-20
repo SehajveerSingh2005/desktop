@@ -11,7 +11,9 @@ export class ZenBoard {
         const url = "chrome://browser/content/zen-board/board.html";
         const tab = window.gBrowser.addTrustedTab(url, {
             triggeringPrincipal: window.Services.scriptSecurityManager.getSystemPrincipal(),
+            _forZenEmptyTab: true
         });
+        tab.removeAttribute("zen-empty-tab");
         window.gBrowser.selectedTab = tab;
     }
 }

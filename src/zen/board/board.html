@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Untitled Board</title>
+  <link rel="icon" href="chrome://browser/skin/zen-icons/canvas.svg">
+  <link rel="stylesheet" href="chrome://browser/content/zen-styles/zen-theme.css">
+  <link rel="stylesheet" href="board.css">
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="toolbar">
+    <div class="tool-group">
+      <button id="select-tool" class="tool-button" title="Select/Pan"><img src="chrome://browser/content/zen-board/icons/select.svg" alt="Select"></button>
+      <button id="pen-tool" class="tool-button" title="Pen"><img src="chrome://browser/content/zen-board/icons/pen.svg" alt="Pen"></button>
+      <button id="shapes-tool" class="tool-button" title="Shapes"><img src="chrome://browser/skin/zen-icons/selectable/shapes.svg" alt="Shapes"></button>
+      <button id="text-tool" class="tool-button" title="Text"><img src="chrome://browser/content/zen-board/icons/text.svg" alt="Text"></button>
+      <button id="eraser-tool" class="tool-button" title="Eraser"><img src="chrome://browser/content/zen-board/icons/eraser.svg" alt="Eraser"></button>
+    </div>
+    <div class="tool-separator"></div>
+    <div class="tool-group">
+      <button id="zoom-out-btn" class="tool-button" title="Zoom Out"><img src="chrome://browser/content/zen-board/icons/zoom-out.svg" alt="Zoom Out"></button>
+      <div id="zoom-display" title="Zoom Level">100%</div>
+      <button id="zoom-in-btn" class="tool-button" title="Zoom In"><img src="chrome://browser/content/zen-board/icons/zoom-in.svg" alt="Zoom In"></button>
+    </div>
+  </div>
+
+  <div id="pen-options" class="options-panel">
+    <label for="brush-size">Size</label>
+    <input type="range" id="brush-size" min="1" max="50" value="5">
+  </div>
+
+  <div id="shape-options-panel" class="options-panel">
+    <button id="shape-rectangle" class="shape-button active" title="Rectangle"><img src="chrome://browser/skin/zen-icons/selectable/square.svg" alt="Rectangle"></button>
+    <button id="shape-ellipse" class="shape-button" title="Ellipse"><img src="chrome://browser/skin/zen-icons/selectable/circle.svg" alt="Ellipse"></button>
+    <div class="tool-separator"></div>
+    <button id="fill-toggle" class="tool-button" title="Toggle Fill"><img src="chrome://browser/content/zen-board/icons/fill-none.svg" alt="Fill"></button>
+  </div>
+  
+  <textarea id="text-editor" class="canvas-text-input" style="visibility: hidden;"></textarea>
+  
+  <div id="font-options-panel" class="options-panel vertical">
+    <button id="font-size-increase" title="Increase font size"><img src="chrome://global/skin/icons/plus.svg" alt="Increase"></button>
+    <button id="font-cycle" title="Cycle font">Aa</button>
+    <button id="font-size-decrease" title="Decrease font size"><img src="chrome://browser/content/zen-board/icons/minus.svg" alt="Decrease"></button>
+  </div>
+
+  <script src="board.js" type="module"></script>
+</body>
+</html>

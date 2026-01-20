@@ -13,6 +13,9 @@ zen-panel-ui-workspaces-create =
 zen-panel-ui-folder-create =
     .label = Create Folder
 
+zen-panel-ui-new-board =
+    .label = New Board
+
 zen-panel-ui-new-empty-split =
     .label = New Split
 

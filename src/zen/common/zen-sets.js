@@ -104,6 +104,13 @@ document.addEventListener(
         case "cmd_zenOpenWorkspaceCreation":
           gZenWorkspaces.openWorkspaceCreation(event);
           break;
+        case "cmd_zenNewBoard": {
+          const { ZenBoard } = ChromeUtils.importESModule(
+            "chrome://browser/content/zen-board/ZenBoard.mjs"
+          );
+          new ZenBoard().openZenBoard(window);
+          break;
+        }
         case "cmd_zenOpenFolderCreation":
           gZenFolders.createFolder([], {
             renameFolder: true,

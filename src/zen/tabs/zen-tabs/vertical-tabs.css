@@ -81,15 +81,12 @@
 }
 
 #browser {
-  --zen-min-toolbox-padding: 0.4rem;
+  --zen-min-toolbox-padding: 5px;
   @media (-moz-platform: macos) {
-    --zen-min-toolbox-padding: 0.5rem;
-  }
-  @media (-moz-platform: linux) {
-    --zen-min-toolbox-padding: 0.35rem;
+    --zen-min-toolbox-padding: 6px;
   }
 
-  --zen-toolbox-padding: max(var(--zen-min-toolbox-padding), calc(var(--zen-element-separation) / 1.5));
+  --zen-toolbox-padding: var(--zen-min-toolbox-padding);
 }
 
 /* ==========================================================================
@@ -300,7 +297,7 @@
 
   --tab-block-margin: 2px;
   --tab-selected-bgcolor: light-dark(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.12));
-  --tab-selected-shadow: 0 1px 1px 1px light-dark(rgba(0, 0, 0, 0.09), rgba(0, 0, 0, 0.1)) !important;
+  --tab-selected-shadow: 0 1px 1px 1px light-dark(rgba(0, 0, 0, 0.09), rgba(0, 0, 0, 0.05)) !important;
   grid-gap: 0 !important;
 
   &[overflow]::after,

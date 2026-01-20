@@ -5,8 +5,8 @@
 zen-menubar-toggle-pinned-tabs = 
     .label =
         { $pinnedAreCollapsed ->
-        [gwir] Ehangu Tabiau wedi'u Pinio
-        *[ffug] Lleihau Tabiau wedi'u Pinio
+            [gwir] Ehangu Tabiau wedi'u Pinio
+           *[ffug] Lleihau Tabiau wedi'u Pinio
         }
 zen-menubar-appearance = 
     .label = Gwedd
@@ -18,3 +18,5 @@ zen-menubar-appearance-light =
     .label = Golau
 zen-menubar-appearance-dark = 
     .label = Tywyll
+zen-menubar-new-unsynced-window = 
+    .label = New Blank Window

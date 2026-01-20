@@ -109,3 +109,7 @@ zen-sidebar-notification-updated-tooltip =
 zen-sidebar-notification-restart-safe-mode-label = Valami elromlott?
 zen-sidebar-notification-restart-safe-mode-tooltip = 
     .title = Újraindítás biztonságos módban
+zen-window-sync-migration-dialog-title = Tartsad szinkronban az ablakaid
+zen-window-sync-migration-dialog-message = A Zen mostantól szinkronizálja az ugyanazon eszközön található ablakokat, így az egyik ablakban végzett módosítások azonnal megjelennek a többiben is.
+zen-window-sync-migration-dialog-learn-more = Tudj meg többet
+zen-window-sync-migration-dialog-accept = Értettem

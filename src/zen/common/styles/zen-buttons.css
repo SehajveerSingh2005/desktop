@@ -28,7 +28,9 @@ dialog::part(dialog-button) {
   border-color: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2)) !important;
   border-bottom-width: 2px !important;
   position: relative;
+}
 
+dialog[defaultButton="accept"]::part(dialog-button) {
   &:is([dlgtype="accept"], [dlgtype="cancel"]) {
     padding-inline-end: 3.7em;
     @media (-moz-platform: windows) {

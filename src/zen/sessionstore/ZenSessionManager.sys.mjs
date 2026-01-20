@@ -198,7 +198,7 @@ export class nsZenSessionManager {
    */
   onFileRead(initialState) {
     if (!lazy.gWindowSyncEnabled) {
-      return;
+      return initialState;
     }
     // For the first time after migration, we restore the tabs
     // That where going to be restored by SessionStore. The sidebar
@@ -215,7 +215,7 @@ export class nsZenSessionManager {
     if (!initialState?.windows?.length) {
       this.log("No windows found in initial state, creating an empty one");
       initialState ||= {};
-      initialState.windows = [{}];
+      initialState.windows = this._shouldRunMigration ? [] : [{}];
     }
     // When we don't have browser.startup.page set to resume session,
     // we only want to restore the pinned tabs into the new windows.
@@ -235,19 +235,26 @@ export class nsZenSessionManager {
       "zen.session-store.restore-unsynced-windows",
       true
     );
-    this.log(`Restoring Zen session data into ${initialState.windows?.length || 0} windows`);
-    for (let i = 0; i < initialState.windows.length; i++) {
-      let winData = initialState.windows[i];
-      if (winData.isZenUnsynced) {
-        if (!allowRestoreUnsynced) {
-          // We don't wan't to restore any unsynced windows with the sidebar data.
-          this.log("Skipping restore of unsynced window");
-          delete initialState.windows[i];
+    if (!this._shouldRunMigration) {
+      this.log(`Restoring Zen session data into ${initialState.windows?.length || 0} windows`);
+      for (let i = 0; i < initialState.windows.length; i++) {
+        let winData = initialState.windows[i];
+        if (winData.isZenUnsynced) {
+          if (!allowRestoreUnsynced) {
+            // We don't wan't to restore any unsynced windows with the sidebar data.
+            this.log("Skipping restore of unsynced window");
+            delete initialState.windows[i];
+          }
+          continue;
         }
-        continue;
+        this.#restoreWindowData(winData);
       }
-      this.#restoreWindowData(winData);
+    } else {
+      this.log("Saving windata state after migration");
+      this.saveState(initialState);
     }
+    delete this._shouldRunMigration;
+    return initialState;
   }
 
   get #sidebar() {
@@ -304,9 +311,7 @@ export class nsZenSessionManager {
     }
     // Save the state to the sidebar object so that it gets written
     // to the session file.
-    this.saveState(initialState);
     delete this._migrationData;
-    delete this._shouldRunMigration;
   }
 
   /**
@@ -315,12 +320,14 @@ export class nsZenSessionManager {
    * @param {object} state The current session state.
    */
   saveState(state) {
-    if (!state?.windows?.length || !lazy.gWindowSyncEnabled) {
+    let windows = state?.windows || [];
+    windows = windows.filter((win) => !win.isPopup && !win.isTaskbarTab && !win.isZenUnsynced);
+    if (!windows.length || !lazy.gWindowSyncEnabled) {
       // Don't save (or even collect) anything in permanent private
       // browsing mode. We also don't want to save if there are no windows.
       return;
     }
-    this.#collectWindowData(state);
+    this.#collectWindowData(windows);
     // This would save the data to disk asynchronously or when
     // quitting the app.
     this.#file.data = this.#sidebar;
@@ -411,17 +418,19 @@ export class nsZenSessionManager {
   /**
    * Collects session data for a given window.
    *
-   * @param {object} state
-   *        The current session state.
+   * @param {object} aStateWindows The array of window state objects.
    */
-  #collectWindowData(state) {
+  #collectWindowData(aStateWindows) {
+    // We only want to collect the sidebar data once from
+    // a single window, as all windows share the same
+    // sidebar data.
     let sidebarData = this.#sidebar;
     if (!sidebarData) {
       sidebarData = {};
     }
 
     sidebarData.lastCollected = Date.now();
-    this.#collectTabsData(sidebarData, state);
+    this.#collectTabsData(sidebarData, aStateWindows);
     this.#sidebar = sidebarData;
   }
 
@@ -437,16 +446,16 @@ export class nsZenSessionManager {
    * Collects session data for all tabs in a given window.
    *
    * @param {object} sidebarData The sidebar data object to populate.
-   * @param {object} state The current session state.
+   * @param {object} aStateWindows The array of window state objects.
    */
-  #collectTabsData(sidebarData, state) {
+  #collectTabsData(sidebarData, aStateWindows) {
     const tabIdRelationMap = new Map();
-    for (const window of state.windows) {
+    for (const window of aStateWindows) {
       // Only accept the tabs with `_zenIsActiveTab` set to true from
       // every window. We do this to avoid collecting tabs with invalid
       // state when multiple windows are open. Note that if we a tab without
       // this flag set in any other window, we just add it anyway.
-      for (const tabData of window.tabs) {
+      for (const tabData of window.tabs || []) {
         if (!tabIdRelationMap.has(tabData.zenSyncId) || tabData._zenIsActiveTab) {
           tabIdRelationMap.set(tabData.zenSyncId, tabData);
         }
@@ -455,10 +464,11 @@ export class nsZenSessionManager {
 
     sidebarData.tabs = this.#filterUnusedTabs(Array.from(tabIdRelationMap.values()));
 
-    sidebarData.folders = state.windows[0].folders;
-    sidebarData.splitViewData = state.windows[0].splitViewData;
-    sidebarData.groups = state.windows[0].groups;
-    sidebarData.spaces = state.windows[0].spaces;
+    let firstWindow = aStateWindows[0];
+    sidebarData.folders = firstWindow.folders;
+    sidebarData.splitViewData = firstWindow.splitViewData;
+    sidebarData.groups = firstWindow.groups;
+    sidebarData.spaces = firstWindow.spaces;
   }
 
   /**

@@ -109,3 +109,7 @@ zen-sidebar-notification-updated-tooltip =
 zen-sidebar-notification-restart-safe-mode-label = Er noe ødelagt?
 zen-sidebar-notification-restart-safe-mode-tooltip = 
     .title = Start på nytt i sikker modus
+zen-window-sync-migration-dialog-title = Hold vinduene dine synkronisert
+zen-window-sync-migration-dialog-message = Zen synkroniserer nå vinduer på samme enhet, så endringer i ett vindu blir reflekterte på tvers de andre med en gang.
+zen-window-sync-migration-dialog-learn-more = Lær mer
+zen-window-sync-migration-dialog-accept = Skjønner

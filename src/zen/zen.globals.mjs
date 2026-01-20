@@ -18,6 +18,7 @@ export default [
   "gZenUIManager",
   "gZenVerticalTabsManager",
   "gZenStartup",
+  "gZenMenubar",
 
   "gZenWorkspaces",
   "gZenKeyboardShortcutsManager",

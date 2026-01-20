@@ -9,10 +9,21 @@ const WINDOW_SCHEME_MAPPING = {
   auto: 2,
 };
 
-class nsZenMenuBar {
-  init() {
+export class nsZenMenuBar {
+  constructor() {
+    window.addEventListener(
+      "ZenKeyboardShortcutsReady",
+      () => {
+        this.#init();
+      },
+      { once: true }
+    );
+  }
+
+  #init() {
     this.#initViewMenu();
     this.#initSpacesMenu();
+    this.#initAppMenu();
   }
 
   #initViewMenu() {
@@ -89,6 +100,25 @@ class nsZenMenuBar {
       gZenWorkspaces.updateWorkspacesChangeContextMenu();
     });
   }
-}
 
-export const ZenMenubar = new nsZenMenuBar();
+  #initAppMenu() {
+    const openUnsyncedWindowItem = window.MozXULElement.parseXULToFragment(
+      `<toolbarbutton id="appMenu-new-zen-unsynced-window-button"
+                class="subviewbutton"
+                data-l10n-id="zen-menubar-new-unsynced-window"
+                key="zen-new-unsynced-window"
+                command="cmd_zenNewNavigatorUnsynced"/>`
+    ).querySelector("toolbarbutton");
+    PanelMultiView.getViewNode(document, "appMenu-new-window-button2").after(
+      openUnsyncedWindowItem
+    );
+    document.getElementById("menu_newNavigator").after(
+      window.MozXULElement.parseXULToFragment(`
+        <menuitem id="menu_new_zen_unsynced_window"
+                class="subviewbutton"
+                data-l10n-id="zen-menubar-new-unsynced-window"
+                key="zen-new-unsynced-window"
+                command="cmd_zenNewNavigatorUnsynced"/>`)
+    );
+  }
+}

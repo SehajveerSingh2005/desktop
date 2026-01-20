@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import { nsZenMultiWindowFeature } from "chrome://browser/content/zen-components/ZenCommonUtils.mjs";
-import { ZenMenubar } from "chrome://browser/content/zen-components/ZenMenubar.mjs";
+import { nsZenMenuBar } from "chrome://browser/content/zen-components/ZenMenubar.mjs";
 
 window.gZenUIManager = {
   _popupTrackingElements: [],
@@ -17,6 +17,8 @@ window.gZenUIManager = {
   _toastTimeouts: [],
 
   init() {
+    window.gZenMenubar = new nsZenMenuBar();
+
     document.addEventListener("popupshowing", this.onPopupShowing.bind(this));
     document.addEventListener("popuphidden", this.onPopupHidden.bind(this));
 
@@ -63,7 +65,7 @@ window.gZenUIManager = {
     this._initOmnibox();
     this._initBookmarkCollapseListener();
 
-    ZenMenubar.init();
+    gURLBar._setPlaceholder(null);
   },
 
   /**

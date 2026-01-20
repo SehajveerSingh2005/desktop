@@ -208,7 +208,7 @@
   }
 
   @media -moz-pref("zen.widget.mac.mono-window-controls") {
-    .titlebar-buttonbox-container {
+    :root:not([window-modal-open="true"]) .titlebar-buttonbox-container {
       color: var(--toolbox-textcolor);
 
       --zen-traffic-light-size: 6px;

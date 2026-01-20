@@ -875,6 +875,7 @@ class nsZenKeyboardShortcutsVersioner {
     return out;
   }
 
+  // eslint-disable-next-line complexity
   migrate(data, version) {
     if (version < 1) {
       // Migrate from 0 to 1
@@ -1111,7 +1112,9 @@ class nsZenKeyboardShortcutsVersioner {
           "N",
           "",
           ZEN_OTHER_SHORTCUTS_GROUP,
-          nsKeyShortcutModifiers.fromObject({ accel: true, alt: true }),
+          AppConstants.platform === "win"
+            ? nsKeyShortcutModifiers.fromObject({ alt: true })
+            : nsKeyShortcutModifiers.fromObject({ accel: true, alt: true }),
           "cmd_zenNewNavigatorUnsynced",
           "zen-new-unsynced-window-shortcut"
         )
@@ -1162,6 +1165,7 @@ window.gZenKeyboardShortcutsManager = {
       this._applyShortcuts();
 
       await this._saveShortcuts();
+      window.dispatchEvent(new Event("ZenKeyboardShortcutsReady", { bubbles: true }));
     }
   },
 

@@ -9,12 +9,14 @@ zen-menubar-toggle-pinned-tabs =
            *[false] Collapse Pinned Tabs
         }
 zen-menubar-appearance = 
-    .label = Appearance
+    .label = Vzhled
 zen-menubar-appearance-description = 
-    .label = Websites will use:
+    .label = Webové stránky budou používat:
 zen-menubar-appearance-auto = 
-    .label = Automatic
+    .label = Automatický
 zen-menubar-appearance-light = 
-    .label = Light
+    .label = Světlý
 zen-menubar-appearance-dark = 
-    .label = Dark
+    .label = Tmavý
+zen-menubar-new-unsynced-window = 
+    .label = New Blank Window

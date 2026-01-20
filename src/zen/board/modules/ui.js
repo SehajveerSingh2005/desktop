@@ -5,7 +5,11 @@ import { getState, setState } from './state.js';
 import { scene, addToScene, generateId, Text } from './scene.js';
 
 // DOM Elements
-let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn;
+let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn;
+
+const COLORS = ['#000000', '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6'];
+
+
 
 // --- Drag handlers for the text editor (border-drag logic) ---
 function onDragMouseMove(e) {
@@ -87,6 +91,28 @@ export function initTools() {
   shapeEllipseBtn = document.getElementById('shape-ellipse');
   fillToggleBtn = document.getElementById('fill-toggle');
   shapesToolBtn = document.getElementById('shapes-tool');
+  shapesToolBtn = document.getElementById('shapes-tool');
+  colorToolBtn = document.getElementById('color-tool');
+  colorOptionsPanel = document.getElementById('color-options-panel');
+  mainColorsContainer = document.getElementById('main-colors');
+
+  initColorPalette(mainColorsContainer);
+
+  colorToolBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent document click from immediately closing it
+    const isVisible = colorOptionsPanel.classList.toggle('visible');
+    colorToolBtn.classList.toggle('active', isVisible);
+  });
+
+  // Close color panel when clicking outside
+  document.addEventListener('click', (e) => {
+    if (colorOptionsPanel.classList.contains('visible') &&
+      !colorOptionsPanel.contains(e.target) &&
+      !colorToolBtn.contains(e.target)) {
+      colorOptionsPanel.classList.remove('visible');
+      colorToolBtn.classList.remove('active');
+    }
+  });
 
   setState({ currentBrushSize: parseFloat(brushSizeSlider.value) });
 
@@ -112,7 +138,65 @@ export function initTools() {
   shapeEllipseBtn.addEventListener('click', () => selectShape('ellipse'));
   fillToggleBtn.addEventListener('click', toggleFill);
 
+  penToolBtn = document.getElementById('pen-tool');
+  eraserToolBtn = document.getElementById('eraser-tool');
+  textToolBtn = document.getElementById('text-tool');
+  selectToolBtn = document.getElementById('select-tool');
+
+  penToolBtn.addEventListener('click', () => selectTool('pen'));
+  eraserToolBtn.addEventListener('click', () => selectTool('eraser'));
+  textToolBtn.addEventListener('click', () => selectTool('text'));
+  selectToolBtn.addEventListener('click', () => selectTool('select'));
   shapesToolBtn.addEventListener('click', () => selectTool('shape'));
+}
+
+function initColorPalette(container) {
+  if (!container) return;
+  COLORS.forEach(color => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch';
+    swatch.style.backgroundColor = color;
+    if (color === getState().currentColor) swatch.classList.add('active');
+
+    swatch.addEventListener('click', () => selectColor(color));
+    container.appendChild(swatch);
+  });
+}
+
+function selectColor(color) {
+  setState({ currentColor: color });
+
+  // Update UI swatches
+  document.querySelectorAll('.color-swatch').forEach(swatch => {
+    // Check both potential formats: hex string from property or rgb string from computed style
+    const isActive =
+      swatch.style.backgroundColor === color ||
+      swatch.style.backgroundColor === `rgb(${hexToRgb(color)})` ||
+      swatch.style.backgroundColor.replace(/\s/g, '') === `rgb(${hexToRgb(color)})`;
+
+    swatch.classList.toggle('active', isActive);
+  });
+
+  // If there's an active text editor, update its color
+  if (textEditor && textEditor.style.visibility === 'visible') {
+    textEditor.style.color = color;
+  }
+
+  // Update toolbar icon
+  const colorDisplay = document.getElementById('active-color-display');
+  if (colorDisplay) {
+    colorDisplay.style.backgroundColor = color;
+    colorDisplay.style.borderColor = color === '#000000' ? '#555' : 'transparent';
+  }
+}
+
+// Helper to handle color format matching if needed
+function hexToRgb(hex) {
+  const bigint = parseInt(hex.substring(1), 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return r + "," + g + "," + b;
 }
 
 // Font & Text Editor
@@ -166,9 +250,9 @@ export function activateTextEditor(x, y, existingObject = null) {
   // This is crucial for the drag-from-border logic, which needs an object
   // in the state to move, even before the text has been finalized.
   if (!objectToEdit) {
-    const { currentFontSize, fontFamilies, currentFontIndex } = getState();
+    const { currentFontSize, fontFamilies, currentFontIndex, currentColor } = getState();
     const font = `${currentFontSize}px '${fontFamilies[currentFontIndex]}'`;
-    objectToEdit = new Text(generateId(), '', x, y, font, '#000');
+    objectToEdit = new Text(generateId(), '', x, y, font, currentColor);
     // Note: This object is NOT added to the main scene yet.
   }
 
@@ -187,6 +271,7 @@ export function activateTextEditor(x, y, existingObject = null) {
     }
     textEditor.value = existingObject.text;
     textEditor.style.color = existingObject.color;
+    selectColor(existingObject.color); // Sync palette
   } else {
     setState({ currentFontSize: 24, currentFontIndex: 0 });
     textEditor.value = '';
@@ -249,9 +334,15 @@ export function deactivateTextEditor() {
 
 function autoResizeTextEditor() {
   textEditor.style.height = 'auto';
-  textEditor.style.height = `${textEditor.scrollHeight}px`;
   textEditor.style.width = 'auto';
-  textEditor.style.width = `${textEditor.scrollWidth}px`;
+
+  // Set to a small value to accurately measure scroll dimensions
+  textEditor.style.height = '1px';
+  textEditor.style.width = '1px';
+
+  // Add a buffer to prevent clipping (especially for italic/bold or custom fonts)
+  textEditor.style.height = `${textEditor.scrollHeight + 4}px`;
+  textEditor.style.width = `${textEditor.scrollWidth + 4}px`;
 }
 
 // Shape Tools
@@ -289,6 +380,10 @@ export function selectTool(toolName) {
     } else if (toolName === 'shape') {
       shapeOptionsPanel.classList.toggle('visible');
     }
+  } else {
+    // Hide all tool-specific panels first
+    if (penOptionsPanel) penOptionsPanel.classList.remove('visible');
+    if (shapeOptionsPanel) shapeOptionsPanel.classList.remove('visible');
   }
 
   setState({ currentTool: toolName });

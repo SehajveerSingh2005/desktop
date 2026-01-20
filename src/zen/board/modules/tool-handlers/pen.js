@@ -10,9 +10,9 @@ export const pen = {
   onMouseDown(e) {
     deactivateTextEditor();
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
-    const { currentBrushSize, scale } = getState();
+    const { currentBrushSize, scale, currentColor } = getState();
     setState({ isDrawing: true });
-    const newPath = new Path(generateId(), '#000', currentBrushSize / scale, x, y);
+    const newPath = new Path(generateId(), currentColor, currentBrushSize / scale, x, y);
     setState({ currentDrawingObject: newPath });
     addToScene(newPath);
   },

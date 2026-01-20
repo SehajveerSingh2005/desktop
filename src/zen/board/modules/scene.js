@@ -29,15 +29,15 @@ export class DrawingObject {
 }
 
 class Shape extends DrawingObject {
-    constructor(id, type, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
-        super(id, type, x, y);
-        this.width = width;
-        this.height = height;
-        this.strokeColor = strokeColor;
-        this.strokeWidth = strokeWidth;
-        this.isFilled = isFilled;
-        this.fillColor = fillColor;
-    }
+  constructor(id, type, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+    super(id, type, x, y);
+    this.width = width;
+    this.height = height;
+    this.strokeColor = strokeColor;
+    this.strokeWidth = strokeWidth;
+    this.isFilled = isFilled;
+    this.fillColor = fillColor;
+  }
 }
 
 // --- Concrete Object Classes ---
@@ -60,7 +60,7 @@ export class Path extends DrawingObject {
     this.boundingBox.minY = Math.min(this.boundingBox.minY, relativeY);
     this.boundingBox.maxX = Math.max(this.boundingBox.maxX, relativeX);
     this.boundingBox.maxY = Math.max(this.boundingBox.maxY, relativeY);
-    
+
     this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
   }
 
@@ -76,27 +76,27 @@ export class Path extends DrawingObject {
 }
 
 export class Rectangle extends Shape {
-    constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
-        super(id, 'rectangle', x, y, width, height, strokeColor, strokeWidth);
-        this.isFilled = isFilled;
-        this.fillColor = fillColor;
-    }
-    
-    getBoundingBox() {
-        return { x: this.x, y: this.y, width: this.width, height: this.height };
-    }
+  constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+    super(id, 'rectangle', x, y, width, height, strokeColor, strokeWidth);
+    this.isFilled = isFilled;
+    this.fillColor = fillColor;
+  }
+
+  getBoundingBox() {
+    return { x: this.x, y: this.y, width: this.width, height: this.height };
+  }
 }
 
 export class Ellipse extends Shape {
-    constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
-        super(id, 'ellipse', x, y, width, height, strokeColor, strokeWidth);
-        this.isFilled = isFilled;
-        this.fillColor = fillColor;
-    }
+  constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+    super(id, 'ellipse', x, y, width, height, strokeColor, strokeWidth);
+    this.isFilled = isFilled;
+    this.fillColor = fillColor;
+  }
 
-    getBoundingBox() {
-        return { x: this.x, y: this.y, width: this.width, height: this.height };
-    }
+  getBoundingBox() {
+    return { x: this.x, y: this.y, width: this.width, height: this.height };
+  }
 }
 
 
@@ -110,8 +110,16 @@ export class Text extends DrawingObject {
 
   getBoundingBox(ctx) {
     ctx.font = this.font;
-    const width = ctx.measureText(this.text).width;
-    const height = parseFloat(this.font);
-    return { x: this.x, y: this.y, width, height };
+    const lines = this.text.split('\n');
+    const fontSize = parseFloat(this.font) || 24;
+    const lineHeight = fontSize * 1.2;
+
+    let maxWidth = 0;
+    lines.forEach(line => {
+      maxWidth = Math.max(maxWidth, ctx.measureText(line).width);
+    });
+
+    const height = lines.length * lineHeight;
+    return { x: this.x, y: this.y, width: maxWidth, height };
   }
 }

@@ -10,11 +10,6 @@ import { Text } from './modules/scene.js';
 // =================================================================
 // === DOM Elements ================================================
 // =================================================================
-const penToolBtn = document.getElementById('pen-tool');
-const eraserToolBtn = document.getElementById('eraser-tool');
-const textToolBtn = document.getElementById('text-tool');
-const selectToolBtn = document.getElementById('select-tool');
-const shapesToolBtn = document.getElementById('shapes-tool');
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomOutBtn = document.getElementById('zoom-out-btn');
 
@@ -31,7 +26,7 @@ function zoom(direction) {
 
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
-  
+
   const newOffsetX = centerX - (centerX - offsetX) * (newScale / oldScale);
   const newOffsetY = centerY - (centerY - offsetY) * (newScale / oldScale);
 
@@ -76,7 +71,7 @@ function onDoubleClick(e) {
 window.addEventListener('DOMContentLoaded', () => {
   initTools();
   resizeCanvas();
-  
+
   // Set up event listeners
   window.addEventListener('resize', resizeCanvas);
   canvas.addEventListener('mousedown', onMouseDown);
@@ -85,11 +80,6 @@ window.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('mouseout', onMouseUp);
   canvas.addEventListener('dblclick', onDoubleClick);
 
-  penToolBtn.addEventListener('click', () => selectTool('pen'));
-  eraserToolBtn.addEventListener('click', () => selectTool('eraser'));
-  textToolBtn.addEventListener('click', () => selectTool('text'));
-  selectToolBtn.addEventListener('click', () => selectTool('select'));
-  shapesToolBtn.addEventListener('click', () => selectTool('shape'));
   zoomInBtn.addEventListener('click', () => zoom(1));
   zoomOutBtn.addEventListener('click', () => zoom(-1));
 

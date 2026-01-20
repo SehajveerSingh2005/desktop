@@ -58,7 +58,7 @@ export function redrawCanvas() {
   ctx.scale(scale, scale);
 
   resetContext();
-  
+
   drawScene(ctx, scene);
 
   // Draw selection box for the selected object
@@ -70,12 +70,12 @@ export function redrawCanvas() {
     if (selectedObject) {
       const box = selectedObject.getBoundingBox(ctx);
       const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--board-accent-color').trim();
-      
+
       ctx.strokeStyle = accentColor ? accentColor : '#007bff';
       // To ensure the highlight appears as a consistent 2px line on the screen,
       // we must set its "world space" thickness as the inverse of the current scale.
       ctx.lineWidth = 2 / scale;
-      
+
       // The same inverse-scale logic applies to the corner radius.
       const cornerRadius = 8 / scale;
 

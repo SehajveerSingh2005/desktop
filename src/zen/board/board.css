@@ -2,24 +2,28 @@
   font-family: 'Roboto';
   src: url('chrome://browser/content/zen-board/fonts/Roboto.ttf');
 }
+
 @font-face {
   font-family: 'Archivo Black';
   src: url('chrome://browser/content/zen-board/fonts/ArchivoBlack.ttf');
 }
+
 @font-face {
   font-family: 'Instrument Serif';
   src: url('chrome://browser/content/zen-board/fonts/InstrumentSerif.ttf');
 }
+
 @font-face {
   font-family: 'Maple Mono';
   src: url('chrome://browser/content/zen-board/fonts/MapleMono.ttf');
 }
 
-:root{
+:root {
   --board-accent-color: #007bff;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   background-color: transparent;
 }
@@ -81,9 +85,16 @@ html, body {
   transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
 }
 
-#pen-options, #shape-options-panel {
+#pen-options,
+#shape-options-panel {
   bottom: 80px;
   left: 20px;
+}
+
+#color-options-panel {
+  bottom: 80px;
+  /* Shifted right to align roughly with the color button position in the toolbar group */
+  left: 220px;
 }
 
 .options-panel.visible {
@@ -173,14 +184,17 @@ html, body {
   transition: background-color 0.2s ease;
 }
 
-.tool-button img, .shape-button img {
+.tool-button img,
+.shape-button img {
   width: 20px;
   height: 20px;
-  color: white; /* Ensure custom icons inherit white */
+  color: white;
+  /* Ensure custom icons inherit white */
 }
 
 /* Specific rule for standard Zen icons to make them white on dark background */
-.tool-button img[src*="zen-icons/"], .shape-button img[src*="zen-icons/"] {
+.tool-button img[src*="zen-icons/"],
+.shape-button img[src*="zen-icons/"] {
   filter: invert(1);
 }
 
@@ -202,18 +216,28 @@ html, body {
 .canvas-text-input {
   position: absolute;
   background: transparent;
-  border: 2px solid var(--board-accent-color, #007bff);
+  border: 1px solid var(--board-accent-color, #007bff);
   outline: none;
   resize: none;
   overflow: hidden;
   white-space: pre;
-  min-height: 32px;
+  min-height: 1em;
   line-height: 1.2;
-  padding: 2px;
+  padding: 1px;
   margin: 0;
   font: 24px Arial;
   color: #000;
-  border-radius: 4px;
+  border-radius: 0;
+  box-sizing: content-box;
+}
+
+#active-color-display {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
 }
 
 .shape-button {
@@ -229,4 +253,29 @@ html, body {
 
 .shape-button.active {
   border-color: var(--board-accent-color, #007bff);
+}
+
+.color-options {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #555;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.2s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch.active {
+  border-color: white;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--board-accent-color);
 }

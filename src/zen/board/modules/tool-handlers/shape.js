@@ -12,12 +12,12 @@ export const shape = {
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
     setState({ isDrawing: true, dragStartX: x, dragStartY: y });
 
-    const { currentShapeType, currentBrushSize, scale, isShapeFilled } = getState();
+    const { currentShapeType, currentBrushSize, scale, isShapeFilled, currentColor } = getState();
 
     const sharedProps = [
       generateId(), x, y, 0, 0,
-      '#000', currentBrushSize / scale,
-      isShapeFilled, '#000'
+      currentColor, currentBrushSize / scale,
+      isShapeFilled, currentColor
     ];
 
     let newShape;
@@ -33,7 +33,7 @@ export const shape = {
     const { isDrawing, currentDrawingObject, dragStartX, dragStartY } = getState();
     if (!isDrawing || !currentDrawingObject) return;
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
-    
+
     let endX = x;
     let endY = y;
 
@@ -44,7 +44,7 @@ export const shape = {
       endX = dragStartX + side * Math.sign(dx);
       endY = dragStartY + side * Math.sign(dy);
     }
-    
+
     currentDrawingObject.x = Math.min(dragStartX, endX);
     currentDrawingObject.y = Math.min(dragStartY, endY);
     currentDrawingObject.width = Math.abs(dragStartX - endX);

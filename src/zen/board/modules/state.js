@@ -21,7 +21,9 @@ const state = {
   currentFontSize: 24,
   scale: 1,
   offsetX: 0,
+  offsetX: 0,
   offsetY: 0,
+  currentColor: '#000000',
 };
 
 export function getState() {

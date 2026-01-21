@@ -186,7 +186,7 @@ function selectColor(color) {
   const colorDisplay = document.getElementById('active-color-display');
   if (colorDisplay) {
     colorDisplay.style.backgroundColor = color;
-    colorDisplay.style.borderColor = color === '#000000' ? '#555' : 'transparent';
+    colorDisplay.style.borderColor = 'white';
   }
 }
 
@@ -203,9 +203,20 @@ function hexToRgb(hex) {
 function updateTextareaFont() {
   const { currentFontSize, fontFamilies, currentFontIndex } = getState();
   if (textEditor) {
-    textEditor.style.font = `${currentFontSize}px '${fontFamilies[currentFontIndex]}'`;
-    fontCycleBtn.style.fontFamily = `'${fontFamilies[currentFontIndex]}', sans-serif`;
-    autoResizeTextEditor();
+    const fontName = fontFamilies[currentFontIndex];
+    const fontSpec = `${currentFontSize}px '${fontName}'`;
+    textEditor.style.font = fontSpec;
+    fontCycleBtn.style.fontFamily = `'${fontName}', sans-serif`;
+
+    // Ensure the font is loaded before measuring for auto-resize. 
+    // This prevents the editor from being too small when a font is used for the first time.
+    if (document.fonts.check(fontSpec)) {
+      autoResizeTextEditor();
+    } else {
+      document.fonts.load(fontSpec).then(() => {
+        autoResizeTextEditor();
+      });
+    }
   }
 }
 

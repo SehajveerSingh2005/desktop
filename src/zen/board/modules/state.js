@@ -7,6 +7,8 @@ const state = {
   isDrawing: false,
   isPanning: false,
   isDraggingObject: false,
+  isResizingObject: false,
+  resizeHandle: null, // 'nw', 'ne', 'sw', 'se'
   currentDrawingObject: null,
   editingTextObject: null,
   isInitialized: false,

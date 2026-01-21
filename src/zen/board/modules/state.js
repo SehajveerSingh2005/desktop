@@ -9,6 +9,9 @@ const state = {
   isDraggingObject: false,
   isResizingObject: false,
   resizeHandle: null, // 'nw', 'ne', 'sw', 'se'
+  resizeAnchorX: 0,
+  resizeAnchorY: 0,
+  resizeInitialFontSize: 0,
   currentDrawingObject: null,
   editingTextObject: null,
   isInitialized: false,

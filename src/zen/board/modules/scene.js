@@ -26,6 +26,7 @@ export class DrawingObject {
     this.x += dx;
     this.y += dy;
   }
+  resize(handle, x, y, anchorX, anchorY) { }
 }
 
 class Shape extends DrawingObject {
@@ -37,6 +38,20 @@ class Shape extends DrawingObject {
     this.strokeWidth = strokeWidth;
     this.isFilled = isFilled;
     this.fillColor = fillColor;
+  }
+
+  resize(handle, mouseX, mouseY, anchorX, anchorY) {
+    // The stationary point is (anchorX, anchorY)
+    // The moving point is (mouseX, mouseY)
+
+    this.x = Math.min(mouseX, anchorX);
+    this.y = Math.min(mouseY, anchorY);
+    this.width = Math.abs(mouseX - anchorX);
+    this.height = Math.abs(mouseY - anchorY);
+
+    // Minimum size to keep handles visible
+    if (this.width < 5) this.width = 5;
+    if (this.height < 5) this.height = 5;
   }
 }
 
@@ -72,6 +87,42 @@ export class Path extends DrawingObject {
       width: (this.boundingBox.maxX - this.boundingBox.minX) + this.lineWidth,
       height: (this.boundingBox.maxY - this.boundingBox.minY) + this.lineWidth,
     };
+  }
+
+  resize(handle, mouseX, mouseY, anchorX, anchorY) {
+    const box = this.getBoundingBox();
+    const oldWidth = box.width;
+    const oldHeight = box.height;
+
+    const newWidth = Math.abs(mouseX - anchorX);
+    const newHeight = Math.abs(mouseY - anchorY);
+
+    // Calculate scale factors
+    const scaleX = oldWidth > 0 ? newWidth / oldWidth : 1;
+    const scaleY = oldHeight > 0 ? newHeight / oldHeight : 1;
+
+    // Update origin
+    const oldX = this.x;
+    const oldY = this.y;
+    this.x = Math.min(mouseX, anchorX) - (this.boundingBox.minX * scaleX);
+    this.y = Math.min(mouseY, anchorY) - (this.boundingBox.minY * scaleY);
+
+    // Scale all points
+    this.rawRelativePoints.forEach(p => {
+      p.x *= scaleX;
+      p.y *= scaleY;
+    });
+
+    // Update bounding box
+    this.boundingBox.minX *= scaleX;
+    this.boundingBox.minY *= scaleY;
+    this.boundingBox.maxX *= scaleX;
+    this.boundingBox.maxY *= scaleY;
+
+    // Update smoothed points
+    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
+
+    // Scale line width? Maybe not, or maybe slightly. Let's keep it simple for now.
   }
 }
 

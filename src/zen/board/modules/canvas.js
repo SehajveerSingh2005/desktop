@@ -53,7 +53,7 @@ export function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Apply the viewport transform
-  const { scale, offsetX, offsetY } = getState();
+  const { scale, offsetX, offsetY, selectedObjectId, editingTextObject } = getState();
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
@@ -62,24 +62,53 @@ export function redrawCanvas() {
   drawScene(ctx, scene);
 
   // Draw selection box for the selected object
-  const { selectedObjectId, editingTextObject } = getState();
-  // Don't draw the canvas selection highlight if the object is currently
-  // being edited via the DOM, as this would create a confusing "double border".
-  if (selectedObjectId && (!editingTextObject || editingTextObject.id !== selectedObjectId)) {
+  if (selectedObjectId) {
     const selectedObject = scene.find(obj => obj.id === selectedObjectId);
     if (selectedObject) {
-      const box = selectedObject.getBoundingBox(ctx);
+      let box = selectedObject.getBoundingBox(ctx);
+
+      // Add a small buffer for text objects to match the textarea's padding
+      if (selectedObject.type === 'text') {
+        box = {
+          x: box.x - 2,
+          y: box.y - 2,
+          width: box.width + 4,
+          height: box.height + 4
+        };
+      }
+
+      const isEditingThis = editingTextObject && editingTextObject.id === selectedObjectId;
       const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--board-accent-color').trim();
 
-      ctx.strokeStyle = accentColor ? accentColor : '#007bff';
-      // To ensure the highlight appears as a consistent 2px line on the screen,
-      // we must set its "world space" thickness as the inverse of the current scale.
-      ctx.lineWidth = 2 / scale;
+      // Only draw the main selection box if we're not currently editing it in the DOM (to avoid double border)
+      if (!isEditingThis) {
+        ctx.strokeStyle = accentColor || '#007bff';
+        ctx.lineWidth = 2 / scale;
+        const cornerRadius = 8 / scale;
+        drawRoundedRect(ctx, box.x, box.y, box.width, box.height, cornerRadius);
+      }
 
-      // The same inverse-scale logic applies to the corner radius.
-      const cornerRadius = 8 / scale;
+      // Draw resize handles for the selected object (except for Text objects)
+      if (selectedObject.type !== 'text') {
+        ctx.fillStyle = accentColor || '#007bff';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1.5 / scale;
+        const handleRadius = 6 / scale;
 
-      drawRoundedRect(ctx, box.x, box.y, box.width, box.height, cornerRadius);
+        const handles = [
+          { x: box.x, y: box.y }, // nw
+          { x: box.x + box.width, y: box.y }, // ne
+          { x: box.x, y: box.y + box.height }, // sw
+          { x: box.x + box.width, y: box.y + box.height }, // se
+        ];
+
+        handles.forEach(h => {
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, handleRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
     }
   }
 

@@ -129,9 +129,9 @@ export function initTools() {
   const handleFontButtonMouseDown = (e) => e.preventDefault();
   fontCycleBtn.addEventListener('click', cycleFont);
   fontCycleBtn.addEventListener('mousedown', handleFontButtonMouseDown);
-  fontSizeIncreaseBtn.addEventListener('click', () => changeFontSize(2));
+  fontSizeIncreaseBtn.addEventListener('click', () => changeFontSize(4));
   fontSizeIncreaseBtn.addEventListener('mousedown', handleFontButtonMouseDown);
-  fontSizeDecreaseBtn.addEventListener('click', () => changeFontSize(-2));
+  fontSizeDecreaseBtn.addEventListener('click', () => changeFontSize(-4));
   fontSizeDecreaseBtn.addEventListener('mousedown', handleFontButtonMouseDown);
 
   shapeRectangleBtn.addEventListener('click', () => selectShape('rectangle'));

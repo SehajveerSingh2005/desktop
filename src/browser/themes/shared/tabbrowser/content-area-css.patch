@@ -1,5 +1,5 @@
 diff --git a/browser/themes/shared/tabbrowser/content-area.css b/browser/themes/shared/tabbrowser/content-area.css
-index b00139d7af878326ff303c08d5ddd47501b8c7db..52bad3e978004f3322f3d504cbd663e7b620b69f 100644
+index b00139d7af878326ff303c08d5ddd47501b8c7db..7361a5e98d6ea372f6fdc583d90044d276cfb81b 100644
 --- a/browser/themes/shared/tabbrowser/content-area.css
 +++ b/browser/themes/shared/tabbrowser/content-area.css
 @@ -90,7 +90,6 @@
@@ -32,7 +32,7 @@ index b00139d7af878326ff303c08d5ddd47501b8c7db..52bad3e978004f3322f3d504cbd663e7
  .dialogOverlay[topmost="true"],
  #window-modal-dialog::backdrop {
 -  background-color: var(--dialog-backdrop-color);
-+  background-color: light-dark(rgba(255, 255, 255, .2), rgba(0, 0, 0, .2));
++  background-color: light-dark(rgba(255, 255, 255, .3), rgba(0, 0, 0, .3));
  }
  
  .dialogOverlay[hideContent="true"][topmost="true"] {

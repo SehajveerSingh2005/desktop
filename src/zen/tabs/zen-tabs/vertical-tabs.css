@@ -496,6 +496,11 @@
     padding-left: 0 !important;
   }
 
+  #tabbrowser-tabs {
+    --toolbarbutton-inner-padding: 6px !important;
+    --tab-icon-end-margin: var(--toolbarbutton-inner-padding) !important;
+  }
+
   & .tab-audio-button {
     margin-inline-start: -4px;
     margin-inline-end: 2px;

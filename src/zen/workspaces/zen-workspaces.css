@@ -155,7 +155,7 @@
 
 /* Mark workspaces indicator */
 .zen-current-workspace-indicator {
-  --indicator-gap: 10px;
+  --indicator-gap: var(--toolbarbutton-inner-padding);
   padding: calc(2px + var(--tab-inline-padding) + var(--zen-toolbox-padding));
   font-weight: 500;
   position: relative;
@@ -208,8 +208,10 @@
     align-items: center;
     fill-opacity: 0.6;
     -moz-context-properties: fill-opacity, fill;
-    fill: currentColor;
-    font-size: 14px;
+    fill: var(--toolbox-textcolor);
+    font-size: 16px;
+    padding-top: 2px;
+    color: light-dark(rgba(0, 0, 0, 0.8), rgba(255, 255, 255, 0.8));
 
     &[zen-emoji-open='true']::before {
       border: 1px dashed light-dark(rgba(0, 0, 0, .5), rgba(255, 255, 255, .5));
@@ -231,13 +233,13 @@
   }
 
   .zen-current-workspace-indicator-name {
-    display: flex;
+    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: auto;
+    white-space: nowrap;
     font-weight: 600;
-    align-items: center;
     margin: 0;
 
     :root[zen-unsynced-window] & {

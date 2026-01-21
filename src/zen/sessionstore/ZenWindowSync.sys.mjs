@@ -577,7 +577,7 @@ class nsZenWindowSync {
    * @param {object} aOtherTab - The tab in the other window.
    */
   async #swapBrowserDocShellsAsync(aOurTab, aOtherTab) {
-    let promise = this.#maybeFlushTabState(aOurTab);
+    let promise = this.#maybeFlushTabState(aOtherTab);
     await this.#styleSwapedBrowsers(
       aOurTab,
       aOtherTab,
@@ -644,13 +644,23 @@ class nsZenWindowSync {
     // See https://github.com/zen-browser/desktop/issues/11851, swapping the browsers
     // don't seem to update the state's cache properly, leading to issues when restoring
     // the session later on.
-    let tabStateEntries = this.#getTabEntriesFromCache(aOurTab);
+    let tabStateEntries = this.#getTabEntriesFromCache(aOtherTab);
+    const setStateToTab = () => {
+      if (!tabStateEntries?.entries.length) {
+        this.log(`Error: No tab state entries found for tab ${aOurTab.id} during swap`);
+        return;
+      }
+      lazy.TabStateCache.update(aOurTab.linkedBrowser.permanentKey, {
+        history: tabStateEntries,
+      });
+    };
     // Running `swapBrowsersAndCloseOther` doesn't expect us to use the tab after
     // the operation, so it doesn't really care about cleaning up the other tab.
     // We need to make a new tab progress listener for the other tab after the swap.
     this.#withRestoreTabProgressListener(
       aOtherTab,
       () => {
+        setStateToTab();
         this.log(`Swapping docshells between windows for tab ${aOurTab.id}`);
         aOurTab.ownerGlobal.gBrowser.swapBrowsersAndCloseOther(aOurTab, aOtherTab, false);
         // Since we are moving progress listeners around, there's a chance that we
@@ -701,13 +711,7 @@ class nsZenWindowSync {
     // we would start receiving invalid history changes from the the incorrect
     // browser view that was just swapped out.
     return this.#maybeFlushTabState(aOurTab).finally(() => {
-      if (!tabStateEntries?.entries.length) {
-        this.log(`Error: No tab state entries found for tab ${aOtherTab.id} during swap`);
-        return;
-      }
-      lazy.TabStateCache.update(aOurTab.linkedBrowser.permanentKey, {
-        history: tabStateEntries,
-      });
+      setStateToTab();
     });
   }
 
@@ -905,7 +909,7 @@ class nsZenWindowSync {
     if (aTab.linkedBrowser) {
       cachedState = lazy.TabStateCache.get(aTab.linkedBrowser.permanentKey);
     }
-    return cachedState?.history?.entries ? cachedState.history : { entries: [] };
+    return cachedState?.history?.entries ? Cu.cloneInto(cachedState.history, {}) : { entries: [] };
   }
 
   /**

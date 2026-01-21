@@ -315,13 +315,23 @@ export class nsZenSessionManager {
   }
 
   /**
+   * Determines if a given window data object is saveable.
+   *
+   * @param {object} aWinData - The window data object to check.
+   * @returns {boolean} True if the window is saveable, false otherwise.
+   */
+  #isWindowSaveable(aWinData) {
+    return !aWinData.isPopup && !aWinData.isTaskbarTab && !aWinData.isZenUnsynced;
+  }
+
+  /**
    * Saves the current session state. Collects data and writes to disk.
    *
    * @param {object} state The current session state.
    */
   saveState(state) {
     let windows = state?.windows || [];
-    windows = windows.filter((win) => !win.isPopup && !win.isTaskbarTab && !win.isZenUnsynced);
+    windows = windows.filter((win) => this.#isWindowSaveable(win));
     if (!windows.length || !lazy.gWindowSyncEnabled) {
       // Don't save (or even collect) anything in permanent private
       // browsing mode. We also don't want to save if there are no windows.

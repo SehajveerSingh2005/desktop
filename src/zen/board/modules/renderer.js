@@ -1,4 +1,5 @@
 // renderer.js
+import { getState } from './state.js';
 
 function drawPath(context, object) {
   context.save();
@@ -87,7 +88,69 @@ const drawingFunctions = {
   rectangle: drawRectangle,
   ellipse: drawEllipse,
   text: drawText,
+  image: drawImage,
+  video: drawVideo,
 };
+
+function drawImage(context, object) {
+  const { selectedObjectId, isDraggingObject } = getState();
+  const isSelected = selectedObjectId === object.id;
+  const isDragging = isSelected && isDraggingObject;
+
+  context.save();
+  if (isDragging) context.globalAlpha = 0.5;
+
+  // Clip with border radius
+  const radius = 8;
+  context.beginPath();
+  context.moveTo(object.x + radius, object.y);
+  context.lineTo(object.x + object.width - radius, object.y);
+  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
+  context.lineTo(object.x + object.width, object.y + object.height - radius);
+  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
+  context.lineTo(object.x + radius, object.y + object.height);
+  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
+  context.lineTo(object.x, object.y + radius);
+  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
+  context.closePath();
+  context.clip();
+
+  if (object.image && object.image.complete) {
+    context.drawImage(object.image, object.x, object.y, object.width, object.height);
+  } else {
+    // Fallback or placeholder while loading
+    context.fillStyle = '#f0f0f0';
+    context.fillRect(object.x, object.y, object.width, object.height);
+  }
+  context.restore();
+}
+
+function drawVideo(context, object) {
+  const { selectedObjectId, isDraggingObject, scale } = getState();
+  const isSelected = selectedObjectId === object.id;
+  const isDragging = isSelected && isDraggingObject;
+
+  context.save();
+  if (isDragging) context.globalAlpha = 0.5;
+
+  const radius = 8;
+  context.beginPath();
+  context.moveTo(object.x + radius, object.y);
+  context.lineTo(object.x + object.width - radius, object.y);
+  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
+  context.lineTo(object.x + object.width, object.y + object.height - radius);
+  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
+  context.lineTo(object.x + radius, object.y + object.height);
+  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
+  context.lineTo(object.x, object.y + radius);
+  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
+  context.closePath();
+  context.clip();
+
+  context.drawImage(object.video, object.x, object.y, object.width, object.height);
+  context.restore();
+}
+
 
 export function drawScene(context, scene) {
   for (const object of scene) {

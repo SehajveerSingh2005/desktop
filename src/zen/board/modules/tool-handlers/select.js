@@ -6,6 +6,7 @@ import { getState, setState } from '../state.js';
 import { redrawCanvas } from '../canvas.js';
 import { deactivateTextEditor, activateTextEditor, updateTextEditorPosition } from '../ui.js';
 import { findObjectAt } from '../interactions.js';
+import { showVideoControls, hideVideoControls, updateVideoControlsPosition } from '../video-controls.js';
 
 export const select = {
   onMouseDown(e) {
@@ -33,7 +34,6 @@ export const select = {
 
         for (const [id, pos] of Object.entries(corners)) {
           if (Math.abs(x - pos.x) < handleSize / 2 && Math.abs(y - pos.y) < handleSize / 2) {
-            // Calculate anchor (the opposite corner)
             let anchorX, anchorY;
             if (id === 'nw') { anchorX = box.x + box.width; anchorY = box.y + box.height; }
             else if (id === 'ne') { anchorX = box.x; anchorY = box.y + box.height; }
@@ -71,14 +71,23 @@ export const select = {
 
       // If the clicked object is a text object, re-activate the editor.
       // This preserves the workflow where clicking a text object allows editing.
+      // If the clicked object is a text object, re-activate the editor.
       if (hitObject instanceof Text) {
         activateTextEditor(hitObject.x, hitObject.y, hitObject);
+      }
+
+      // Handle Video Controls
+      if (hitObject.type === 'video') {
+        showVideoControls(hitObject);
+      } else {
+        hideVideoControls();
       }
     } else {
       // B) Clicked on empty space. Deselect everything and start panning.
       setState({ selectedObjectId: null, isPanning: true });
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
       canvas.style.cursor = 'grabbing';
+      hideVideoControls();
     }
     redrawCanvas();
   },
@@ -97,6 +106,7 @@ export const select = {
         if (editingTextObject && selectedObject.id === editingTextObject.id) {
           updateTextEditorPosition();
         }
+        updateVideoControlsPosition();
         redrawCanvas();
       }
     } else if (isDraggingObject) {
@@ -111,6 +121,7 @@ export const select = {
         if (editingTextObject && selectedObject.id === editingTextObject.id) {
           updateTextEditorPosition();
         }
+        updateVideoControlsPosition();
         redrawCanvas();
       }
     } else if (isPanning) {
@@ -119,6 +130,7 @@ export const select = {
       const dy = e.clientY - dragStartY;
       setTransform(scale, offsetX + dx, offsetY + dy);
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
+      updateVideoControlsPosition();
       redrawCanvas();
     } else {
       // If not dragging or panning, change cursor on hover.
@@ -128,31 +140,42 @@ export const select = {
       // Check for handles first
       if (selectedObjectId) {
         const obj = scene.find(o => o.id === selectedObjectId);
-        if (obj && obj.type !== 'text') {
-          const box = obj.getBoundingBox(ctx);
-          const handleSize = 12 / scale;
-          const corners = {
-            nw: { x: box.x, y: box.y, cursor: 'nwse-resize' },
-            ne: { x: box.x + box.width, y: box.y, cursor: 'nesw-resize' },
-            sw: { x: box.x, y: box.y + box.height, cursor: 'nesw-resize' },
-            se: { x: box.x + box.width, y: box.y + box.height, cursor: 'nwse-resize' }
-          };
+        if (obj) {
+          if (obj.type === 'video') {
+            // Pass
+          }
 
-          for (const corner of Object.values(corners)) {
-            if (Math.abs(x - corner.x) < handleSize / 2 && Math.abs(y - corner.y) < handleSize / 2) {
-              canvas.style.cursor = corner.cursor;
-              return;
+          if (obj.type !== 'text') {
+            const box = obj.getBoundingBox(ctx);
+            const handleSize = 12 / scale;
+            const corners = {
+              nw: { x: box.x, y: box.y, cursor: 'nwse-resize' },
+              ne: { x: box.x + box.width, y: box.y, cursor: 'nesw-resize' },
+              sw: { x: box.x, y: box.y + box.height, cursor: 'nesw-resize' },
+              se: { x: box.x + box.width, y: box.y + box.height, cursor: 'nwse-resize' }
+            };
+
+            for (const corner of Object.values(corners)) {
+              if (Math.abs(x - corner.x) < handleSize / 2 && Math.abs(y - corner.y) < handleSize / 2) {
+                canvas.style.cursor = corner.cursor;
+                return;
+              }
             }
           }
         }
-      }
 
-      const hitObject = findObjectAt(x, y);
-      canvas.style.cursor = hitObject ? 'move' : 'grab';
+      }
     }
+
+    // Default cursor behavior if no handles or controls hovered
+    const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
+    const hitObject = findObjectAt(x, y);
+    canvas.style.cursor = hitObject ? 'move' : 'grab';
   },
+
   onMouseUp() {
     setState({ isPanning: false, isDraggingObject: false, isResizingObject: false, resizeHandle: null });
+    updateVideoControlsPosition();
     // The cursor will be updated by the next mousemove event.
   },
 };

@@ -75,6 +75,14 @@ export function redrawCanvas() {
           width: box.width + 4,
           height: box.height + 4
         };
+      } else if (selectedObject.type === 'video') {
+        // Strict visual bounds for video (excluding controls)
+        box = {
+          x: selectedObject.x,
+          y: selectedObject.y,
+          width: selectedObject.width,
+          height: selectedObject.height
+        };
       }
 
       const isEditingThis = editingTextObject && editingTextObject.id === selectedObjectId;
@@ -109,6 +117,7 @@ export function redrawCanvas() {
           ctx.stroke();
         });
       }
+
     }
   }
 

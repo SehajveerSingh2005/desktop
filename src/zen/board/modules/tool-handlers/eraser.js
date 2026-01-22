@@ -39,16 +39,12 @@ export const eraser = {
             break;
           }
         }
-              } else if (object instanceof Text) {
-                const box = object.getBoundingBox(ctx);
-                if (x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height) {
-                  hit = true;
-                }      } else if (object instanceof Rectangle || object instanceof Ellipse) {
-          const box = object.getBoundingBox();
-          const padding = object.strokeWidth / 2;
-          if (x > box.x - padding && x < box.x + box.width + padding && y > box.y - padding && y < box.y + box.height + padding) {
-              hit = true;
-          }
+      } else {
+        // Generic bounding box check for Shapes, Text, Images, Videos
+        const box = object.getBoundingBox(ctx);
+        if (x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height) {
+          hit = true;
+        }
       }
       if (hit) {
         scene.splice(i, 1);

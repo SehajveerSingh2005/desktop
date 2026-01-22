@@ -887,12 +887,15 @@
       let dropElementFromEvent = event.target.closest(dropZoneSelector);
       dropElement = dropElementFromEvent || dropElement;
       if (!dropElementFromEvent) {
-        if (
-          event.target.classList.contains("zen-workspace-empty-space") ||
-          event.target.closest("#tabbrowser-arrowscrollbox-periphery")
-        ) {
+        let hoveringPeriphery = !!event.target.closest("#tabbrowser-arrowscrollbox-periphery");
+        if (event.target.classList.contains("zen-workspace-empty-space") || hoveringPeriphery) {
           let lastTab = gBrowser.tabs.at(-1);
-          dropElement = this._tabbrowserTabs.ariaFocusableItems.at(-1) || lastTab;
+          dropElement =
+            (hoveringPeriphery
+              ? this._tabbrowserTabs.ariaFocusableItems.at(
+                  gBrowser._numVisiblePinTabsWithoutCollapsed
+                )
+              : this._tabbrowserTabs.ariaFocusableItems.at(-1)) || lastTab;
           // Only if there are no normal tabs to drop after
           showIndicatorUnderNewTabButton = lastTab.hasAttribute("zen-empty-tab");
         }
@@ -904,7 +907,20 @@
         this.#removeDragOverBackground();
       }
       if (!dropElement) {
+        let dragData = draggedTab._dragData;
+        dropElement = dragData.dropElement;
+        dropBefore = dragData.dropBefore;
+      }
+      if (!dropElement) {
+        this.clearDragOverVisuals();
         return null;
+      }
+      if (dropElement.hasAttribute("zen-empty-tab") && dropElement.group) {
+        let secondTab = dropElement.group.tabs[1];
+        dropElement = secondTab || dropElement.group.labelContainerElement;
+        if (secondTab) {
+          dropBefore = true;
+        }
       }
       let possibleFolderElement = dropElement.parentElement;
       let isZenFolder = possibleFolderElement?.isZenFolder;

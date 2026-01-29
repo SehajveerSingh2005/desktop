@@ -743,6 +743,10 @@ window.gZenCompactModeManager = {
             return;
           }
 
+          if (this._isTabBeingDragged) {
+            return;
+          }
+
           if (this.hoverableElements[i].keepHoverDuration) {
             this.flashElement(
               target,

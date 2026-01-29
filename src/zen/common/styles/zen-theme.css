@@ -142,7 +142,7 @@
 
   --zen-toolbar-element-bg: light-dark(
     color-mix(in oklch, var(--toolbox-textcolor) 10%, transparent),
-    color-mix(in oklch, var(--toolbox-textcolor) 12.5%, transparent)
+    color-mix(in oklch, var(--toolbox-textcolor) 15%, transparent)
   );
 
   --zen-toolbar-element-bg-hover: light-dark(

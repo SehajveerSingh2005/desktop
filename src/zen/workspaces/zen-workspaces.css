@@ -155,8 +155,8 @@
 
 /* Mark workspaces indicator */
 .zen-current-workspace-indicator {
-  --indicator-gap: var(--toolbarbutton-inner-padding);
-  padding: calc(3px + var(--tab-inline-padding) + var(--zen-toolbox-padding));
+  --indicator-gap: calc(var(--toolbarbutton-inner-padding) - 1px);
+  padding: calc(2px + var(--tab-inline-padding) + var(--zen-toolbox-padding));
   font-weight: 500;
   position: relative;
   max-height: var(--zen-workspace-indicator-height);
@@ -213,6 +213,10 @@
     padding-top: 2px;
     color: light-dark(rgba(0, 0, 0, 0.8), rgba(255, 255, 255, 0.8));
 
+    & img {
+      transform: translateY(-1px);
+    }
+
     &[zen-emoji-open='true']::before {
       border: 1px dashed light-dark(rgba(0, 0, 0, .5), rgba(255, 255, 255, .5));
       border-radius: 6px;
@@ -227,7 +231,7 @@
 
     @media (-moz-platform: windows) {
       & img {
-        margin-bottom: -4px;
+        margin-bottom: -2px;
       }
     }
   }

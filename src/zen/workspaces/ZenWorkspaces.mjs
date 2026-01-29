@@ -6,6 +6,12 @@
 
 import { nsZenThemePicker } from "chrome://browser/content/zen-components/ZenGradientGenerator.mjs";
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  ZenSessionStore: "resource:///modules/zen/ZenSessionManager.sys.mjs",
+});
+
 /**
  * Zen Spaces manager. This class is mainly responsible for the UI
  * and user interactions but it also contains some logic to manage
@@ -801,7 +807,7 @@ class nsZenWorkspaces {
         chromeFlags & Ci.nsIWebBrowserChrome.CHROME_MENUBAR;
       return this._shouldHaveWorkspaces;
     }
-    return this._shouldHaveWorkspaces;
+    return this._shouldHaveWorkspaces && !document.documentElement.hasAttribute("taskbartab");
   }
 
   get isPrivateWindow() {
@@ -888,6 +894,13 @@ class nsZenWorkspaces {
       return Promise.resolve();
     }
     const spacesFromStore = aWinData.spaces || [];
+    if (
+      !this.privateWindowOrDisabled &&
+      spacesFromStore.length === 0 &&
+      lazy.ZenSessionStore._migrationData
+    ) {
+      spacesFromStore.push(...lazy.ZenSessionStore._migrationData.spaces);
+    }
     this._workspaceCache = spacesFromStore.length
       ? [...spacesFromStore]
       : [this.#createWorkspaceData("Space", undefined)];
@@ -1031,11 +1044,17 @@ class nsZenWorkspaces {
       delete this._initialTab;
     }
 
-    if (gZenVerticalTabsManager._canReplaceNewTab && showed) {
-      BrowserCommands.openTab();
-    } else if (!showed) {
-      gBrowser.selectedBrowser.focus();
-    }
+    // Wait for the next event loop to ensure that the startup focus logic by
+    // firefox has finished doing it's thing.
+    setTimeout(() => {
+      setTimeout(() => {
+        if (gZenVerticalTabsManager._canReplaceNewTab && showed) {
+          BrowserCommands.openTab();
+        } else if (!showed) {
+          gBrowser.selectedBrowser.focus();
+        }
+      });
+    });
 
     if (
       !gZenVerticalTabsManager._canReplaceNewTab &&
@@ -2739,6 +2758,7 @@ class nsZenWorkspaces {
 
     let nextWorkspace = workspaces[targetIndex];
     await this.changeWorkspace(nextWorkspace, { whileScrolling });
+    return nextWorkspace;
   }
 
   #initializeWorkspaceTabContextMenus() {

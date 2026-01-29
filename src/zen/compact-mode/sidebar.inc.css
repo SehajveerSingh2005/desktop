@@ -12,6 +12,7 @@
   #zen-dragover-background {
     width: calc(100% - var(--zen-toolbox-padding) * 2 - 5px);
     left: unset;
+    transform: translateY(-4px);
   }
 
   #zen-tabbox-wrapper {

@@ -640,7 +640,6 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
       left: [],
       width: [],
       height: [],
-      transform: [],
     };
 
     const steps = this.#ARC_CONFIG.ARC_STEPS;
@@ -674,7 +673,6 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
       const y =
         startPosition.y + distanceY * eased + arcDirection * arcHeight * (1 - (2 * eased - 1) ** 2);
 
-      sequence.transform.push(`translate(-50%, -50%)`);
       sequence.top.push(`${y}px`);
       sequence.left.push(`${x}px`);
       sequence.width.push(`${currentWidth}px`);

@@ -124,6 +124,9 @@ export class nsZenMenuBar {
   }
 
   #hideWindowRestoreMenus() {
+    if (!Services.prefs.getBoolPref("zen.window-sync.enabled", true)) {
+      return;
+    }
     const itemsToHide = ["appMenuRecentlyClosedWindows", "historyUndoWindowMenu"];
     for (const id of itemsToHide) {
       const element = PanelMultiView.getViewNode(document, id);

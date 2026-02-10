@@ -1055,7 +1055,7 @@ window.gZenVerticalTabsManager = {
         if (!this._hasSetSingleToolbar) {
           height = AppConstants.platform == "macosx" ? 34 : 32;
         } else if (gURLBar.getAttribute("breakout-extend") !== "true") {
-          height = 40;
+          height = 38;
         }
         if (typeof height !== "undefined") {
           gURLBar.style.setProperty("--urlbar-height", `${height}px`);
@@ -1275,6 +1275,15 @@ window.gZenVerticalTabsManager = {
         appContentNavbarContaienr.append(windowButtons);
       }
 
+      if (
+        this._hasSetSingleToolbar &&
+        Services.prefs.getBoolPref("zen.view.overflow-webext-toolbar", true)
+      ) {
+        topButtons.setAttribute("addon-webext-overflowtarget", "zen-overflow-extensions-list");
+      } else {
+        topButtons.setAttribute("addon-webext-overflowtarget", "overflowed-extensions-list");
+      }
+
       gZenCompactModeManager.updateCompactModeContext(isSingleToolbar);
 
       // Always move the splitter next to the sidebar
@@ -1403,7 +1412,8 @@ window.gZenVerticalTabsManager = {
     if (
       this._tabEdited ||
       ((!Services.prefs.getBoolPref("zen.tabs.rename-tabs") ||
-        Services.prefs.getBoolPref("browser.tabs.closeTabByDblclick")) &&
+        (Services.prefs.getBoolPref("browser.tabs.closeTabByDblclick") &&
+          event.type === "dblclick")) &&
         isTab) ||
       !gZenVerticalTabsManager._prefsSidebarExpanded
     ) {

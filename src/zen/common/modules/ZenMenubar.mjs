@@ -98,6 +98,12 @@ export class nsZenMenuBar {
       </menu>`);
     document.getElementById("view-menu").after(spacesMenubar);
     document.getElementById("zen-spaces-menubar").addEventListener("popupshowing", () => {
+      if (AppConstants.platform === "linux") {
+        // On linux, there seems to be a bug where the menu freezes up and makes the browser
+        // suppiciously unresponsive if we try to update the menu while it's opening.
+        // See https://github.com/zen-browser/desktop/issues/12024
+        return;
+      }
       gZenWorkspaces.updateWorkspacesChangeContextMenu();
     });
   }
@@ -106,7 +112,7 @@ export class nsZenMenuBar {
     const openUnsyncedWindowItem = window.MozXULElement.parseXULToFragment(
       `<toolbarbutton id="appMenu-new-zen-unsynced-window-button"
                 class="subviewbutton"
-                data-l10n-id="zen-menubar-new-unsynced-window"
+                data-l10n-id="zen-appmenu-new-blank-window"
                 key="zen-new-unsynced-window"
                 command="cmd_zenNewNavigatorUnsynced"/>`
     ).querySelector("toolbarbutton");
@@ -117,7 +123,7 @@ export class nsZenMenuBar {
       window.MozXULElement.parseXULToFragment(`
         <menuitem id="menu_new_zen_unsynced_window"
                 class="subviewbutton"
-                data-l10n-id="zen-menubar-new-unsynced-window"
+                data-l10n-id="zen-menubar-new-blank-window"
                 key="zen-new-unsynced-window"
                 command="cmd_zenNewNavigatorUnsynced"/>`)
     );

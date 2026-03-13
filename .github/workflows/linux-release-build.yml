@@ -70,8 +70,8 @@ jobs:
 
       - name: Setup Git
         run: |
-          git config --global user.email "mauro-balades@users.noreply.github.com"
-          git config --global user.name "mauro-balades"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install system dependencies
         run: |
@@ -92,7 +92,6 @@ jobs:
 
       - name: Fix Rust version
         run: |
-          # Install a rust version compatible with LLVM 18
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $(cat .rust-toolchain)
           source $HOME/.cargo/env
 

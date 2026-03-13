@@ -11,26 +11,21 @@ class ZenStartup {
   #hasInitializedLayout = false;
 
   isReady = false;
+  promiseInitialized = new Promise(resolve => {
+    this.promiseInitializedResolve = resolve;
+  });
 
   init() {
     this.openWatermark();
-    this.#initBrowserBackground();
     this.#changeSidebarLocation();
     this.#zenInitBrowserLayout();
   }
 
-  #initBrowserBackground() {
-    const background = document.createXULElement("box");
-    background.id = "zen-browser-background";
-    background.classList.add("zen-browser-generic-background");
-    const grain = document.createXULElement("box");
-    grain.classList.add("zen-browser-grain");
-    background.appendChild(grain);
-    document.getElementById("browser").prepend(background);
-    const toolbarBackground = background.cloneNode(true);
-    toolbarBackground.removeAttribute("id");
-    toolbarBackground.classList.add("zen-toolbar-background");
-    document.getElementById("titlebar").prepend(toolbarBackground);
+  get #shouldUseWatermark() {
+    return (
+      Services.prefs.getBoolPref("zen.watermark.enabled", false) &&
+      gZenWorkspaces.shouldHaveWorkspaces
+    );
   }
 
   #zenInitBrowserLayout() {
@@ -53,7 +48,9 @@ class ZenStartup {
       }
 
       // Fix notification deck
-      const deckTemplate = document.getElementById("tab-notification-deck-template");
+      const deckTemplate = document.getElementById(
+        "tab-notification-deck-template"
+      );
       if (deckTemplate) {
         document.getElementById("zen-appcontent-wrapper").prepend(deckTemplate);
       }
@@ -96,13 +93,17 @@ class ZenStartup {
       // Just in case we didn't get the right size.
       gZenUIManager.updateTabsToolbar();
       this.closeWatermark();
-      document.getElementById("tabbrowser-arrowscrollbox").setAttribute("orient", "vertical");
+      document
+        .getElementById("tabbrowser-arrowscrollbox")
+        .setAttribute("orient", "vertical");
       this.isReady = true;
+      this.promiseInitializedResolve();
+      delete this.promiseInitializedResolve;
     });
   }
 
   openWatermark() {
-    if (!Services.prefs.getBoolPref("zen.watermark.enabled", false)) {
+    if (!this.#shouldUseWatermark) {
       document.documentElement.removeAttribute("zen-before-loaded");
       return;
     }
@@ -113,11 +114,15 @@ class ZenStartup {
 
   closeWatermark() {
     document.documentElement.removeAttribute("zen-before-loaded");
-    if (Services.prefs.getBoolPref("zen.watermark.enabled", false)) {
-      let elementsToIgnore = this.#watermarkIgnoreElements.map((id) => "#" + id).join(", ");
+    if (this.#shouldUseWatermark) {
+      let elementsToIgnore = this.#watermarkIgnoreElements
+        .map(id => "#" + id)
+        .join(", ");
       gZenUIManager.motion
         .animate(
-          "#browser > *:not(" + elementsToIgnore + "), #urlbar, #tabbrowser-tabbox > *",
+          "#browser > *:not(" +
+            elementsToIgnore +
+            "), #urlbar, #tabbrowser-tabbox > *",
           {
             opacity: [0, 1],
           },
@@ -156,8 +161,14 @@ class ZenStartup {
   #checkForWelcomePage() {
     if (!Services.prefs.getBoolPref("zen.welcome-screen.seen", false)) {
       Services.prefs.setBoolPref("zen.welcome-screen.seen", true);
-      Services.prefs.setStringPref("zen.updates.last-build-id", Services.appinfo.appBuildID);
-      Services.prefs.setStringPref("zen.updates.last-version", Services.appinfo.version);
+      Services.prefs.setStringPref(
+        "zen.updates.last-build-id",
+        Services.appinfo.appBuildID
+      );
+      Services.prefs.setStringPref(
+        "zen.updates.last-version",
+        Services.appinfo.version
+      );
       Services.scriptloader.loadSubScript(
         "chrome://browser/content/zen-components/ZenWelcome.mjs",
         window

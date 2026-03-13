@@ -248,8 +248,8 @@ jobs:
 
       - name: Setup Git
         run: |
-          git config --global user.email "mauro-balades@users.noreply.github.com"
-          git config --global user.name "mauro-balades"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install dependencies
         run: |
@@ -368,7 +368,7 @@ jobs:
     strategy:
       matrix:
         arch: [x86_64, aarch64]
-    needs: [linux]
+    needs: [linux, build-data]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -405,6 +405,8 @@ jobs:
             sed -i -e 's/Name=Zen Browser/Name=Zen Twilight/g' build/AppDir/zen.desktop
             sed -i -e 's/StartupWMClass=zen/StartupWMClass=zen-twilight/g' build/AppDir/zen.desktop
           fi
+
+          sed -i -e 's/\$VERSION/${{ needs.build-data.outputs.version }}/g' build/AppDir/zen.desktop
 
           APPDIR=build/AppDir
           tar -xvf *.tar.* && rm -rf *.tar.*
@@ -565,7 +567,7 @@ jobs:
             ./zen.installer.exe/*
             ./zen.installer-arm64.exe/*
             ./zen.macos-universal.dmg/*
-          tag_name: "twilight"
+          tag_name: "twilight-1"
           name: "Twilight build - ${{ needs.build-data.outputs.version }} (${{ needs.build-data.outputs.build_date }} at ${{ needs.build-data.outputs.build_time }})"
           draft: false
           generate_release_notes: false

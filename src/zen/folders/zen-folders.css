@@ -88,7 +88,6 @@ zen-folder {
       width: 28px;
       height: 28px;
       align-content: center;
-      pointer-events: none;
       position: absolute;
       pointer-events: none;
 
@@ -98,6 +97,7 @@ zen-folder {
 
       & svg {
         filter: contrast(125%);
+        transform: translate(-1px, -1px);
 
         :root:not([zen-sidebar-expanded]) & {
           transition: transform 0.1s ease;
@@ -110,8 +110,8 @@ zen-folder {
         & image {
           fill-opacity: 0.9;
           -moz-context-properties: fill, fill-opacity;
-          fill: var(--zen-folder-stroke);
-          transform: translate(9px, 11px);
+          fill: color-mix(in srgb, var(--zen-folder-stroke) 50%, currentColor);
+          transform: translate(8.5px, 10.5px);
         }
 
         & g,
@@ -176,7 +176,6 @@ zen-folder {
 
     & > label {
       width: 100% !important;
-      background: transparent !important;
       border: none !important;
       color: var(--sidebar-text-color) !important;
       margin: 0 !important;
@@ -190,6 +189,19 @@ zen-folder {
         padding: 0 !important;
         max-width: 100% !important;
       }
+
+      &[live-folder-animation] {
+        background: linear-gradient(270deg, var(--sidebar-text-color), color-mix(in srgb, var(--sidebar-text-color) 25%, transparent));
+        background-size: 400%;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+    }
+
+    .tab-reset-button[live-folder-action] {
+      list-style-image: url("chrome://browser/skin/zen-icons/security-broken.svg");
+      display: flex;
+      opacity: 1;
     }
   }
 
@@ -206,7 +218,7 @@ zen-folder {
 }
 
 zen-workspace[collapsedpinnedtabs] .zen-workspace-pinned-tabs-section,
-zen-folder[collapsed]:not([has-active]) > .tab-group-container {
+zen-folder[collapsed] > .tab-group-container {
   overflow-y: clip;
 }
 
@@ -253,8 +265,8 @@ zen-folder[collapsed]:not([has-active]) > .tab-group-container {
 }
 
 #zen-folder-tabs-popup .zen-folder-tabs-list-search-icon {
-  width: 16px;
-  height: 16px;
+  width: var(--size-item-small);
+  height: var(--size-item-small);
   margin: 10px 2px 10px 10px;
   -moz-context-properties: fill;
   fill: currentColor;
@@ -262,8 +274,8 @@ zen-folder[collapsed]:not([has-active]) > .tab-group-container {
 }
 
 .folders-tabs-list-item-icon {
-  width: 16px;
-  height: 16px;
+  width: var(--size-item-small);
+  height: var(--size-item-small);
   flex-shrink: 0;
   margin-inline-end: 10px;
   margin-inline-start: 4px;

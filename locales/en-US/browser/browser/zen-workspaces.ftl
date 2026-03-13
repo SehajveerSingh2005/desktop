@@ -16,6 +16,9 @@ zen-panel-ui-folder-create =
 zen-panel-ui-new-board =
     .label = New Board
 
+zen-panel-ui-live-folder-create =
+    .label = Live Folder
+
 zen-panel-ui-new-empty-split =
     .label = New Split
 

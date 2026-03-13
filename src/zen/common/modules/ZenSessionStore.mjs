@@ -9,13 +9,16 @@ class ZenSessionStore extends nsZenPreloadedFeature {
     this.#waitAndCleanup();
   }
 
-  promiseInitialized = new Promise((resolve) => {
+  promiseInitialized = new Promise(resolve => {
     this._resolveInitialized = resolve;
   });
 
   restoreInitialTabData(tab, tabData) {
     if (tabData.zenWorkspace) {
       tab.setAttribute("zen-workspace-id", tabData.zenWorkspace);
+    }
+    if (tabData.zenLiveFolderItemId) {
+      tab.setAttribute("zen-live-folder-item-id", tabData.zenLiveFolderItemId);
     }
     // Keep for now, for backward compatibility for window sync to work.
     if (tabData.zenSyncId || tabData.zenPinnedId) {

@@ -1,8 +1,16 @@
+#!/usr/bin/env bash
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # note: you need to be in the same directory as the script to run it
+
+# a list of SVG files that we should ignore when exporting, because
+# they render poorly when optimized, and we don't use them in many places
+# so the cost of optimizing them is higher than the benefit of having optimized SVGs
+do_not_optimize=(
+  "security-broken.svg"
+)
 
 if [ $(basename $PWD) != "zen-icons" ]; then
   echo "You need to be in the zen-icons directory to run this script"
@@ -35,6 +43,11 @@ merge_svg_paths() {
   stroke_attr=$(grep -o 'stroke="[^"]*"' "$file" | head -n 1)
   stroke_width_attr=$(grep -o 'stroke-width="[^"]*"' "$file" | head -n 1)
   stroke_opacity_attr=$(grep -o 'stroke-opacity="[^"]*"' "$file" | head -n 1)
+  # Check if the file is in the do_not_optimize list
+  if [[ " ${do_not_optimize[@]} " =~ " $(basename $file) " ]]; then
+    echo "Skipping optimization for $file"
+    return
+  fi
   # Use inkscape to merge all paths into one
   inkscape "$file" --actions="select-all;object-to-path;select-all;path-combine" --export-plain-svg --export-filename="${temp_file}"
   # optimize the svg

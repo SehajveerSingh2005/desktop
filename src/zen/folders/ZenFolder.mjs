@@ -2,6 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  ZenLiveFoldersManager:
+    "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs",
+});
+
 export class nsZenFolder extends MozTabbrowserTabGroup {
   #initialized = false;
 
@@ -43,8 +49,8 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
         <rect class="front" x="5.625" y="9.625" width="16.75" height="12.75" rx="2.375" style="stroke-width: 1.5px; stroke: var(--zen-folder-stroke); fill: url(#gradient-1); fill-opacity: 0.1;">
         </rect>
         <!--Icon (g)-->
-        <g class="icon" style="fill: var(--zen-folder-stroke);">
-          <image href="" height="10" width="10"/>
+        <g class="icon">
+          <image href="" height="11" width="11"/>
         </g>
         <!--End Icon (g)-->
         <g class="dots" style="fill: var(--zen-folder-stroke);">
@@ -72,7 +78,7 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
 
     this.labelElement.parentElement.setAttribute("context", "zenFolderActions");
 
-    this.labelElement.onRenameFinished = (newLabel) => {
+    this.labelElement.onRenameFinished = newLabel => {
       this.name = newLabel.trim() || "Folder";
       const event = new CustomEvent("ZenFolderRenamed", {
         bubbles: true,
@@ -122,7 +128,9 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
 
   get childActiveGroups() {
     if (this.tagName === "zen-workspace-collapsible-pins") {
-      return Array.from(this.parentElement.querySelectorAll("zen-folder[has-active]"));
+      return Array.from(
+        this.parentElement.querySelectorAll("zen-folder[has-active]")
+      );
     }
     return Array.from(this.querySelectorAll("zen-folder[has-active]"));
   }
@@ -188,7 +196,7 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
 
   get allItems() {
     return [...this.groupContainer.children].filter(
-      (child) =>
+      child =>
         !(
           child.classList.contains("zen-tab-group-start") ||
           child.classList.contains("pinned-tabs-container-separator")
@@ -222,7 +230,9 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
     } else {
       const folders = new Map();
       for (let tab of this._activeTabs) {
-        const group = tab?.group?.hasAttribute("split-view-group") ? tab?.group?.group : tab?.group;
+        const group = tab?.group?.hasAttribute("split-view-group")
+          ? tab?.group?.group
+          : tab?.group;
         if (!folders.has(group?.id)) {
           folders.set(group?.id, group?.activeGroups?.at(-1));
         }
@@ -242,7 +252,10 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
   }
 
   get resetButton() {
-    return this.labelElement.parentElement?.querySelector(".tab-reset-button") ?? null;
+    return (
+      this.labelElement.parentElement?.querySelector(".tab-reset-button") ??
+      null
+    );
   }
 
   unloadAllTabs(event) {
@@ -256,15 +269,36 @@ export class nsZenFolder extends MozTabbrowserTabGroup {
       folderToUnload: this,
     });
     this.activeTabs = [];
+    this.collapsed = true;
   }
 
   on_click(event) {
     if (event.target === this.resetButton) {
       event.stopPropagation();
-      this.unloadAllTabs(event);
+
+      if (event.target.hasAttribute("live-folder-action")) {
+        lazy.ZenLiveFoldersManager.handleEvent(event);
+      } else {
+        this.unloadAllTabs(event);
+      }
       return;
     }
     super.on_click(event);
+  }
+
+  addTabs(tabs) {
+    super.addTabs(tabs);
+    if (
+      this.collapsed &&
+      !gZenFolders._sessionRestoring &&
+      this.isLiveFolder &&
+      tabs.length
+    ) {
+      tabs.forEach(tab => {
+        tab.setAttribute("folder-active", "true");
+      });
+      gZenFolders.animateCollapse(this);
+    }
   }
 
   /**

@@ -427,7 +427,7 @@ index d7765e0adb37216d35f2125abf96025cbb150bab..d787c39f68ea4507b2cb902df325498d
              insertTab: false,
              skipLoad: true,
              preferredRemoteType,
-+            _forZenEmptyTab: tabData.zenIsEmpty,
++            _forZenEmptyTab: tabData.zenIsEmpty || (url && url.startsWith("chrome://browser/content/zen-board/")),
            });
 -
 +          tab._originalUrl = url;

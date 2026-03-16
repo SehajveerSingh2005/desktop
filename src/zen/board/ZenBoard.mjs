@@ -13,7 +13,10 @@ export class ZenBoard {
             triggeringPrincipal: window.Services.scriptSecurityManager.getSystemPrincipal(),
             _forZenEmptyTab: true
         });
+        // Remove zen-empty-tab so workspace logic treats this as a normal tab,
+        // but keep zen-board-tab so session restore knows to use a transparent browser.
         tab.removeAttribute("zen-empty-tab");
+        tab.setAttribute("zen-board-tab", "true");
         window.gBrowser.selectedTab = tab;
     }
 }

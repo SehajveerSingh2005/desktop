@@ -33,6 +33,45 @@ body {
   background-color: rgba(255, 255, 255, 0.5);
 }
 
+/* ── Board Title Bar ────────────────────────────────────────────── */
+#board-title-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+#board-title {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  min-width: 120px;
+  max-width: 320px;
+  width: auto;
+  transition: background-color 0.15s ease;
+  caret-color: currentColor;
+}
+
+#board-title:hover {
+  background-color: color-mix(in srgb, #555 30%, transparent);
+}
+
+#board-title:focus {
+  background-color: color-mix(in srgb, #444 50%, transparent);
+  box-shadow: 0 0 0 1.5px var(--board-accent-color, #007bff);
+}
+
+
 #toolbar {
   position: fixed;
   bottom: 20px;

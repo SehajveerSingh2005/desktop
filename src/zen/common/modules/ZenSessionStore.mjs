@@ -39,6 +39,14 @@ class ZenSessionStore extends nsZenPreloadedFeature {
     if (tabData._zenPinnedInitialState) {
       tab._zenPinnedInitialState = tabData._zenPinnedInitialState;
     }
+    // Board tabs need _forZenEmptyTab during restore to get a transparent browser,
+    // but zen-empty-tab on the tab element would make filterUnusedTabs discard
+    // the tab from the next session save. Strip it here, since transparency is
+    // already committed to the <browser> element at this point.
+    const firstEntryUrl = tabData.entries?.[0]?.url ?? "";
+    if (firstEntryUrl.startsWith("chrome://browser/content/zen-board/")) {
+      tab.removeAttribute("zen-empty-tab");
+    }
   }
 
   async #waitAndCleanup() {

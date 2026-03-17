@@ -15,6 +15,10 @@ export function removeFromScene(id) {
   }
 }
 
+export function clearScene() {
+  scene.length = 0;
+}
+
 export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
@@ -133,6 +137,15 @@ export class Path extends DrawingObject {
 
     // Scale line width? Maybe not, or maybe slightly. Let's keep it simple for now.
   }
+
+  clone() {
+    const cloned = new Path(this.id, this.color, this.lineWidth, this.x, this.y);
+    cloned.boundingBox = { ...this.boundingBox };
+    cloned.rawRelativePoints = this.rawRelativePoints.map(p => ({ ...p }));
+    cloned.smoothedRelativePoints = this.smoothedRelativePoints.map(p => ({ ...p }));
+    cloned.visible = this.visible;
+    return cloned;
+  }
 }
 
 export class Rectangle extends Shape {
@@ -145,6 +158,12 @@ export class Rectangle extends Shape {
   getBoundingBox() {
     return { x: this.x, y: this.y, width: this.width, height: this.height };
   }
+
+  clone() {
+    const cloned = new Rectangle(this.id, this.x, this.y, this.width, this.height, this.strokeColor, this.strokeWidth, this.isFilled, this.fillColor);
+    cloned.visible = this.visible;
+    return cloned;
+  }
 }
 
 export class Ellipse extends Shape {
@@ -156,6 +175,12 @@ export class Ellipse extends Shape {
 
   getBoundingBox() {
     return { x: this.x, y: this.y, width: this.width, height: this.height };
+  }
+
+  clone() {
+    const cloned = new Ellipse(this.id, this.x, this.y, this.width, this.height, this.strokeColor, this.strokeWidth, this.isFilled, this.fillColor);
+    cloned.visible = this.visible;
+    return cloned;
   }
 }
 
@@ -181,5 +206,11 @@ export class Text extends DrawingObject {
 
     const height = lines.length * lineHeight;
     return { x: this.x, y: this.y, width: maxWidth, height };
+  }
+
+  clone() {
+    const cloned = new Text(this.id, this.text, this.x, this.y, this.font, this.color);
+    cloned.visible = this.visible;
+    return cloned;
   }
 }

@@ -37,6 +37,14 @@ export class ImageObject extends DrawingObject {
         if (handle === 'nw' || handle === 'ne') this.y = anchorY - this.height;
         else this.y = anchorY;
     }
+
+    clone() {
+        const cloned = new ImageObject(this.id, this.x, this.y, this.width, this.height, this.image);
+        cloned._blob = this._blob;
+        cloned._assetHash = this._assetHash;
+        cloned.visible = this.visible;
+        return cloned;
+    }
 }
 
 export class VideoObject extends DrawingObject {
@@ -129,5 +137,19 @@ export class VideoObject extends DrawingObject {
             this.video.pause();
             this.isPlaying = false;
         }
+    }
+    clone() {
+        const cloned = new VideoObject(this.id, this.x, this.y, this.width, this.height, this.video);
+        cloned._blob = this._blob;
+        cloned._assetHash = this._assetHash;
+        cloned.isPlaying = this.isPlaying;
+        cloned.isMuted = this.isMuted;
+        cloned.volume = this.volume;
+        cloned.isLooping = this.isLooping;
+        cloned.controlsYOffset = this.controlsYOffset;
+        cloned.controlsOpacity = this.controlsOpacity;
+        cloned.showVolumeSlider = this.showVolumeSlider;
+        cloned.visible = this.visible;
+        return cloned;
     }
 }

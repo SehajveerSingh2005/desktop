@@ -24,6 +24,7 @@
         content/browser/zen-board/modules/ui.js                                 (../../zen/board/modules/ui.js)
         content/browser/zen-board/modules/db.js                                  (../../zen/board/modules/db.js)
         content/browser/zen-board/modules/storage.js                             (../../zen/board/modules/storage.js)
+        content/browser/zen-board/modules/history.js                             (../../zen/board/modules/history.js)
 
         content/browser/zen-board/icons/select.svg                              (../../zen/board/icons/select.svg)
         content/browser/zen-board/icons/pen.svg                                 (../../zen/board/icons/pen.svg)

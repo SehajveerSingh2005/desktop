@@ -3,22 +3,19 @@
 import { canvas, resizeCanvas, redrawCanvas, setTransform, getTransformedPoint } from './modules/canvas.js';
 import { toolHandlers } from './modules/tools.js';
 import { getState, setState } from './modules/state.js';
-import { initTools, selectTool, updateZoomDisplay, activateTextEditor } from './modules/ui.js';
+import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor } from './modules/ui.js';
 import { findObjectAt } from './modules/interactions.js';
 import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.js';
 import { ImageObject, VideoObject } from './modules/media.js';
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
+import { pushHistory, undo, redo } from './modules/history.js';
 
-// =================================================================
-// === DOM Elements ================================================
-// =================================================================
+// DOM Elements
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomOutBtn = document.getElementById('zoom-out-btn');
 const boardTitleInput = document.getElementById('board-title');
 
-// =================================================================
-// === Autosave Logic ==============================================
-// =================================================================
+// Autosave Logic
 let _saveTimer = null;
 
 export function triggerSave() {
@@ -39,25 +36,21 @@ export async function triggerSaveImmediate() {
   }
 }
 
-// =================================================================
-// === Board Background ============================================
-// =================================================================
+// Transparency Handling
 function applyTransparency(isTransparent) {
   const canvasEl = document.getElementById('canvas');
   // We use a slight opacity instead of fully transparent for readability,
   // or a solid color if transparency is turned off.
   if (isTransparent) {
     canvasEl.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-    document.body.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    document.body.style.backgroundColor = 'transparent';
   } else {
     canvasEl.style.backgroundColor = '#ffffff'; // White solid background
     document.body.style.backgroundColor = '#ffffff';
   }
 }
 
-// =================================================================
-// === Zoom Logic ==================================================
-// =================================================================
+// Zoom Logic
 function zoom(direction) {
   const { scale, offsetX, offsetY } = getState();
   const zoomFactor = 1.1;
@@ -77,9 +70,7 @@ function zoom(direction) {
   updateZoomDisplay();
 }
 
-// =================================================================
-// === Main Event Listeners (Delegation) ===========================
-// =================================================================
+// Event Delegation
 
 function onMouseDown(e) {
   const { currentTool } = getState();
@@ -92,9 +83,15 @@ function onMouseMove(e) {
 }
 
 function onMouseUp(e) {
-  const { currentTool } = getState();
+  // Read modification flags BEFORE the handler resets them to false.
+  const { currentTool, isDraggingObject, isResizingObject } = getState();
   toolHandlers[currentTool].onMouseUp(e);
   triggerSave();
+
+  // For the select tool, only commit history when something was actually
+  // moved or resized. Clicks, panning, and deselects don't change the scene.
+  const sceneModified = currentTool !== 'select' || isDraggingObject || isResizingObject;
+  if (sceneModified) pushHistory();
 }
 
 function onDoubleClick(e) {
@@ -129,6 +126,7 @@ function handleFile(file, x, y) {
         selectTool('select');
         redrawCanvas();
         triggerSaveImmediate();
+        pushHistory();
       };
       img.src = e.target.result;
     };
@@ -176,6 +174,7 @@ function handleFile(file, x, y) {
       video.currentTime = 0;
       redrawCanvas();
       triggerSaveImmediate();
+      pushHistory();
     };
     video.src = objectURL;
   }
@@ -252,11 +251,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
       applyTransparency(saved.isTransparent);
     } else {
-      // New board — defaults already in state
       applyTransparency(true);
     }
+    pushHistory();
   } catch (e) {
-    console.error('ZenBoard: Failed to initialize from DB', e);
+    console.error('ZenBoard: Failed to init', e);
     applyTransparency(true);
   }
 
@@ -333,6 +332,31 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('keydown', (e) => {
+    // Undo / Redo
+    const key = e.key ? e.key.toLowerCase() : '';
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      if (key === 'z') {
+        e.preventDefault();
+        window.getSelection()?.removeAllRanges();
+
+        // If we're currently editing text, finalize it first so that
+        // the text box is actually in the scene before we undo.
+        if (getState().editingTextObject) {
+          deactivateTextEditor();
+        }
+
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (key === 'y') {
+        e.preventDefault();
+        window.getSelection()?.removeAllRanges();
+        redo();
+        return;
+      }
+    }
+
     if ((e.key === 'Delete' || e.key === 'Backspace') && !getState().editingTextObject) {
       const { selectedObjectId } = getState();
       if (selectedObjectId) {
@@ -340,6 +364,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         setState({ selectedObjectId: null });
         redrawCanvas();
         triggerSave();
+        pushHistory();
       }
     }
   });

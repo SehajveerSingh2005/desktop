@@ -3,11 +3,12 @@
 import { canvas, redrawCanvas } from './canvas.js';
 import { getState, setState } from './state.js';
 import { scene, addToScene, generateId, Text } from './scene.js';
+import { pushHistory } from './history.js';
 
 // DOM Elements
 let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn;
 
-const COLORS = ['#000000', '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6'];
+const COLORS = ['#000000', '#ffffff', '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6'];
 
 
 
@@ -180,6 +181,8 @@ function selectColor(color) {
   // If there's an active text editor, update its color
   if (textEditor && textEditor.style.visibility === 'visible') {
     textEditor.style.color = color;
+    // We don't push history here because the text isn't "finalized" yet.
+    // It will be pushed when the editor is deactivated.
   }
 
   // Update toolbar icon
@@ -341,6 +344,7 @@ export function deactivateTextEditor() {
   textEditor.removeEventListener('mousemove', onTextareaMouseMove);
 
   redrawCanvas();
+  pushHistory();
 }
 
 function autoResizeTextEditor() {

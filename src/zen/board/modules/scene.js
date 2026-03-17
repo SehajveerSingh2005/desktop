@@ -84,6 +84,7 @@ export class Path extends DrawingObject {
     this.boundingBox.maxY = Math.max(this.boundingBox.maxY, relativeY);
 
     this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
+    this._cachedPath2D = null; // Invalidate render cache
   }
 
   getBoundingBox() {
@@ -128,6 +129,7 @@ export class Path extends DrawingObject {
 
     // Update smoothed points
     this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
+    this._cachedPath2D = null; // Invalidate render cache
 
     // Scale line width? Maybe not, or maybe slightly. Let's keep it simple for now.
   }

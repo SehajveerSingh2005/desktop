@@ -13,21 +13,7 @@ const _createdObjectURLs = [];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/**
- * Read a Blob as a base64 data URL.
- */
-function blobToDataURL(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/**
- * Convert a data URL to a Blob.
- */
+// Convert a legacy base64 data URL back to a Blob safely.
 function dataURLToBlob(dataURL) {
   const [header, base64] = dataURL.split(',');
   const mime = header.match(/:(.*?);/)[1];
@@ -35,25 +21,6 @@ function dataURLToBlob(dataURL) {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], { type: mime });
-}
-
-// ── Board ID management ────────────────────────────────────────────────────
-
-/**
- * Get the board ID from the current URL (?id=...).
- */
-export function getBoardIdFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get(BOARD_ID_PARAM) || null;
-}
-
-/**
- * Push the board ID into the current URL without reloading.
- */
-export function setBoardIdInURL(id) {
-  const url = new URL(window.location.href);
-  url.searchParams.set(BOARD_ID_PARAM, id);
-  history.replaceState(null, '', url.toString());
 }
 
 // ── Serialization ──────────────────────────────────────────────────────────
@@ -246,6 +213,35 @@ async function deserializeObject(data, classes) {
       result.video.muted = result.isMuted;
       result.video.volume = result.volume;
       result.video.loop = result.isLooping;
+      
+      // We don't have direct access to redrawCanvas here, but it's okay because 
+      // board.js handles the global redraw loop. For the video playback loop though,
+      // it's better if we hook up the same requestAnimationFrame optimization.
+      const forceRedraw = () => window.dispatchEvent(new CustomEvent('ZenBoardVideoFrame'));
+      videoEl.onloadeddata = forceRedraw;
+      videoEl.onseeked = forceRedraw;
+      videoEl.oncanplay = forceRedraw;
+
+      let frameRequest = null;
+      videoEl.onplay = () => {
+        const update = () => {
+          if (!videoEl.paused && !videoEl.ended && result.visible) {
+            // Avoid stacking overlapping loops
+            forceRedraw();
+            frameRequest = requestAnimationFrame(update);
+          }
+        };
+        if (frameRequest) cancelAnimationFrame(frameRequest);
+        update();
+      };
+      
+      videoEl.onpause = () => {
+        if (frameRequest) {
+          cancelAnimationFrame(frameRequest);
+          frameRequest = null;
+        }
+      };
+      
       return result;
     }
 
@@ -255,6 +251,23 @@ async function deserializeObject(data, classes) {
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
+
+/**
+ * Get the board ID from the current URL (?id=...).
+ */
+export function getBoardIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(BOARD_ID_PARAM) || null;
+}
+
+/**
+ * Push the board ID into the current URL without reloading.
+ */
+export function setBoardIdInURL(id) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(BOARD_ID_PARAM, id);
+  history.replaceState(null, '', url.toString());
+}
 
 /**
  * Get the board ID for the current tab (from URL) or create a new one.
@@ -270,15 +283,20 @@ export async function ensureBoardId() {
 }
 
 /**
- * Save the full current board to IndexedDB.
- * @param {string} id
- * @param {string} title
- * @param {boolean} isTransparent
- * @param {Array}   scene  - live scene array of DrawingObject instances
+ * Saves the given scene array to IDB.
  */
-export async function saveBoard(id, title, isTransparent, scene) {
-  const serialized = await Promise.all(scene.map(serializeObject));
-  await dbSaveBoard(id, title, isTransparent, serialized);
+export async function saveBoard(id, title, isTransparent, sceneArray) {
+  // Serialize all objects in parallel (faster asset hashing)
+  const serializedScene = await Promise.all(
+    sceneArray.map((obj) => serializeObject(obj))
+  );
+
+  await dbSaveBoard(id, title, isTransparent, serializedScene);
+
+  // Inform background script of update
+  document.dispatchEvent(new CustomEvent('ZenBoardUpdated', {
+    detail: { id, title, isTransparent, lastEdited: Date.now() }
+  }));
 }
 
 /**

@@ -9,34 +9,41 @@ function drawPath(context, object) {
   context.lineCap = 'round';
   context.lineJoin = 'round';
   const points = object.smoothedRelativePoints;
-  if (points.length < 3) {
-    context.beginPath();
-    if (points.length === 1) {
-      context.arc(points[0].x, points[0].y, object.lineWidth / 2, 0, 2 * Math.PI);
-      context.fillStyle = object.color;
-      context.fill();
-    } else if (points.length === 2) {
-      context.moveTo(points[0].x, points[0].y);
-      context.lineTo(points[1].x, points[1].y);
-      context.stroke();
+  
+  if (!object._cachedPath2D) {
+    const path2d = new Path2D();
+    if (points.length < 3) {
+      if (points.length === 1) {
+        path2d.arc(points[0].x, points[0].y, object.lineWidth / 2, 0, 2 * Math.PI);
+        // Note: filled in renderer below
+      } else if (points.length === 2) {
+        path2d.moveTo(points[0].x, points[0].y);
+        path2d.lineTo(points[1].x, points[1].y);
+      }
+    } else {
+      path2d.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 2; i++) {
+        const p0 = points[i - 1];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2];
+        const cp1x = p1.x + (p2.x - p0.x) / 6;
+        const cp1y = p1.y + (p2.y - p0.y) / 6;
+        const cp2x = p2.x - (p3.x - p1.x) / 6;
+        const cp2y = p2.y - (p3.y - p1.y) / 6;
+        path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      const last = points.length - 1;
+      path2d.quadraticCurveTo(points[last - 1].x, points[last - 1].y, points[last].x, points[last].y);
     }
+    object._cachedPath2D = path2d;
+  }
+
+  if (points.length === 1) {
+    context.fillStyle = object.color;
+    context.fill(object._cachedPath2D);
   } else {
-    context.beginPath();
-    context.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length - 2; i++) {
-      const p0 = points[i - 1];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[i + 2];
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      context.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-    }
-    const last = points.length - 1;
-    context.quadraticCurveTo(points[last - 1].x, points[last - 1].y, points[last].x, points[last].y);
-    context.stroke();
+    context.stroke(object._cachedPath2D);
   }
   context.restore();
 }

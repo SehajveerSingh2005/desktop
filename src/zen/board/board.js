@@ -40,16 +40,18 @@ export async function triggerSaveImmediate() {
 }
 
 // =================================================================
-// === Transparent Board Background ================================
+// === Board Background ============================================
 // =================================================================
 function applyTransparency(isTransparent) {
   const canvasEl = document.getElementById('canvas');
+  // We use a slight opacity instead of fully transparent for readability,
+  // or a solid color if transparency is turned off.
   if (isTransparent) {
-    canvasEl.style.backgroundColor = 'transparent';
-    document.body.style.backgroundColor = 'transparent';
+    canvasEl.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    document.body.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
   } else {
-    canvasEl.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-    document.body.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+    canvasEl.style.backgroundColor = '#ffffff'; // White solid background
+    document.body.style.backgroundColor = '#ffffff';
   }
 }
 
@@ -280,15 +282,34 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ── Set up event listeners ───────────────────────────────────
-  window.addEventListener('resize', resizeCanvas);
+  let resizeTicking = false;
+  window.addEventListener('resize', () => {
+    if (!resizeTicking) {
+      window.requestAnimationFrame(() => {
+        resizeCanvas();
+        resizeTicking = false;
+      });
+      resizeTicking = true;
+    }
+  });
+
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
   canvas.addEventListener('mouseup', onMouseUp);
-  canvas.addEventListener('mouseout', onMouseUp);
+  canvas.addEventListener('mouseout', (e) => {
+    const { currentTool } = getState();
+    toolHandlers[currentTool].onMouseUp(e);
+    // Note: deliberate omission of triggerSave() here to stop IDB save spam when just hovering out
+  });
   canvas.addEventListener('dblclick', onDoubleClick);
 
   zoomInBtn.addEventListener('click', () => zoom(1));
   zoomOutBtn.addEventListener('click', () => zoom(-1));
+  
+  // Custom event fired by video objects initialized from storage
+  window.addEventListener('ZenBoardVideoFrame', () => {
+    redrawCanvas();
+  });
 
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {

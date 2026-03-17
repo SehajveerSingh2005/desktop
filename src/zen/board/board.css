@@ -25,12 +25,18 @@
 html,
 body {
   margin: 0;
-  background-color: transparent;
+  /* Prevent white flash by starting with the default translucent state applied by JS */
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 #canvas {
   display: block;
-  background-color: rgba(255, 255, 255, 0.5);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* ── Board Title Bar ────────────────────────────────────────────── */

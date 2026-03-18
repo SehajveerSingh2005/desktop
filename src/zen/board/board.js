@@ -9,6 +9,7 @@ import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, 
 import { ImageObject, VideoObject } from './modules/media.js';
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
 import { pushHistory, undo, redo } from './modules/history.js';
+import { hideVideoControls } from './modules/video-controls.js';
 
 // DOM Elements
 const zoomInBtn = document.getElementById('zoom-in-btn');
@@ -362,6 +363,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (selectedObjectId) {
         removeFromScene(selectedObjectId);
         setState({ selectedObjectId: null });
+        hideVideoControls();
         redrawCanvas();
         triggerSave();
         pushHistory();

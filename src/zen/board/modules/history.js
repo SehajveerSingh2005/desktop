@@ -2,6 +2,7 @@
 import { scene, clearScene, addToScene } from './scene.js';
 import { redrawCanvas } from './canvas.js';
 import { triggerSaveImmediate } from '../board.js';
+import { hideVideoControls } from './video-controls.js';
 
 const MAX_HISTORY = 50;
 let undoStack = [];
@@ -53,6 +54,7 @@ export function redo() {
 function restoreSnapshot(snapshot) {
   clearScene();
   snapshot.forEach(obj => addToScene(obj.clone()));
+  hideVideoControls();
   redrawCanvas();
   triggerSaveImmediate();
 }

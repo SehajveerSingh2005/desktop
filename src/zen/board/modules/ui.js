@@ -4,6 +4,7 @@ import { canvas, redrawCanvas } from './canvas.js';
 import { getState, setState } from './state.js';
 import { scene, addToScene, generateId, Text } from './scene.js';
 import { pushHistory } from './history.js';
+import { hideVideoControls } from './video-controls.js';
 
 // DOM Elements
 let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn;
@@ -379,6 +380,7 @@ export function selectTool(toolName) {
   if (getState().editingTextObject) {
     deactivateTextEditor();
   }
+  hideVideoControls();
 
   const isSameTool = toolName === getState().currentTool;
 

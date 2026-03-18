@@ -138,6 +138,24 @@ export class VideoObject extends DrawingObject {
             this.isPlaying = false;
         }
     }
+
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        this.video.muted = this.isMuted;
+        return this.isMuted;
+    }
+
+    setVolume(val) {
+        this.volume = val;
+        this.video.volume = val;
+        // Auto-unmute if user specifically sets volume
+        if (val > 0 && this.isMuted) {
+            this.toggleMute();
+        } else if (val === 0 && !this.isMuted) {
+            this.toggleMute();
+        }
+    }
+
     clone() {
         const cloned = new VideoObject(this.id, this.x, this.y, this.width, this.height, this.video);
         cloned._blob = this._blob;

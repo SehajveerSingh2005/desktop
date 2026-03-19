@@ -240,6 +240,17 @@ async function initTheme() {
     if (primaryColor) {
       document.documentElement.style.setProperty('--board-accent-color', primaryColor);
     }
+
+    // Listen for theme or workspace changes
+    if (!window._zenThemeListenersAdded) {
+      chromeWindow.addEventListener("ZenGradientCacheChanged", initTheme);
+      chromeWindow.addEventListener("ZenWorkspacesUIUpdate", initTheme);
+      window.addEventListener("pagehide", () => {
+        chromeWindow.removeEventListener("ZenGradientCacheChanged", initTheme);
+        chromeWindow.removeEventListener("ZenWorkspacesUIUpdate", initTheme);
+      }, { once: true });
+      window._zenThemeListenersAdded = true;
+    }
   } catch (e) {
     console.error('ZenBoard: Failed to init theme', e);
   }

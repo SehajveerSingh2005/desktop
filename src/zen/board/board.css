@@ -55,7 +55,7 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  color: #000;
+  color: var(--board-accent-color) ;
   font-size: 32px;
   font-weight: 600;
   text-align: center;
@@ -251,7 +251,7 @@ body {
 .canvas-text-input {
   position: absolute;
   background: transparent;
-  border: 1px solid var(--board-accent-color, #007bff);
+  border: 1px solid var(--board-accent-color);
   outline: none;
   resize: none;
   overflow: hidden;
@@ -288,7 +288,7 @@ body {
 }
 
 .shape-button.active {
-  border-color: var(--board-accent-color, #007bff);
+  border-color: var(--board-accent-color);
 }
 
 .color-options {

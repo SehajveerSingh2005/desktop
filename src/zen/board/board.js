@@ -225,7 +225,28 @@ function initTitleInput() {
 // =================================================================
 // === Initialization ==============================================
 // =================================================================
+async function initTheme() {
+  try {
+    const chromeWindow = window.docShell?.chromeEventHandler?.ownerGlobal;
+    if (!chromeWindow) return;
+
+    const { gZenThemePicker, gZenWorkspaces } = chromeWindow;
+    if (!gZenThemePicker || !gZenWorkspaces) return;
+
+    const activeWorkspace = await gZenWorkspaces.getActiveWorkspace();
+    if (!activeWorkspace) return;
+
+    const { primaryColor } = gZenThemePicker.getGradientForWorkspace(activeWorkspace);
+    if (primaryColor) {
+      document.documentElement.style.setProperty('--board-accent-color', primaryColor);
+    }
+  } catch (e) {
+    console.error('ZenBoard: Failed to init theme', e);
+  }
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   initTools();
   resizeCanvas();
 

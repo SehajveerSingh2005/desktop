@@ -24,7 +24,12 @@
         content/browser/zen-board/modules/ui.js                                 (../../zen/board/modules/ui.js)
         content/browser/zen-board/modules/db.js                                  (../../zen/board/modules/db.js)
         content/browser/zen-board/modules/storage.js                             (../../zen/board/modules/storage.js)
+        content/browser/zen-board/modules/capture-controls.js                   (../../zen/board/modules/capture-controls.js)
         content/browser/zen-board/modules/history.js                             (../../zen/board/modules/history.js)
+
+        content/browser/zen-board/capture-board-picker.html                      (../../zen/board/capture-board-picker.html)
+        content/browser/zen-board/capture-board-picker.css                       (../../zen/board/capture-board-picker.css)
+        content/browser/zen-board/capture-board-picker.js                        (../../zen/board/capture-board-picker.js)
 
         content/browser/zen-board/icons/select.svg                              (../../zen/board/icons/select.svg)
         content/browser/zen-board/icons/pen.svg                                 (../../zen/board/icons/pen.svg)

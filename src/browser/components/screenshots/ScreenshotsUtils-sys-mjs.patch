@@ -1,0 +1,78 @@
+diff --git a/browser/components/screenshots/ScreenshotsUtils.sys.mjs b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
+index 1bc188fa55..eb56ebf0cf 100644
+--- a/browser/components/screenshots/ScreenshotsUtils.sys.mjs
++++ b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
+@@ -96,6 +96,13 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
+         await ScreenshotsUtils.copyScreenshotFromRegion(region, browser);
+         ScreenshotsUtils.exit(browser);
+         break;
++      case "Screenshots:ZenAddToBoard": {
++        const { region, anchor } = message.data;
++        Services.console.logStringMessage("ZenBoard: Received ZenAddToBoard! anchor=" + JSON.stringify(anchor) + " region=" + JSON.stringify(region));
++        await ScreenshotsUtils.zenSendCaptureToBoard(region, anchor, browser);
++        ScreenshotsUtils.exit(browser);
++        break;
++      }
+       case "Screenshots:DownloadScreenshot":
+         ScreenshotsUtils.closePanel(browser);
+         ({ title, region } = message.data);
+@@ -901,6 +908,9 @@ export var ScreenshotsUtils = {
+    */
+   closeDialogBox(browser) {
+     let perBrowserState = this.browserToScreenshotsState.get(browser);
++    // Allow for restoring of the selectedMethod
++    this.methodsUsed.element = this.methodsUsed.element > 0 ? 1 : 0;
++    this.methodsUsed.region = this.methodsUsed.region > 0 ? 1 : 0;
+     if (perBrowserState?.previewDialog) {
+       perBrowserState.previewDialog.close();
+       return true;
+@@ -908,6 +918,32 @@ export var ScreenshotsUtils = {
+     return false;
+   },
+ 
++  /**
++   * Capture a region and send the blob to the board picker.
++   * Dispatches a ZenBoard:CaptureReady event to the chrome window.
++   *
++   * region.left/top from ScreenshotsOverlayChild are viewport-relative CSS pixels.
++   * We add browser.contentWindow.scrollX/Y to produce page-absolute CSS pixel
++   * coordinates so that the live embed can shift its iframe element to show the
++   * exact region that was captured.
++   */
++  async zenSendCaptureToBoard(region, anchor, browser) {
++    try {
++      Services.console.logStringMessage("ZenBoard: zenSendCaptureToBoard called! Creating canvas...");
++      const canvas = await this.createCanvas(region, browser);
++      Services.console.logStringMessage("ZenBoard: Canvas created. Converting to blob...");
++      const blob = await canvas.convertToBlob({ type: "image/png" });
++      const sourceUrl = browser.currentURI?.spec ?? "";
++      Services.console.logStringMessage("ZenBoard: Blob created. URI: " + sourceUrl);
++
++      const chromeWin = browser.ownerGlobal;
++      const event = new chromeWin.CustomEvent("ZenBoard:CaptureReady", {
++        bubbles: false,
++        cancelable: false,
++        detail: {
++          blob,
++          sourceUrl,
++          region: {
++            // Use the absolute coordinates provided by the child directly.
++            left: region.left || 0,
++            top: region.top || 0,
++            width: region.width,
++            height: region.height,
++            devicePixelRatio: 1, // Already in CSS pixels
++          },
++          anchor,
++        },
++      });
++      Services.console.logStringMessage("ZenBoard: Dispatching ZenBoard:CaptureReady event to window...");
++      chromeWin.dispatchEvent(event);
++    } catch (e) {
++      Services.console.logStringMessage("ZenBoard: Failed to capture screenshot for board: " + e);
++    }
++  },
++
+   /**
+    * Callback fired when the preview dialog window closes
+    * Will exit the screenshots UI if the `exitOnPreviewClose` flag is set for this browser

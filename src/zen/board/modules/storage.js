@@ -117,6 +117,42 @@ async function serializeObject(obj) {
       };
     }
 
+    case 'capture': {
+      // Capture images are stored as PNG blobs in IDB (same as image objects)
+      let hash = obj._assetHash || null;
+      if (!hash && obj._blob) {
+        hash = await storeAsset(obj._blob);
+      } else if (!hash && obj.image && obj.image.src) {
+        try {
+          const res = await fetch(obj.image.src);
+          const blob = await res.blob();
+          hash = await storeAsset(blob);
+        } catch (e) {
+          console.warn('ZenBoard: Could not store capture asset', e);
+        }
+      }
+      return {
+        ...base,
+        width: obj.width,
+        height: obj.height,
+        _assetHash: hash,
+        sourceUrl: obj.sourceUrl || '',
+        sourceRegion: obj.sourceRegion || null,
+      };
+    }
+
+    case 'live-embed': {
+      // Only the URL is stored; the iframe is reconstructed on load.
+      return {
+        ...base,
+        width: obj.width,
+        height: obj.height,
+        sourceUrl: obj.sourceUrl || '',
+        sourceRegion: obj.sourceRegion || null,
+        _assetHash: obj._assetHash || null,
+      };
+    }
+
     default:
       return base;
   }
@@ -127,7 +163,7 @@ async function serializeObject(obj) {
  * Returns a promise because videos need an async IDB fetch.
  */
 async function deserializeObject(data, classes) {
-  const { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject } = classes;
+  const { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject, CaptureObject, LiveEmbedObject } = classes;
 
   switch (data.type) {
     case 'path': {
@@ -243,6 +279,67 @@ async function deserializeObject(data, classes) {
       };
       
       return result;
+    }
+
+    case 'capture': {
+      // Load PNG blob from IDB, reconstruct Image element
+      let objectURL = '';
+      if (data._assetHash) {
+        try {
+          const blob = await getAsset(data._assetHash);
+          if (blob) {
+            objectURL = URL.createObjectURL(blob);
+            _createdObjectURLs.push(objectURL);
+          }
+        } catch (e) {
+          console.warn('ZenBoard: Could not load capture asset', e);
+        }
+      }
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        img.src = objectURL;
+      });
+      const captureResult = new CaptureObject(
+        data.id, data.x, data.y, data.width, data.height, img, data.sourceUrl || ''
+      );
+      captureResult.sourceRegion = data.sourceRegion || null;
+      captureResult._assetHash = data._assetHash;
+      return captureResult;
+    }
+
+    case 'live-embed': {
+      // Reconstruct the object. The iframe is created lazily when selected.
+      let objectURL = '';
+      if (data._assetHash) {
+        try {
+          const blob = await getAsset(data._assetHash);
+          if (blob) {
+            objectURL = URL.createObjectURL(blob);
+            _createdObjectURLs.push(objectURL);
+          }
+        } catch (e) {
+          console.warn('ZenBoard: Could not load live-embed asset', e);
+        }
+      }
+      const liveObj = new LiveEmbedObject(
+        data.id, data.x, data.y, data.width, data.height, data.sourceUrl || ''
+      );
+      if (objectURL) {
+        const img = new Image();
+        // Fire resolving independently so board load isn't terribly blocked
+        // but typically synchronous enough if objectURL works immediately
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+          img.src = objectURL;
+        });
+        liveObj._placeholderImage = img;
+      }
+      liveObj.sourceRegion = data.sourceRegion || null;
+      liveObj._assetHash = data._assetHash || null;
+      return liveObj;
     }
 
     default:

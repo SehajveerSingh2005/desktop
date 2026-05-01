@@ -159,6 +159,16 @@ document.addEventListener(
             break;
         }
       });
+  // Register ZenBoard:CaptureReady listener so the board picker popup opens
+  // when the user clicks "Add to Board" in the screenshots overlay.
+  const { ZenBoard } = ChromeUtils.importESModule(
+    "chrome://browser/content/zen-board/ZenBoard.mjs"
+  );
+  // Store the instance on the chrome window so that board.html pages can call
+  // window.docShell.chromeEventHandler.ownerGlobal.gZenBoard.registerLiveEmbedBC()
+  // to register live-embed iframe BC IDs with the XFO observer.
+  window.gZenBoard = new ZenBoard();
+  window.gZenBoard.listenForCapture(window);
   },
   { once: true }
 );

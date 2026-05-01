@@ -207,7 +207,7 @@ function initDOM() {
                 }
             });
 
-            window.addEventListener('mouseup', () => {
+            window.addEventListener('mouseup', (e) => {
                 if (isDraggingVolume) {
                     isDraggingVolume = false;
                     // Hide slider if mouse is already outside

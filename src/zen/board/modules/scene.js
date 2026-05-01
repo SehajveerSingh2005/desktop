@@ -11,6 +11,11 @@ export function addToScene(object) {
 export function removeFromScene(id) {
   const index = scene.findIndex(obj => obj.id === id);
   if (index !== -1) {
+    const obj = scene[index];
+    // Allow objects (e.g. LiveEmbedObject) to clean up DOM resources
+    if (typeof obj.destroy === 'function') {
+      obj.destroy();
+    }
     scene.splice(index, 1);
   }
 }

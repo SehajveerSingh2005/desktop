@@ -5,6 +5,7 @@ import { getState, setState } from './state.js';
 import { scene, addToScene, generateId, Text } from './scene.js';
 import { pushHistory } from './history.js';
 import { hideVideoControls } from './video-controls.js';
+import { hideCaptureControls } from './capture-controls.js';
 
 // DOM Elements
 let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn;
@@ -92,7 +93,6 @@ export function initTools() {
   shapeRectangleBtn = document.getElementById('shape-rectangle');
   shapeEllipseBtn = document.getElementById('shape-ellipse');
   fillToggleBtn = document.getElementById('fill-toggle');
-  shapesToolBtn = document.getElementById('shapes-tool');
   shapesToolBtn = document.getElementById('shapes-tool');
   colorToolBtn = document.getElementById('color-tool');
   colorOptionsPanel = document.getElementById('color-options-panel');
@@ -381,6 +381,7 @@ export function selectTool(toolName) {
     deactivateTextEditor();
   }
   hideVideoControls();
+  hideCaptureControls();
 
   const isSameTool = toolName === getState().currentTool;
 

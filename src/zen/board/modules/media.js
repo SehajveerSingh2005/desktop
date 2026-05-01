@@ -41,8 +41,7 @@ export class ImageObject extends DrawingObject {
     clone() {
         const cloned = new ImageObject(this.id, this.x, this.y, this.width, this.height, this.image);
         cloned._blob = this._blob;
-        cloned._assetHash = this._assetHash;
-        cloned.visible = this.visible;
+        cloned.sourceRegion = this.sourceRegion;
         return cloned;
     }
 }
@@ -71,24 +70,7 @@ export class VideoObject extends DrawingObject {
     }
 
     getBoundingBox() {
-        const { selectedObjectId, scale } = getState();
-        const isSelected = selectedObjectId === this.id;
         const baseBox = { x: this.x, y: this.y, width: this.width, height: this.height };
-
-        // NOTE: The bounding box for selection logic (hit testing) should NOT include the controls
-        // for the purpose of the blue selection border. 
-        // BUT for hit testing clicks on the control bar, we handle that in the tool-handlers/select.js
-        // by explicitly checking the control bar area there.
-        // However, if we want the "select tool" to NOT deselect when clicking the controls, 
-        // the interactions.js `findObjectAt` needs to know about this extended area.
-        // 
-        // To solve the "lag" and "double box" issue: 
-        // We return the STRICT visual bounding box of the video here.
-        // We rely on `select.js` to handle the "click on controls" logic separately from the generic hit test if needed,
-        // OR we return an extended box but Render only the strict box.
-        // 
-        // In `canvas.js`, we use `getBoundingBox` to draw the blue border. 
-        // So this MUST be the strict video box.
         return baseBox;
     }
 
@@ -167,6 +149,193 @@ export class VideoObject extends DrawingObject {
         cloned.controlsYOffset = this.controlsYOffset;
         cloned.controlsOpacity = this.controlsOpacity;
         cloned.showVolumeSlider = this.showVolumeSlider;
+        cloned.visible = this.visible;
+        return cloned;
+    }
+}
+
+// ── CaptureObject ────────────────────────────────────────────────────────────
+// A static screenshot of a webpage or region.
+export class CaptureObject extends DrawingObject {
+    constructor(id, x, y, width, height, imageElement, sourceUrl) {
+        super(id, 'capture', x, y);
+        this.width = width;
+        this.height = height;
+        this.image = imageElement;
+        this.sourceUrl = sourceUrl || '';
+        this.aspectRatio = width / height;
+        // Asset hash, set after IDB storage (mirrors ImageObject)
+        this._assetHash = null;
+    }
+
+    getBoundingBox() {
+        return { x: this.x, y: this.y, width: this.width, height: this.height };
+    }
+
+    /**
+     * Returns the screen-space rect of the bottom toolbar for hit-testing.
+     */
+    getToolbarBox(scale) {
+        const s = scale || 1;
+        const barHeight = 40 / s;
+        const pad = 8 / s;
+        return {
+            x: this.x,
+            y: this.y + this.height + pad,
+            width: Math.max(200 / s, this.width),
+            height: barHeight,
+        };
+    }
+
+    resize(handle, mouseX, mouseY, anchorX, anchorY) {
+        const newWidth = Math.abs(mouseX - anchorX);
+        const newHeight = Math.abs(mouseY - anchorY);
+
+        let finalWidth = newWidth;
+        let finalHeight = newWidth / this.aspectRatio;
+
+        if (newHeight * this.aspectRatio > newWidth) {
+            finalHeight = newHeight;
+            finalWidth = newHeight * this.aspectRatio;
+        }
+
+        this.width = Math.max(20, finalWidth);
+        this.height = Math.max(20, finalHeight);
+
+        if (handle === 'nw' || handle === 'sw') this.x = anchorX - this.width;
+        else this.x = anchorX;
+
+        if (handle === 'nw' || handle === 'ne') this.y = anchorY - this.height;
+        else this.y = anchorY;
+    }
+
+    clone() {
+        const cloned = new CaptureObject(this.id, this.x, this.y, this.width, this.height, this.image, this.sourceUrl);
+        cloned._blob = this._blob;
+        cloned.sourceRegion = this.sourceRegion;
+        cloned._assetHash = this._assetHash;
+        cloned.visible = this.visible;
+        return cloned;
+    }
+}
+
+// ── LiveEmbedObject ──────────────────────────────────────────────────────────
+export class LiveEmbedObject extends DrawingObject {
+    constructor(id, x, y, width, height, sourceUrl) {
+        super(id, 'live-embed', x, y);
+        this.width = width;
+        this.height = height;
+        this.sourceUrl = sourceUrl || '';
+        this.aspectRatio = width / height;
+        // The actual iframe element — created lazily by capture-controls.js
+        this._iframeEl = null;
+        this._wrapperEl = null;
+        this._assetHash = null;
+    }
+
+    getBoundingBox() {
+        return { x: this.x, y: this.y, width: this.width, height: this.height };
+    }
+
+    getToolbarBox(scale) {
+        const s = scale || 1;
+        const barHeight = 40 / s;
+        const pad = 8 / s;
+        return {
+            x: this.x,
+            y: this.y + this.height + pad,
+            width: Math.max(200 / s, this.width),
+            height: barHeight,
+        };
+    }
+
+    resize(handle, mouseX, mouseY, anchorX, anchorY) {
+        const newWidth = Math.abs(mouseX - anchorX);
+        const newHeight = Math.abs(mouseY - anchorY);
+
+        let finalWidth = newWidth;
+        let finalHeight = newWidth / this.aspectRatio;
+
+        if (newHeight * this.aspectRatio > newWidth) {
+            finalHeight = newHeight;
+            finalWidth = newHeight * this.aspectRatio;
+        }
+
+        this.width = Math.max(20, finalWidth);
+        this.height = Math.max(20, finalHeight);
+
+        if (handle === 'nw' || handle === 'sw') this.x = anchorX - this.width;
+        else this.x = anchorX;
+
+        if (handle === 'nw' || handle === 'ne') this.y = anchorY - this.height;
+        else this.y = anchorY;
+
+        this._syncIframePosition();
+    }
+
+    move(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+        this._syncIframePosition();
+    }
+
+    _syncIframePosition(scale, offsetX, offsetY) {
+        if (!this._wrapperEl || !this._iframeEl) return;
+        if (scale === undefined) return; 
+        
+        const left = this.x * scale + offsetX;
+        const top = this.y * scale + offsetY;
+        
+        // The wrapper handles position, canvas-scale zooming, and the crop bounding box.
+        this._wrapperEl.style.width = `${this.width}px`;
+        this._wrapperEl.style.height = `${this.height}px`;
+        this._wrapperEl.style.transformOrigin = '0 0';
+        this._wrapperEl.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+        this._wrapperEl.style.left = `0px`;
+        this._wrapperEl.style.top = `0px`;
+
+        // sourceRegion.left/top are page-absolute CSS pixel offsets (scroll + viewport pos).
+        // The iframe element is shifted negatively inside overflow:hidden so the wrapper
+        // viewport coincides with the exact region that was originally captured.
+        const scrollX = Math.max(0, this.sourceRegion?.left || 0);
+        const scrollY = Math.max(0, this.sourceRegion?.top || 0);
+
+        if (!this._dbgLogged) {
+            this._dbgLogged = true;
+            console.error(`[ZenBoard] _syncIframePosition: sourceRegion=`, JSON.stringify(this.sourceRegion), `scrollX=${scrollX} scrollY=${scrollY}`);
+        }
+        
+        // Ensure the iframe is big enough to render the full page down to our crop area.
+        const deskW = Math.max(1920, scrollX + this.width + 200);
+        const deskH = Math.max(2000, scrollY + this.height + 200);
+        
+        this._iframeEl.style.width = `${deskW}px`;
+        this._iframeEl.style.height = `${deskH}px`;
+        
+        // Negative offset via transform: shift the iframe element so the wrapper's 
+        // overflow:hidden clips to show exactly the captured (scrollX, scrollY) region.
+        this._iframeEl.style.transform = `translate(${-scrollX}px, ${-scrollY}px)`;
+        this._iframeEl.style.left = `0px`;
+        this._iframeEl.style.top = `0px`;
+    }
+
+
+
+    destroy() {
+        if (this._iframeEl) {
+            this._iframeEl.remove();
+            this._iframeEl = null;
+        }
+        if (this._wrapperEl) {
+            this._wrapperEl.remove();
+            this._wrapperEl = null;
+        }
+    }
+
+    clone() {
+        const cloned = new LiveEmbedObject(this.id, this.x, this.y, this.width, this.height, this.sourceUrl);
+        cloned.sourceRegion = this.sourceRegion;
+        cloned._assetHash = this._assetHash;
         cloned.visible = this.visible;
         return cloned;
     }

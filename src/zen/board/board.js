@@ -6,10 +6,11 @@ import { getState, setState } from './modules/state.js';
 import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor } from './modules/ui.js';
 import { findObjectAt } from './modules/interactions.js';
 import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.js';
-import { ImageObject, VideoObject } from './modules/media.js';
+import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modules/media.js';
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
 import { pushHistory, undo, redo } from './modules/history.js';
 import { hideVideoControls } from './modules/video-controls.js';
+import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected } from './modules/capture-controls.js';
 
 // DOM Elements
 const zoomInBtn = document.getElementById('zoom-in-btn');
@@ -43,7 +44,7 @@ function applyTransparency(isTransparent) {
   // We use a slight opacity instead of fully transparent for readability,
   // or a solid color if transparency is turned off.
   if (isTransparent) {
-    canvasEl.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    canvasEl.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
     document.body.style.backgroundColor = 'transparent';
   } else {
     canvasEl.style.backgroundColor = '#ffffff'; // White solid background
@@ -262,7 +263,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   resizeCanvas();
 
   // ── Load or create the board ──────────────────────────────────
-  const classes = { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject };
+  const classes = { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject, CaptureObject, LiveEmbedObject };
   let boardId = null;
   try {
     boardId = await ensureBoardId();
@@ -272,7 +273,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (saved) {
       // Populate scene with hydrated objects
       scene.length = 0;
-      saved.scene.forEach(obj => scene.push(obj));
+      saved.scene.forEach(obj => {
+        scene.push(obj);
+        if (obj.type === 'live-embed') {
+          ensureIframeInjected(obj);
+        }
+      });
       setState({ boardTitle: saved.title, isTransparent: saved.isTransparent });
       document.title = saved.title;
 
@@ -343,6 +349,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     redrawCanvas();
   });
 
+  // Custom event fired by the board picker popup when a new capture is added to
+  // this board while a tab is already open — reload the scene to pick it up.
+  window.addEventListener('ZenBoardCaptureAdded', async (e) => {
+    if (e.detail?.boardId !== getState().boardId) return;
+    try {
+      const saved = await loadBoard(getState().boardId, classes);
+      if (saved) {
+        scene.length = 0;
+        saved.scene.forEach(obj => scene.push(obj));
+        redrawCanvas();
+      }
+    } catch (err) {
+      console.error('ZenBoard: Failed to reload scene after capture added', err);
+    }
+  });
+
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
     e.preventDefault();
@@ -411,6 +433,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ── Cleanup on tab close ─────────────────────────────────────
   window.addEventListener('pagehide', () => {
     revokeAllObjectURLs();
+    // Destroy any live embed iframes to avoid memory leaks
+    scene.forEach(obj => {
+      if (typeof obj.destroy === 'function') obj.destroy();
+    });
     // Flush any pending save immediately
     clearTimeout(_saveTimer);
     const { boardId: id, boardTitle, isTransparent } = getState();

@@ -18,7 +18,7 @@ export function clearHistory() {
 /** Hashes current scene data for deduplication */
 function getSceneHash() {
   return JSON.stringify(scene.map(obj => {
-    return { ...obj, type: obj.type, image: undefined, video: undefined, _blob: undefined, _cachedPath2D: undefined };
+    return { ...obj, type: obj.type, image: undefined, video: undefined, _blob: undefined, _cachedPath2D: undefined, _iframeEl: undefined };
   }));
 }
 

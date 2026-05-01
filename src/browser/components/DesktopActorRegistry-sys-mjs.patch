@@ -1,0 +1,12 @@
+﻿diff --git a/browser/components/DesktopActorRegistry.sys.mjs b/browser/components/DesktopActorRegistry.sys.mjs
+index a5e4b3d3f3..38fd123daa 100644
+--- a/browser/components/DesktopActorRegistry.sys.mjs
++++ b/browser/components/DesktopActorRegistry.sys.mjs
+@@ -686,6 +686,7 @@ let JSWINDOWACTORS = {
+         "Screenshots:Close": {},
+         "Screenshots:Copy": {},
+         "Screenshots:Download": {},
++        "Screenshots:ZenAddToBoard": {},
+         "Screenshots:HidePanel": {},
+         "Screenshots:OverlaySelection": {},
+         "Screenshots:RecordEvent": {},

@@ -97,6 +97,8 @@ const drawingFunctions = {
   text: drawText,
   image: drawImage,
   video: drawVideo,
+  capture: drawCapture,
+  'live-embed': drawLiveEmbedPlaceholder,
 };
 
 function drawImage(context, object) {
@@ -129,6 +131,71 @@ function drawImage(context, object) {
     context.fillStyle = '#f0f0f0';
     context.fillRect(object.x, object.y, object.width, object.height);
   }
+  context.restore();
+}
+
+function drawCapture(context, object) {
+  // Identical to drawImage but uses the 'capture' type.
+  // The controls toolbar is rendered by capture-controls.js as a DOM overlay.
+  const { selectedObjectId, isDraggingObject } = getState();
+  const isSelected = selectedObjectId === object.id;
+  const isDragging = isSelected && isDraggingObject;
+
+  context.save();
+  if (isDragging) context.globalAlpha = 0.5;
+
+  const radius = 8;
+  context.beginPath();
+  context.moveTo(object.x + radius, object.y);
+  context.lineTo(object.x + object.width - radius, object.y);
+  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
+  context.lineTo(object.x + object.width, object.y + object.height - radius);
+  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
+  context.lineTo(object.x + radius, object.y + object.height);
+  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
+  context.lineTo(object.x, object.y + radius);
+  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
+  context.closePath();
+  context.clip();
+
+  if (object.image && object.image.complete) {
+    context.drawImage(object.image, object.x, object.y, object.width, object.height);
+  } else {
+    context.fillStyle = '#1a1a2e';
+    context.fillRect(object.x, object.y, object.width, object.height);
+  }
+  context.restore();
+}
+
+function drawLiveEmbedPlaceholder(context, object) {
+  // When deselected, draw the static screenshot as the placeholder so the
+  // object remains visible on the canvas. The live browser overlay is only
+  // shown when the object is selected (wrapper visibility:visible).
+  context.save();
+
+  const radius = 8;
+  context.beginPath();
+  context.moveTo(object.x + radius, object.y);
+  context.lineTo(object.x + object.width - radius, object.y);
+  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
+  context.lineTo(object.x + object.width, object.y + object.height - radius);
+  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
+  context.lineTo(object.x + radius, object.y + object.height);
+  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
+  context.lineTo(object.x, object.y + radius);
+  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
+  context.closePath();
+  context.clip();
+
+  if (object._placeholderImage && object._placeholderImage.complete && object._placeholderImage.naturalWidth > 0) {
+    // Draw the static screenshot as the canvas stand-in
+    context.drawImage(object._placeholderImage, object.x, object.y, object.width, object.height);
+  } else {
+    // Fallback: dark placeholder until image is ready
+    context.fillStyle = '#1a1a2e';
+    context.fill();
+  }
+
   context.restore();
 }
 

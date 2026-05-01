@@ -7,6 +7,7 @@ import { redrawCanvas } from '../canvas.js';
 import { deactivateTextEditor, activateTextEditor, updateTextEditorPosition } from '../ui.js';
 import { findObjectAt } from '../interactions.js';
 import { showVideoControls, hideVideoControls, updateVideoControlsPosition } from '../video-controls.js';
+import { showCaptureControls, hideCaptureControls, updateCaptureControlsPosition } from '../capture-controls.js';
 
 export const select = {
   onMouseDown(e) {
@@ -22,7 +23,8 @@ export const select = {
     // Check for resize handles if an object is selected
     if (selectedObjectId) {
       const obj = scene.find(o => o.id === selectedObjectId);
-      if (obj && obj.type !== 'text') {
+      // Resize is not supported for live-embed objects (the iframe handles interaction)
+      if (obj && obj.type !== 'text' && obj.type !== 'live-embed') {
         const box = obj.getBoundingBox(ctx);
         const handleSize = 12 / scale; // Slightly larger hit area than visual size
         const corners = {
@@ -79,8 +81,13 @@ export const select = {
       // Handle Video Controls
       if (hitObject.type === 'video') {
         showVideoControls(hitObject);
+        hideCaptureControls();
+      } else if (hitObject.type === 'capture' || hitObject.type === 'live-embed') {
+        showCaptureControls(hitObject);
+        hideVideoControls();
       } else {
         hideVideoControls();
+        hideCaptureControls();
       }
     } else {
       // B) Clicked on empty space. Deselect everything and start panning.
@@ -88,6 +95,7 @@ export const select = {
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
       canvas.style.cursor = 'grabbing';
       hideVideoControls();
+      hideCaptureControls();
     }
     redrawCanvas();
   },
@@ -107,6 +115,7 @@ export const select = {
           updateTextEditorPosition();
         }
         updateVideoControlsPosition();
+        updateCaptureControlsPosition();
         redrawCanvas();
       }
     } else if (isDraggingObject) {
@@ -122,6 +131,7 @@ export const select = {
           updateTextEditorPosition();
         }
         updateVideoControlsPosition();
+        updateCaptureControlsPosition();
         redrawCanvas();
       }
     } else if (isPanning) {
@@ -131,6 +141,7 @@ export const select = {
       setTransform(scale, offsetX + dx, offsetY + dy);
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
       updateVideoControlsPosition();
+      updateCaptureControlsPosition();
       redrawCanvas();
     } else {
       // If not dragging or panning, change cursor on hover.
@@ -145,7 +156,8 @@ export const select = {
             // Pass
           }
 
-          if (obj.type !== 'text') {
+          // No resize handles for live-embed objects
+          if (obj.type !== 'text' && obj.type !== 'live-embed') {
             const box = obj.getBoundingBox(ctx);
             const handleSize = 12 / scale;
             const corners = {
@@ -176,6 +188,7 @@ export const select = {
   onMouseUp() {
     setState({ isPanning: false, isDraggingObject: false, isResizingObject: false, resizeHandle: null });
     updateVideoControlsPosition();
+    updateCaptureControlsPosition();
     // The cursor will be updated by the next mousemove event.
   },
 };

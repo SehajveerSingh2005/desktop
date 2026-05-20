@@ -2,7 +2,7 @@ diff --git a/browser/actors/ScreenshotsComponentChild.sys.mjs b/browser/actors/S
 index bee089ad4d..88680ca112 100644
 --- a/browser/actors/ScreenshotsComponentChild.sys.mjs
 +++ b/browser/actors/ScreenshotsComponentChild.sys.mjs
-@@ -141,8 +141,26 @@ export class ScreenshotsComponentChild extends JSWindowActorChild {
+@@ -141,6 +141,9 @@ export class ScreenshotsComponentChild extends JSWindowActorChild {
        case "Screenshots:Download":
          this.requestDownloadScreenshot(event.detail.region);
          break;
@@ -12,7 +12,9 @@ index bee089ad4d..88680ca112 100644
        case "Screenshots:OverlaySelection": {
          let { hasSelection, overlayState } = event.detail;
          this.sendOverlaySelection({ hasSelection, overlayState });
-@@ -199,6 +217,17 @@ export class ScreenshotsComponentChild extends JSWindowActorChild {
+@@ -195,8 +198,20 @@ export class ScreenshotsComponentChild extends JSWindowActorChild {
+       region,
+     });
      this.endScreenshotsOverlay({ doNotResetMethods: true });
    }
  

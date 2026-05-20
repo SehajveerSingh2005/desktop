@@ -1,4 +1,4 @@
-﻿diff --git a/browser/components/screenshots/overlay/overlay.css b/browser/components/screenshots/overlay/overlay.css
+diff --git a/browser/components/screenshots/overlay/overlay.css b/browser/components/screenshots/overlay/overlay.css
 index 94d87522bf..b28576b913 100644
 --- a/browser/components/screenshots/overlay/overlay.css
 +++ b/browser/components/screenshots/overlay/overlay.css

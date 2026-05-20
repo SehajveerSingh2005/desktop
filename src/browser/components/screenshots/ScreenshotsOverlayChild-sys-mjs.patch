@@ -1,5 +1,5 @@
 diff --git a/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs b/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs
-index b8ecde00b4..802aa077e7 100644
+index b8ecde00b4..e356c5d6aa 100644
 --- a/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs
 +++ b/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs
 @@ -171,6 +171,7 @@ export class ScreenshotsOverlay {
@@ -10,7 +10,7 @@ index b8ecde00b4..802aa077e7 100644
              </div>
            </div>
          </div>
-@@ -416,9 +417,29 @@ export class ScreenshotsOverlay {
+@@ -416,9 +417,54 @@ export class ScreenshotsOverlay {
        case "download":
          this.downloadSelectedRegion();
          break;
@@ -34,7 +34,7 @@ index b8ecde00b4..802aa077e7 100644
 +    let scrollY = 0;
 +    const anchor = doc.createElement("div");
 +    anchor.style.cssText = "position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none;visibility:hidden;";
-+    doc.body.appendChild(anchor);
++    doc.documentElement.appendChild(anchor);
 +    const anchorRect = anchor.getBoundingClientRect();
 +    scrollX = -anchorRect.left;
 +    scrollY = -anchorRect.top;
@@ -51,9 +51,13 @@ index b8ecde00b4..802aa077e7 100644
 +      region: {
 +        left: absoluteLeft,
 +        top: absoluteTop,
++        right: absoluteLeft + rect.width,
++        bottom: absoluteTop + rect.height,
 +        width: rect.width,
 +        height: rect.height,
 +        devicePixelRatio: win.devicePixelRatio,
++        viewportWidth: win.innerWidth,
++        viewportHeight: win.innerHeight,
 +      },
 +    });
 +  }

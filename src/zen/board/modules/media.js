@@ -281,40 +281,45 @@ export class LiveEmbedObject extends DrawingObject {
 
     _syncIframePosition(scale, offsetX, offsetY) {
         if (!this._wrapperEl || !this._iframeEl) return;
-        if (scale === undefined) return; 
-        
+        if (scale === undefined) return;
+
         const left = this.x * scale + offsetX;
         const top = this.y * scale + offsetY;
-        
-        // The wrapper handles position, canvas-scale zooming, and the crop bounding box.
+
+        // The wrapper handles position, canvas-scale zooming, and the crop bounding box (overflow: hidden).
         this._wrapperEl.style.width = `${this.width}px`;
         this._wrapperEl.style.height = `${this.height}px`;
         this._wrapperEl.style.transformOrigin = '0 0';
         this._wrapperEl.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
         this._wrapperEl.style.left = `0px`;
         this._wrapperEl.style.top = `0px`;
+        this._wrapperEl.style.overflow = 'hidden';
 
-        // sourceRegion.left/top are page-absolute CSS pixel offsets (scroll + viewport pos).
-        // The iframe element is shifted negatively inside overflow:hidden so the wrapper
-        // viewport coincides with the exact region that was originally captured.
+        // Restoring original layout viewport width.
+        // Fallback to a standard desktop width (1280px) if not provided.
+        const viewportW = Math.max(800, this.sourceRegion?.viewportWidth || 1280);
+
+        // Ensure scroll offsets are positive.
         const scrollX = Math.max(0, this.sourceRegion?.left || 0);
         const scrollY = Math.max(0, this.sourceRegion?.top || 0);
 
-        if (!this._dbgLogged) {
-            this._dbgLogged = true;
-            console.error(`[ZenBoard] _syncIframePosition: sourceRegion=`, JSON.stringify(this.sourceRegion), `scrollX=${scrollX} scrollY=${scrollY}`);
-        }
+        const origW = this.sourceRegion?.width || this.width;
+        const origH = this.sourceRegion?.height || this.height;
+
+        // Scale factor to map the original capture size to the resized size
+        const s_content = this.width / origW;
+
+        // The browser element's height is set large enough to contain the captured area.
+        const iframeH = Math.max(1000, scrollY + origH + 500);
+
+        // Position the browser element inside the overflow:hidden wrapper.
+        // It is sized to viewportW wide, so the page renders at its original layout width.
+        this._iframeEl.style.width = `${viewportW}px`;
+        this._iframeEl.style.height = `${iframeH}px`;
         
-        // Ensure the iframe is big enough to render the full page down to our crop area.
-        const deskW = Math.max(1920, scrollX + this.width + 200);
-        const deskH = Math.max(2000, scrollY + this.height + 200);
-        
-        this._iframeEl.style.width = `${deskW}px`;
-        this._iframeEl.style.height = `${deskH}px`;
-        
-        // Negative offset via transform: shift the iframe element so the wrapper's 
-        // overflow:hidden clips to show exactly the captured (scrollX, scrollY) region.
-        this._iframeEl.style.transform = `translate(${-scrollX}px, ${-scrollY}px)`;
+        // Shift it negatively and scale it to fit the current object bounds.
+        this._iframeEl.style.transformOrigin = '0 0';
+        this._iframeEl.style.transform = `scale(${s_content}) translate(${-scrollX}px, ${-scrollY}px)`;
         this._iframeEl.style.left = `0px`;
         this._iframeEl.style.top = `0px`;
     }

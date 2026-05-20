@@ -222,6 +222,7 @@ async function convertToStaticCapture(liveEmbedObj) {
       img, liveEmbedObj.sourceUrl
     );
     captureObj._assetHash = liveEmbedObj._assetHash;
+    captureObj.sourceRegion = liveEmbedObj.sourceRegion;
 
     // Destroy iframe and replace in scene
     if (liveEmbedObj.destroy) liveEmbedObj.destroy();
@@ -259,7 +260,8 @@ export function ensureIframeInjected(liveEmbedObj) {
   wrapper.style.overflow = 'hidden';
   wrapper.style.borderRadius = '8px';
   wrapper.style.zIndex = '500';
-  wrapper.style.visibility = 'hidden';
+  wrapper.style.visibility = 'visible';
+  wrapper.style.pointerEvents = 'none';
 
   const iframe = chromeDoc.createXULElement('browser');
   iframe.setAttribute('type', 'content');
@@ -321,26 +323,26 @@ export function ensureIframeInjected(liveEmbedObj) {
       console.error("[ZenBoard] loadURI failed:", e);
     }
     
-    // Inject a frame script to hide the page's own scrollbars.
-    // NOTE: Visual cropping (showing the correct region) is handled purely by
-    // the CSS negative offset in _syncIframePosition — the iframe element is
-    // shifted by (-scrollX, -scrollY) inside the overflow:hidden wrapper so the
-    // wrapper's viewport coincides with the captured region of the full-page render.
-    // We must NOT also scroll the in-page content, as that would double-shift and
-    // always show the top of the page.
+    // Inject a frame script that:
+    // 1. Hides the page's own scrollbars (since the embed is not meant to be user-scrollable)
+    // 2. After page load, forces scroll to (0,0) so our negative translate mapping is always aligned with the page origin.
     if (iframe.messageManager) {
       const script = `data:application/javascript,` + encodeURIComponent(`
-        function hideScrollbars() {
-          if (content && content.document && content.document.documentElement) {
+        (function() {
+          function setup() {
+            if (!content || !content.document || !content.document.documentElement) return;
+            // Hide scrollbars
             content.document.documentElement.style.overflow = 'hidden';
             content.document.documentElement.style.scrollbarWidth = 'none';
+            // Scroll to the top-left origin
+            content.scrollTo(0, 0);
           }
-        }
-        try {
-          addEventListener("DOMContentLoaded", hideScrollbars);
-          addEventListener("load", hideScrollbars);
-          hideScrollbars();
-        } catch(e) {}
+          try {
+            addEventListener("DOMContentLoaded", setup);
+            addEventListener("load", setup);
+            setup();
+          } catch(e) {}
+        })();
       `);
       try {
         iframe.messageManager.loadFrameScript(script, true);
@@ -415,11 +417,9 @@ export function hideCaptureControls() {
     animationFrameId = null;
   }
   if (currentObject && currentObject.type === 'live-embed' && currentObject._wrapperEl) {
-    // Hide the wrapper (not the iframe) so the canvas placeholder is visible
-    // when the object is deselected. The Fission frameLoader stays alive.
-    // The global sync loop continues to track position while invisible.
+    // Disable interaction so the user can drag/select it again, but keep it visible.
     currentObject._wrapperEl.style.pointerEvents = 'none';
-    currentObject._wrapperEl.style.visibility = 'hidden';
+    currentObject._wrapperEl.style.visibility = 'visible';
   }
   currentObject = null;
 }
@@ -427,7 +427,7 @@ export function hideCaptureControls() {
 export function updateCaptureControlsPosition() {
   if (!currentObject || !overlayContainer) return;
 
-  const { scale, offsetX, offsetY, isDraggingObject } = getState();
+  const { scale, offsetX, offsetY, isDraggingObject, isResizingObject } = getState();
   const obj = currentObject;
 
   // Sync the iframe (if live embed) to current transform
@@ -444,7 +444,7 @@ export function updateCaptureControlsPosition() {
   overlayContainer.style.transform = `translate(${screenX}px, ${screenY + screenH + pad}px)`;
   overlayContainer.style.width = `${screenW}px`;
 
-  if (isDraggingObject) {
+  if (isDraggingObject || isResizingObject) {
     overlayContainer.style.opacity = '0';
     overlayContainer.style.pointerEvents = 'none';
     if (obj.type === 'live-embed' && obj._wrapperEl) {

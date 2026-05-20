@@ -23,8 +23,7 @@ export const select = {
     // Check for resize handles if an object is selected
     if (selectedObjectId) {
       const obj = scene.find(o => o.id === selectedObjectId);
-      // Resize is not supported for live-embed objects (the iframe handles interaction)
-      if (obj && obj.type !== 'text' && obj.type !== 'live-embed') {
+      if (obj && obj.type !== 'text') {
         const box = obj.getBoundingBox(ctx);
         const handleSize = 12 / scale; // Slightly larger hit area than visual size
         const corners = {
@@ -156,8 +155,7 @@ export const select = {
             // Pass
           }
 
-          // No resize handles for live-embed objects
-          if (obj.type !== 'text' && obj.type !== 'live-embed') {
+          if (obj.type !== 'text') {
             const box = obj.getBoundingBox(ctx);
             const handleSize = 12 / scale;
             const corners = {

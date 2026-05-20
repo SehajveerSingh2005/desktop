@@ -88,15 +88,51 @@ async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, 
     try {
         const db = await openDB(chromeWindow);
         const hash = await storeAsset(db, blob);
+
+        const gb = chromeWindow.gBrowser;
+        const existingTab = gb ? Array.from(gb.tabs).find(t => {
+            try { return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`); } catch { return false; }
+        }) : null;
+
+        let spawnX = 0;
+        let spawnY = 0;
+        if (existingTab && existingTab.linkedBrowser?.contentWindow) {
+            const win = existingTab.linkedBrowser.contentWindow;
+            try {
+                if (win.getTransformedPoint && win.getState) {
+                    const { x, y } = win.getTransformedPoint(win.innerWidth / 2, win.innerHeight / 2);
+                    spawnX = x;
+                    spawnY = y;
+                } else {
+                    spawnX = win.innerWidth / 2;
+                    spawnY = win.innerHeight / 2;
+                }
+            } catch (e) {
+                spawnX = (win.innerWidth || 1280) / 2;
+                spawnY = (win.innerHeight || 800) / 2;
+            }
+        } else {
+            spawnX = (chromeWindow.innerWidth || 1280) / 2;
+            spawnY = (chromeWindow.innerHeight || 800) / 2;
+        }
+
         const captureObj = {
             type: "capture",
             id: crypto.randomUUID(),
-            x: -(region?.width || 800) / 2,
-            y: -(region?.height || 600) / 2,
+            x: spawnX - (region?.width || 800) / 2,
+            y: spawnY - (region?.height || 600) / 2,
             width: region?.width || 800,
             height: region?.height || 600,
             sourceUrl: sourceUrl,
-            sourceRegion: region ? { left: region.left || 0, top: region.top || 0, width: region.width, height: region.height, devicePixelRatio: region.devicePixelRatio || 1 } : null,
+            sourceRegion: region ? {
+                left: region.left || 0,
+                top: region.top || 0,
+                width: region.width,
+                height: region.height,
+                devicePixelRatio: region.devicePixelRatio || 1,
+                viewportWidth: region.viewportWidth || 0,
+                viewportHeight: region.viewportHeight || 0
+            } : null,
             _assetHash: hash,
         };
         console.error("ZenBoard: Saving capture with sourceRegion:", captureObj.sourceRegion);
@@ -107,12 +143,7 @@ async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, 
 
         // Open or notify the tab
         const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
-        const gb = chromeWindow.gBrowser;
         if (!gb) return;
-
-        const existingTab = Array.from(gb.tabs).find(t => {
-            try { return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`); } catch { return false; }
-        });
 
         if (existingTab) {
             gb.selectedTab = existingTab;

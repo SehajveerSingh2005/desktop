@@ -12,6 +12,9 @@ import { pushHistory, undo, redo } from './modules/history.js';
 import { hideVideoControls } from './modules/video-controls.js';
 import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected } from './modules/capture-controls.js';
 
+window.getState = getState;
+window.getTransformedPoint = getTransformedPoint;
+
 // DOM Elements
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomOutBtn = document.getElementById('zoom-out-btn');

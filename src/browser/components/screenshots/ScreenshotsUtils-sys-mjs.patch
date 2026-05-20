@@ -1,5 +1,5 @@
 diff --git a/browser/components/screenshots/ScreenshotsUtils.sys.mjs b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
-index 1bc188fa55..eb56ebf0cf 100644
+index 1bc188fa55..f5aa031f21 100644
 --- a/browser/components/screenshots/ScreenshotsUtils.sys.mjs
 +++ b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
 @@ -96,6 +96,13 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
@@ -7,8 +7,8 @@ index 1bc188fa55..eb56ebf0cf 100644
          ScreenshotsUtils.exit(browser);
          break;
 +      case "Screenshots:ZenAddToBoard": {
++        Services.console.logStringMessage("ZenBoard: Received Screenshots:ZenAddToBoard message!");
 +        const { region, anchor } = message.data;
-+        Services.console.logStringMessage("ZenBoard: Received ZenAddToBoard! anchor=" + JSON.stringify(anchor) + " region=" + JSON.stringify(region));
 +        await ScreenshotsUtils.zenSendCaptureToBoard(region, anchor, browser);
 +        ScreenshotsUtils.exit(browser);
 +        break;
@@ -26,18 +26,13 @@ index 1bc188fa55..eb56ebf0cf 100644
      if (perBrowserState?.previewDialog) {
        perBrowserState.previewDialog.close();
        return true;
-@@ -908,6 +918,32 @@ export var ScreenshotsUtils = {
+@@ -908,6 +918,45 @@ export var ScreenshotsUtils = {
      return false;
    },
  
 +  /**
 +   * Capture a region and send the blob to the board picker.
 +   * Dispatches a ZenBoard:CaptureReady event to the chrome window.
-+   *
-+   * region.left/top from ScreenshotsOverlayChild are viewport-relative CSS pixels.
-+   * We add browser.contentWindow.scrollX/Y to produce page-absolute CSS pixel
-+   * coordinates so that the live embed can shift its iframe element to show the
-+   * exact region that was captured.
 +   */
 +  async zenSendCaptureToBoard(region, anchor, browser) {
 +    try {
@@ -56,12 +51,13 @@ index 1bc188fa55..eb56ebf0cf 100644
 +          blob,
 +          sourceUrl,
 +          region: {
-+            // Use the absolute coordinates provided by the child directly.
 +            left: region.left || 0,
 +            top: region.top || 0,
 +            width: region.width,
 +            height: region.height,
-+            devicePixelRatio: 1, // Already in CSS pixels
++            devicePixelRatio: region.devicePixelRatio || 1,
++            viewportWidth: region.viewportWidth || 0,
++            viewportHeight: region.viewportHeight || 0,
 +          },
 +          anchor,
 +        },

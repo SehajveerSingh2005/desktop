@@ -553,16 +553,15 @@ class KeyShortcut {
     };
   }
 
-  toDisplayString() {
-    let str = this.#modifiers.toDisplayString();
-
-    if (this.#key) {
-      str += this.#key.toUpperCase();
-    } else if (this.#keycode) {
+  static keyToDisplayString(key, keycode) {
+    let str = "";
+    if (key) {
+      str += key.toUpperCase();
+    } else if (keycode) {
       // Get the key from the value
-      for (let [key, value] of Object.entries(KEYCODE_MAP)) {
-        if (value == this.#keycode) {
-          const normalizedKey = key.toLowerCase();
+      for (let [k, value] of Object.entries(KEYCODE_MAP)) {
+        if (value == keycode) {
+          const normalizedKey = k.toLowerCase();
           switch (normalizedKey) {
             case "arrowleft":
               str += "←";
@@ -591,9 +590,17 @@ class KeyShortcut {
           break;
         }
       }
-    } else {
+    }
+    return str;
+  }
+
+  toDisplayString() {
+    if (!this.#key && !this.#keycode) {
       return "";
     }
+
+    let str = this.#modifiers.toDisplayString();
+    str += KeyShortcut.keyToDisplayString(this.#key, this.#keycode);
     return str;
   }
 
@@ -832,7 +839,7 @@ class nsZenKeyboardShortcutsLoader {
 }
 
 class nsZenKeyboardShortcutsVersioner {
-  static LATEST_KBS_VERSION = 16;
+  static LATEST_KBS_VERSION = 18;
 
   constructor() {}
 
@@ -1196,6 +1203,38 @@ class nsZenKeyboardShortcutsVersioner {
       }
     }
 
+    if (version < 17) {
+      // Migrate from version 16 to 17.
+      // Add shortcut to Duplicate Tab
+      data.push(
+        new KeyShortcut(
+          "zen-duplicate-tab",
+          "",
+          "",
+          "windowAndTabManagement",
+          nsKeyShortcutModifiers.fromObject({}),
+          "cmd_zenDuplicateTab",
+          "zen-duplicate-tab-shortcut"
+        )
+      );
+    }
+
+    if (version < 18) {
+      // Migrate from version 17 to 18.
+      // Add shortcut to Create New Workspace (unbound by default)
+      data.push(
+        new KeyShortcut(
+          "zen-workspace-create",
+          "",
+          "",
+          ZEN_WORKSPACE_SHORTCUTS_GROUP,
+          nsKeyShortcutModifiers.fromObject({}),
+          "cmd_zenOpenWorkspaceCreation",
+          "zen-workspace-shortcut-create"
+        )
+      );
+    }
+
     return data;
   }
 }
@@ -1508,5 +1547,23 @@ window.gZenKeyboardShortcutsManager = {
       return shortcut.toDisplayString();
     }
     return null;
+  },
+
+  getKeyDisplay(shortcut) {
+    if (shortcut == "") {
+      return "";
+    }
+
+    let key = shortcut;
+    let keycode = "";
+    for (let kc of Object.keys(KEYCODE_MAP)) {
+      if (kc == shortcut.toUpperCase()) {
+        keycode = KEYCODE_MAP[kc];
+        key = "";
+        break;
+      }
+    }
+
+    return KeyShortcut.keyToDisplayString(key, keycode);
   },
 };

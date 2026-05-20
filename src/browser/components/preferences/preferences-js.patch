@@ -1,5 +1,5 @@
 diff --git a/browser/components/preferences/preferences.js b/browser/components/preferences/preferences.js
-index 7a279d4655523156ff259c9f6bcb2a0def9d1749..de71cec7693d1fe3bf34017ab76027b83631830a 100644
+index 9d13733318e7a147adee1e44f96570c94f4948df..fb625d8da021dc0cebd7a14ca47446a0632e8e7a 100644
 --- a/browser/components/preferences/preferences.js
 +++ b/browser/components/preferences/preferences.js
 @@ -121,6 +121,7 @@ ChromeUtils.defineLazyGetter(this, "gSubDialog", function () {
@@ -10,7 +10,7 @@ index 7a279d4655523156ff259c9f6bcb2a0def9d1749..de71cec7693d1fe3bf34017ab76027b8
        ],
        resizeCallback: async ({ title, frame }) => {
          // Search within main document and highlight matched keyword.
-@@ -350,6 +351,10 @@ function init_all() {
+@@ -398,6 +399,10 @@ function init_all() {
    register_module("paneSearch", gSearchPane);
    register_module("panePrivacy", gPrivacyPane);
    register_module("paneContainers", gContainersPane);
@@ -19,5 +19,5 @@ index 7a279d4655523156ff259c9f6bcb2a0def9d1749..de71cec7693d1fe3bf34017ab76027b8
 +  register_module("paneZenCKS", gZenCKSSettings);
 +  register_module("paneZenMarketplace", gZenMarketplaceManager);
  
-   for (let [id, config] of Object.entries(CONFIG_PANES)) {
-     SettingPaneManager.registerPane(id, config);
+   if (ExperimentAPI.labsEnabled) {
+     // Set hidden based on previous load's hidden value or if Nimbus is

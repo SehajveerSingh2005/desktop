@@ -1,8 +1,8 @@
 diff --git a/browser/components/extensions/parent/ext-tabs.js b/browser/components/extensions/parent/ext-tabs.js
-index 7e32fc3f3c325b7317533acf5142bb912556fdbe..04bbe6bece881a05d2eadf81411bd4df2b745017 100644
+index 636e0f8cd1d489658833cf101152576e9fdb52af..e7578a059504b89a852061be037c323a107fe5ce 100644
 --- a/browser/components/extensions/parent/ext-tabs.js
 +++ b/browser/components/extensions/parent/ext-tabs.js
-@@ -501,6 +501,7 @@ this.tabs = class extends ExtensionAPIPersistent {
+@@ -514,6 +514,7 @@ this.tabs = class extends ExtensionAPIPersistent {
          }
  
          let tab = tabManager.getWrapper(updatedTab);
@@ -10,7 +10,7 @@ index 7e32fc3f3c325b7317533acf5142bb912556fdbe..04bbe6bece881a05d2eadf81411bd4df
  
          let changeInfo = {};
          for (let prop of needed) {
-@@ -855,6 +856,7 @@ this.tabs = class extends ExtensionAPIPersistent {
+@@ -883,6 +884,7 @@ this.tabs = class extends ExtensionAPIPersistent {
                });
              }
  

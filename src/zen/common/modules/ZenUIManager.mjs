@@ -76,6 +76,10 @@ window.gZenUIManager = {
     this._initBookmarkCollapseListener();
 
     gURLBar._setPlaceholder(null);
+
+    document
+      .getElementById("PersonalToolbar")
+      .setAttribute("fullscreentoolbar", "true");
   },
 
   /**
@@ -97,10 +101,12 @@ window.gZenUIManager = {
     ) {
       const yValues = rawKeyframes.y || [];
       const xValues = rawKeyframes.x || [];
-      const scaleValues = rawKeyframes.scale || [];
+      const scaleYValues = rawKeyframes.scaleY || [];
+      const scaleXValues = rawKeyframes.scaleX || [];
       delete rawKeyframes.y;
       delete rawKeyframes.x;
-      delete rawKeyframes.scale;
+      delete rawKeyframes.scaleY;
+      delete rawKeyframes.scaleX;
       rawKeyframes.transform = [];
       if (
         yValues.length !== 0 &&
@@ -112,14 +118,17 @@ window.gZenUIManager = {
       const keyframeLength = Math.max(
         yValues.length,
         xValues.length,
-        scaleValues.length
+        scaleYValues.length,
+        scaleXValues.length
       );
       for (let i = 0; i < keyframeLength; i++) {
         const y = yValues[i] !== undefined ? `translateY(${yValues[i]}px)` : "";
         const x = xValues[i] !== undefined ? `translateX(${xValues[i]}px)` : "";
-        const scale =
-          scaleValues[i] !== undefined ? `scale(${scaleValues[i]})` : "";
-        rawKeyframes.transform.push(`${x} ${y} ${scale}`.trim());
+        const scaleY =
+          scaleYValues[i] !== undefined ? `scaleY(${scaleYValues[i]})` : "";
+        const scaleX =
+          scaleXValues[i] !== undefined ? `scaleX(${scaleXValues[i]})` : "";
+        rawKeyframes.transform.push(`${x} ${y} ${scaleX} ${scaleY}`.trim());
       }
     }
     let keyframes = [];
@@ -248,14 +257,14 @@ window.gZenUIManager = {
   },
 
   updateTabsToolbar() {
-    const kUrlbarHeight = 335;
+    const kUrlbarHeight = 333;
     gURLBar.style.setProperty(
       "--zen-urlbar-top",
       `${window.innerHeight / 2 - Math.max(kUrlbarHeight, window.windowUtils.getBoundsWithoutFlushing(gURLBar).height) / 2}px`
     );
     gURLBar.style.setProperty(
       "--zen-urlbar-width",
-      `${Math.min(window.innerWidth / 2, 750)}px`
+      `${Math.min(window.innerWidth / 1.5, 750)}px`
     );
     gZenVerticalTabsManager.actualWindowButtons.removeAttribute(
       "zen-has-hover"
@@ -327,7 +336,37 @@ window.gZenUIManager = {
     this._popupTrackingElements.remove(element);
   },
 
+  // On macOS, the app menu panel is displayed as a native NSPopover which
+  // silently clips content beyond the screen without informing Firefox's
+  // layout engine. This makes bottom menu items unreachable by scrolling.
+  // Setting max-height based on available screen space lets Firefox's layout
+  // handle the constraint, enabling proper overflow scrolling.
+  // See gh-12782
+  _constrainNativePopoverHeight(panel) {
+    const panelIds = [
+      "appMenu-popup",
+      "customizationui-widget-panel",
+      "widget-overflow",
+    ];
+    if (!panelIds.includes(panel.id)) {
+      return;
+    }
+    // NSPopover adds 13px of chrome on all sides (26px vertical total),
+    // measured via Accessibility Inspector on macOS 26 (Tahoe).
+    // Previous macOS versions have similar or smaller values, so this is a
+    // conservative upper bound.
+    const popoverChrome = 26;
+    const maxHeight = window.screen.availHeight - popoverChrome;
+    panel.style.maxHeight = `${maxHeight}px`;
+  },
+
   onPopupShowing(showEvent) {
+    if (
+      AppConstants.platform === "macosx" &&
+      Services.prefs.getBoolPref("widget.macos.native-context-menus", false)
+    ) {
+      this._constrainNativePopoverHeight(showEvent.target);
+    }
     for (const el of this._popupTrackingElements) {
       // target may be inside a shadow root, not directly under the element
       // we also ignore menus inside panels
@@ -398,6 +437,9 @@ window.gZenUIManager = {
   },
 
   onUrlbarSearchModeChanged(event) {
+    if (gReduceMotion) {
+      return;
+    }
     const { searchMode } = event.detail;
     const input = gURLBar;
     if (gURLBar.hasAttribute("breakout-extend") && !this._animatingSearchMode) {
@@ -576,7 +618,7 @@ window.gZenUIManager = {
         !this._lastTab.closing &&
         this._lastTab.ownerGlobal &&
         !this._lastTab.ownerGlobal.closed &&
-        !onSwitch
+        gBrowser.selectedTab === this._lastTab
       ) {
         this._lastTab._visuallySelected = true;
         this._lastTab = null;
@@ -656,7 +698,11 @@ window.gZenUIManager = {
       this.urlbarShowDomainOnly
     ) {
       let url = BrowserUIUtils.removeSingleTrailingSlashFromURL(aURL);
-      return url.startsWith("https://") ? url.split("/")[2] : url;
+      let stripped = url.startsWith("https://") ? url.split("/")[2] : url;
+      if (stripped.startsWith("www.")) {
+        stripped = stripped.substring(4);
+      }
+      return stripped;
     }
     return BrowserUIUtils.trimURL(aURL);
   },
@@ -965,7 +1011,7 @@ window.gZenVerticalTabsManager = {
                 command="cmd_zenToggleTabsOnRight"
         />
     `);
-    document.getElementById("viewToolbarsMenuSeparator").before(fragment);
+    document.getElementById("toolbar-context-customize").before(fragment);
   },
 
   get _topButtonsSeparatorElement() {
@@ -980,6 +1026,7 @@ window.gZenVerticalTabsManager = {
 
   animateItemOpen(aItem) {
     if (
+      gReduceMotion ||
       !gZenUIManager.motion ||
       !aItem ||
       !gZenUIManager._hasLoadedDOM ||
@@ -999,7 +1046,8 @@ window.gZenVerticalTabsManager = {
     };
 
     try {
-      const itemSize = aItem.getBoundingClientRect().height;
+      const itemSize =
+        window.windowUtils.getBoundsWithoutFlushing(aItem).height;
       const transform = `-${itemSize}px`;
       gZenUIManager.motion
         .animate(
@@ -1010,7 +1058,7 @@ window.gZenVerticalTabsManager = {
             marginBottom: isLastItem() ? ["0px", "0px"] : [transform, "0px"],
           },
           {
-            duration: 0.075,
+            duration: 0.12,
             easing: "easeOut",
           }
         )
@@ -1033,7 +1081,7 @@ window.gZenVerticalTabsManager = {
             filter: ["blur(1px)", "blur(0px)"],
           },
           {
-            duration: 0.075,
+            duration: 0.1,
             easing: "easeOut",
           }
         )
@@ -1058,7 +1106,7 @@ window.gZenVerticalTabsManager = {
     ) {
       return Promise.resolve();
     }
-    const height = aItem.getBoundingClientRect().height;
+    const height = window.windowUtils.getBoundsWithoutFlushing(aItem).height;
     const visibleItems = gBrowser.tabContainer.ariaFocusableItems;
     const isLastItem = visibleItems[visibleItems.length - 1] === aItem;
     return gZenUIManager.motion.animate(
@@ -1073,7 +1121,7 @@ window.gZenVerticalTabsManager = {
             }),
       },
       {
-        duration: 0.075,
+        duration: 0.1,
         easing: "easeOut",
       }
     );
@@ -1177,6 +1225,9 @@ window.gZenVerticalTabsManager = {
   },
 
   recalculateURLBarHeight(updateFormat = false) {
+    if (gZenWorkspaces._processingResize) {
+      return;
+    }
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         gURLBar.removeAttribute("--urlbar-height");
@@ -1307,8 +1358,9 @@ window.gZenVerticalTabsManager = {
         if (!this._hasSetSingleToolbar) {
           buttonsTarget.append(this._topButtonsSeparatorElement);
         }
+        this._hasSetSingleToolbar = true;
         for (const button of elements) {
-          this._topButtonsSeparatorElement.after(button);
+          this.appendCustomizableItem(this._topButtonsSeparatorElement, button);
         }
         buttonsTarget.prepend(
           document.getElementById("unified-extensions-button")
@@ -1330,7 +1382,6 @@ window.gZenVerticalTabsManager = {
           titlebar.parentNode.moveBefore(navBar, titlebar);
         }
         document.documentElement.setAttribute("zen-single-toolbar", true);
-        this._hasSetSingleToolbar = true;
       } else if (this._hasSetSingleToolbar) {
         this._hasSetSingleToolbar = false;
         // Do the opposite
@@ -1511,16 +1562,36 @@ window.gZenVerticalTabsManager = {
     Services.prefs.setBoolPref("zen.tabs.vertical.right-side", newVal);
   },
 
-  appendCustomizableItem(target, child, placements) {
+  appendCustomizableItem(target, child, placements = []) {
     if (
-      target.id === "zen-sidebar-top-buttons-customization-target" &&
       this._hasSetSingleToolbar &&
-      placements.includes(child.id)
+      (target.id === "zen-sidebar-top-buttons-customization-target" ||
+        target === this._topButtonsSeparatorElement)
     ) {
-      this._topButtonsSeparatorElement.before(child);
-      return;
+      if (placements.includes(child.id)) {
+        this._topButtonsSeparatorElement.before(child);
+        return;
+      } else if (
+        child.hasAttribute("data-extensionid") &&
+        Services.prefs.getBoolPref("zen.view.overflow-webext-toolbar", true)
+      ) {
+        if (gURLBar._isOverflowingItems) {
+          const overflowElements = document.getElementById(
+            "zen-overflow-extensions-list"
+          );
+          overflowElements.appendChild(child);
+        } else {
+          const element = document.getElementById("page-action-buttons");
+          element.before(child);
+        }
+        return;
+      }
     }
-    target.appendChild(child);
+    if (target === this._topButtonsSeparatorElement) {
+      this._topButtonsSeparatorElement.after(child);
+    } else {
+      target.appendChild(child);
+    }
   },
 
   async renameTabKeydown(event) {

@@ -32,7 +32,6 @@ const KEYCODE_MAP = {
   TAB: "VK_TAB",
   ENTER: "VK_RETURN",
   ESCAPE: "VK_ESCAPE",
-  SPACE: "VK_SPACE",
   ARROWLEFT: "VK_LEFT",
   ARROWRIGHT: "VK_RIGHT",
   ARROWUP: "VK_UP",
@@ -43,6 +42,10 @@ const KEYCODE_MAP = {
   NUM_LOCK: "VK_NUMLOCK",
   SCROLL_LOCK: "VK_SCROLL",
 };
+
+const REVERSE_KEYCODE_MAP = Object.fromEntries(
+  Object.entries(KEYCODE_MAP).map(([k, v]) => [v, k])
+);
 
 const defaultKeyboardGroups = {
   windowAndTabManagement: [
@@ -556,7 +559,13 @@ class KeyShortcut {
   static keyToDisplayString(key, keycode) {
     let str = "";
     if (key) {
-      str += key.toUpperCase();
+      switch (key) {
+        case " ":
+          str += AppConstants.platform == "macosx" ? "␣" : "Space";
+          break;
+        default:
+          str += key.toUpperCase();
+      }
     } else if (keycode) {
       // Get the key from the value
       for (let [k, value] of Object.entries(KEYCODE_MAP)) {
@@ -580,9 +589,6 @@ class KeyShortcut {
               break;
             case "enter":
               str += AppConstants.platform == "macosx" ? "↩" : "Enter";
-              break;
-            case "space":
-              str += AppConstants.platform == "macosx" ? "␣" : "Space";
               break;
             default:
               str += normalizedKey;
@@ -1507,9 +1513,11 @@ window.gZenKeyboardShortcutsManager = {
         continue;
       }
 
+      const keyNameOrCode = targetShortcut.getKeyNameOrCode();
+      const key = REVERSE_KEYCODE_MAP[keyNameOrCode] ?? keyNameOrCode;
       if (
         targetShortcut.getModifiers().equals(modifiers) &&
-        targetShortcut.getKeyNameOrCode()?.toLowerCase() == realShortcut
+        key?.toLowerCase() == realShortcut
       ) {
         return {
           hasConflicts: true,

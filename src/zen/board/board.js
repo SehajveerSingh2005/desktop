@@ -192,8 +192,17 @@ function initTitleInput() {
   if (!boardTitleInput) return;
 
   const { boardTitle } = getState();
-  boardTitleInput.value = boardTitle;
-  document.title = boardTitle;
+  let displayTitle = boardTitle;
+  if (boardTitle === 'Untitled Board') {
+    try {
+      const translated = document.l10n.formatValuesSync([{ id: "zen-board-untitled-board" }]);
+      if (translated && translated[0]) {
+        displayTitle = translated[0];
+      }
+    } catch (e) {}
+  }
+  boardTitleInput.value = displayTitle;
+  document.title = displayTitle;
 
   boardTitleInput.addEventListener('input', () => {
     const newTitle = boardTitleInput.value.trim() || 'Untitled Board';
@@ -261,6 +270,9 @@ async function initTheme() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await document.l10n.ready;
+  } catch (e) {}
   initTheme();
   initTools();
   resizeCanvas();
@@ -319,7 +331,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Update title input to reflect loaded title
   if (boardTitleInput) {
-    boardTitleInput.value = getState().boardTitle;
+    const { boardTitle } = getState();
+    let displayTitle = boardTitle;
+    if (boardTitle === 'Untitled Board') {
+      try {
+        const translated = document.l10n.formatValuesSync([{ id: "zen-board-untitled-board" }]);
+        if (translated && translated[0]) {
+          displayTitle = translated[0];
+        }
+      } catch (e) {}
+    }
+    boardTitleInput.value = displayTitle;
   }
 
   // ── Set up event listeners ───────────────────────────────────

@@ -77,17 +77,63 @@ function drawEllipse(context, object) {
 }
 
 function drawText(context, object) {
+  context.save();
   context.fillStyle = object.color;
-  context.font = object.font;
   context.textBaseline = 'top';
 
   const lines = object.text.split('\n');
-  const fontSize = parseFloat(object.font) || 24;
-  const lineHeight = fontSize * 1.2;
+  const baseFontSize = parseFloat(object.font) || 24;
+  const fontFamily = object.font.replace(/^[0-9.]+\s*px\s+/, '') || 'sans-serif';
 
-  lines.forEach((line, i) => {
-    context.fillText(line, object.x, object.y + (i * lineHeight));
+  let currentY = object.y;
+
+  lines.forEach((line) => {
+    let lineFontSize = baseFontSize;
+    let indent = 0;
+    let cleanText = line;
+    let isBullet = false;
+    let isNumbered = false;
+    let numStr = "";
+
+    if (line.startsWith('# ')) {
+      lineFontSize = baseFontSize * 1.8;
+      cleanText = line.substring(2);
+    } else if (line.startsWith('## ')) {
+      lineFontSize = baseFontSize * 1.4;
+      cleanText = line.substring(3);
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      indent = baseFontSize * 1.2;
+      cleanText = line.substring(2);
+      isBullet = true;
+    } else {
+      const numberedMatch = line.match(/^(\d+)\.\s/);
+      if (numberedMatch) {
+        indent = baseFontSize * 1.2;
+        cleanText = line.substring(numberedMatch[0].length);
+        isNumbered = true;
+        numStr = numberedMatch[1] + ".";
+      }
+    }
+
+    context.font = `${lineFontSize}px ${fontFamily}`;
+
+    if (isBullet) {
+      const bulletX = object.x + indent * 0.4;
+      const bulletY = currentY + lineFontSize * 0.45;
+      const radius = lineFontSize * 0.15;
+      context.beginPath();
+      context.arc(bulletX, bulletY, radius, 0, 2 * Math.PI);
+      context.fill();
+    } else if (isNumbered) {
+      const numX = object.x + indent * 0.1;
+      context.fillText(numStr, numX, currentY);
+    }
+
+    context.fillText(cleanText, object.x + indent, currentY);
+    currentY += lineFontSize * 1.2;
   });
+
+  context.restore();
 }
 
 const drawingFunctions = {

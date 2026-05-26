@@ -1,16 +1,32 @@
 diff --git a/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs b/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs
-index b8ecde00b4..e356c5d6aa 100644
+index 7f35341fe05175336bd339b39be1853e4a73b773..30e206d3f7f2c114016ef6c7957c62b046cb7c0e 100644
 --- a/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs
 +++ b/browser/components/screenshots/ScreenshotsOverlayChild.sys.mjs
-@@ -171,6 +171,7 @@ export class ScreenshotsOverlay {
+@@ -91,6 +91,7 @@ export class ScreenshotsOverlay {
+       downloadAttributes,
+       copyAttributes,
+       previewFaceAriaLabel,
++      zenAddToBoardAttributes,
+     ] = lazy.overlayLocalization.formatMessagesSync([
+       { id: "screenshots-cancel-button" },
+       { id: "screenshots-component-cancel-button" },
+@@ -104,6 +105,7 @@ export class ScreenshotsOverlay {
+         args: { shortcut: copyShorcut },
+       },
+       { id: "screenshots-overlay-preview-face-label" },
++      { id: "zen-add-to-board" },
+     ]);
+
+     return `
+@@ -171,6 +173,7 @@ export class ScreenshotsOverlay {
                <button id="cancel" class="screenshots-button" title="${cancelAttributes.attributes[0].value}" aria-label="${cancelAttributes.attributes[1].value}"><img/></button>
                <button id="copy" class="screenshots-button" title="${copyAttributes.attributes[0].value}" aria-label="${copyAttributes.attributes[1].value}"><img/><label>${copyAttributes.value}</label></button>
                <button id="download" class="screenshots-button primary" title="${downloadAttributes.attributes[0].value}" aria-label="${downloadAttributes.attributes[1].value}"><img/><label>${downloadAttributes.value}</label></button>
-+              <button id="zen-add-to-board" class="screenshots-button" title="Add to Board"><img/><label>Add to Board</label></button>
++              <button id="zen-add-to-board" class="screenshots-button" title="${zenAddToBoardAttributes.value}" aria-label="${zenAddToBoardAttributes.value}"><img/><label>${zenAddToBoardAttributes.value}</label></button>
              </div>
            </div>
          </div>
-@@ -416,9 +417,54 @@ export class ScreenshotsOverlay {
+@@ -416,9 +419,29 @@ export class ScreenshotsOverlay {
        case "download":
          this.downloadSelectedRegion();
          break;
@@ -19,45 +35,20 @@ index b8ecde00b4..e356c5d6aa 100644
 +        break;
      }
    }
- 
+
 +  zenAddToBoard(event) {
-+    const win = this.window;
-+    const doc = this.document;
-+    const marquee = this.highlightEl;
-+    
-+    // Get viewport coordinates of the selection marquee
-+    const rect = marquee.getBoundingClientRect();
-+    
-+    // FOOLPROOF SCROLL DETECTION: 
-+    // We find where the absolute (0,0) of the document is relative to the viewport.
-+    let scrollX = 0;
-+    let scrollY = 0;
-+    const anchor = doc.createElement("div");
-+    anchor.style.cssText = "position:absolute;top:0;left:0;width:1px;height:1px;pointer-events:none;visibility:hidden;";
-+    doc.documentElement.appendChild(anchor);
-+    const anchorRect = anchor.getBoundingClientRect();
-+    scrollX = -anchorRect.left;
-+    scrollY = -anchorRect.top;
-+    anchor.remove();
-+
-+    // Document-absolute coordinates: viewport position + anchor-derived scroll
-+    const absoluteLeft = rect.left + scrollX;
-+    const absoluteTop = rect.top + scrollY;
-+
-+    Services.console.logStringMessage(`ZenBoard Anchor Debug: rect=${rect.left},${rect.top} anchor=${anchorRect.left},${anchorRect.top} -> final=${absoluteLeft},${absoluteTop}`);
-+
 +    this.#dispatchEvent("Screenshots:ZenAddToBoard", {
 +      anchor: { x: event.screenX, y: event.screenY },
 +      region: {
-+        left: absoluteLeft,
-+        top: absoluteTop,
-+        right: absoluteLeft + rect.width,
-+        bottom: absoluteTop + rect.height,
-+        width: rect.width,
-+        height: rect.height,
-+        devicePixelRatio: win.devicePixelRatio,
-+        viewportWidth: win.innerWidth,
-+        viewportHeight: win.innerHeight,
++        left: this.selectionRegion.dimensions.left,
++        top: this.selectionRegion.dimensions.top,
++        right: this.selectionRegion.dimensions.right,
++        bottom: this.selectionRegion.dimensions.bottom,
++        width: this.selectionRegion.dimensions.width,
++        height: this.selectionRegion.dimensions.height,
++        devicePixelRatio: this.window.devicePixelRatio,
++        viewportWidth: this.windowDimensions.dimensions.clientWidth,
++        viewportHeight: this.windowDimensions.dimensions.clientHeight,
 +      },
 +    });
 +  }

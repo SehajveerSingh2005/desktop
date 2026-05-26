@@ -1,0 +1,10 @@
+diff --git a/browser/locales/en-US/browser/screenshots.ftl b/browser/locales/en-US/browser/screenshots.ftl
+index a73a2ca87565599e25a61d4002e1938b5ace366d..507464ffff0c7c8dc3116d88d83100bc794cce57 100644
+--- a/browser/locales/en-US/browser/screenshots.ftl
++++ b/browser/locales/en-US/browser/screenshots.ftl
+@@ -71,3 +71,5 @@ screenshots-overlay-selection-region-size-3 = { $width } × { $height }
+ 
+ screenshots-overlay-preview-face-label =
+   .aria-label = Select this region
++
++zen-add-to-board = Add to Board

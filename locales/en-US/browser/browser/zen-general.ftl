@@ -151,3 +151,44 @@ zen-window-sync-migration-dialog-accept = Got It
 zen-appmenu-new-blank-window =
     .label = New blank window
 
+# Zen Board
+
+zen-board-title-placeholder =
+    .placeholder = Untitled Board
+
+zen-board-select-tool =
+    .title = Select / Pan
+zen-board-pen-tool =
+    .title = Pen
+zen-board-shapes-tool =
+    .title = Shapes
+zen-board-text-tool =
+    .title = Text
+zen-board-eraser-tool =
+    .title = Eraser
+zen-board-colors-tool =
+    .title = Colors
+zen-board-zoom-out =
+    .title = Zoom Out
+zen-board-zoom-level =
+    .title = Zoom Level
+zen-board-zoom-in =
+    .title = Zoom In
+zen-board-brush-size = Size
+zen-board-shape-rectangle =
+    .title = Rectangle
+zen-board-shape-ellipse =
+    .title = Ellipse
+zen-board-fill-toggle =
+    .title = Toggle Fill
+zen-board-font-increase =
+    .title = Increase Font Size
+zen-board-font-cycle =
+    .title = Cycle Font
+zen-board-font-decrease =
+    .title = Decrease Font Size
+zen-board-create-new-board = Create New Board...
+zen-board-untitled-board = Untitled Board
+zen-add-to-board = Add to Board
+
+

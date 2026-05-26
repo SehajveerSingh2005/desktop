@@ -327,11 +327,30 @@ export class ZenBoard {
             let db = await openDB(chromeWindow);
             let boards = await listBoards(db);
 
+            let untitledLabel = "Untitled Board";
+            let createLabel = "Create New Board...";
+            try {
+                const translated = chromeWindow.document.l10n.formatValuesSync([
+                    { id: "zen-board-untitled-board" },
+                    { id: "zen-board-create-new-board" }
+                ]);
+                if (translated) {
+                    if (translated[0]) untitledLabel = translated[0];
+                    if (translated[1]) createLabel = translated[1];
+                }
+            } catch (e) {
+                console.error("ZenBoard: Failed to translate popup labels", e);
+            }
+
             if (boards.length > 0) {
                 for (const board of boards) {
                     let item = doc.createXULElement("menuitem");
                     item.setAttribute("class", "menuitem-iconic");
-                    item.setAttribute("label", board.title || 'Untitled Board');
+                    let boardTitle = board.title || 'Untitled Board';
+                    if (boardTitle === 'Untitled Board') {
+                        boardTitle = untitledLabel;
+                    }
+                    item.setAttribute("label", boardTitle);
                     // Use a generic icon, like the page icon
                     item.setAttribute("image", "chrome://browser/skin/zen-icons/canvas.svg");
                     item.addEventListener("command", () => {
@@ -343,7 +362,7 @@ export class ZenBoard {
             }
 
             let createItem = doc.createXULElement("menuitem");
-            createItem.setAttribute("label", "Create New Board...");
+            createItem.setAttribute("label", createLabel);
             createItem.setAttribute("class", "menuitem-iconic");
             createItem.setAttribute("image", "chrome://browser/skin/zen-icons/plus.svg");
             createItem.addEventListener("command", async () => {
@@ -362,11 +381,80 @@ export class ZenBoard {
             menupopup.openPopupAtScreen(x, y, true);
         };
 
+        const tabCloseHandler = async (event) => {
+            const tab = event.target;
+            const linkedBrowser = tab.linkedBrowser;
+            const urlSpec = linkedBrowser?.currentURI?.spec;
+            if (urlSpec && urlSpec.startsWith("chrome://browser/content/zen-board/board.html")) {
+                if (chromeWindow.closed || chromeWindow.gBrowser.closing) {
+                    return;
+                }
+
+                const url = new URL(urlSpec);
+                const boardId = url.searchParams.get("id");
+                if (boardId) {
+                    let isStillOpen = false;
+                    const windows = Services.wm.getEnumerator("navigator:browser");
+                    while (windows.hasMoreElements()) {
+                        const win = windows.getNext();
+                        const gb = win.gBrowser;
+                        if (gb) {
+                            for (const otherTab of gb.tabs) {
+                                if (otherTab !== tab) {
+                                    const otherUrl = otherTab.linkedBrowser?.currentURI?.spec;
+                                    if (otherUrl && otherUrl.startsWith("chrome://browser/content/zen-board/board.html")) {
+                                        const otherBoardId = new URL(otherUrl).searchParams.get("id");
+                                        if (otherBoardId === boardId) {
+                                            isStillOpen = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (isStillOpen) break;
+                    }
+
+                    if (isStillOpen) return;
+
+                    // Safety Check: Check if the board is bookmarked!
+                    try {
+                        const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+                        const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
+                        const isBookmarked = await PlacesUtils.bookmarks.fetch({ url: boardUrl }).then(bm => !!bm);
+                        if (isBookmarked) {
+                            console.error(`ZenBoard: Board ${boardId} is bookmarked, skipping deletion.`);
+                            return;
+                        }
+                    } catch (bookmarkErr) {
+                        console.error("ZenBoard: Failed to check bookmarks", bookmarkErr);
+                    }
+
+                    // Delete the board from IndexedDB!
+                    try {
+                        const db = await openDB(chromeWindow);
+                        const tx = db.transaction('boards', 'readwrite');
+                        const store = tx.objectStore('boards');
+                        store.delete(boardId);
+                        console.error(`ZenBoard: Deleted closed board ${boardId} from IDB`);
+                    } catch (e) {
+                        console.error("ZenBoard: Failed to delete board on tab close", e);
+                    }
+                }
+            }
+        };
+
         chromeWindow.addEventListener("ZenBoard:CaptureReady", handler);
+        if (chromeWindow.gBrowser && chromeWindow.gBrowser.tabContainer) {
+            chromeWindow.gBrowser.tabContainer.addEventListener("TabClose", tabCloseHandler);
+        }
 
         // Clean up when the window is closed
         chromeWindow.addEventListener("unload", () => {
             chromeWindow.removeEventListener("ZenBoard:CaptureReady", handler);
+            if (chromeWindow.gBrowser && chromeWindow.gBrowser.tabContainer) {
+                chromeWindow.gBrowser.tabContainer.removeEventListener("TabClose", tabCloseHandler);
+            }
             delete chromeWindow._zenBoardCaptureListenerAdded;
         }, { once: true });
     }

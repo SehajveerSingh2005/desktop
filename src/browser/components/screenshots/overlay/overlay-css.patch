@@ -1,13 +1,16 @@
 diff --git a/browser/components/screenshots/overlay/overlay.css b/browser/components/screenshots/overlay/overlay.css
-index a2cd691cfcfa7f54f275fcafbb3c6d1a5ef78f0d..bee7703d32404ce3b882e02aa4e60bdad6d43c7f 100644
+index a2cd691cfcfa7f54f275fcafbb3c6d1a5ef78f0d..00e286669e6c61a669ce5f296a0811c4506a1766 100644
 --- a/browser/components/screenshots/overlay/overlay.css
 +++ b/browser/components/screenshots/overlay/overlay.css
-@@ -156,6 +156,10 @@
+@@ -156,6 +156,13 @@
    content: url("chrome://browser/skin/downloads/downloads.svg");
  }
  
 +#zen-add-to-board > img {
-+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E");
++  -moz-context-properties: stroke, fill;
++  stroke: currentColor;
++  fill: none;
++  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='context-stroke' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1'/%3E%3C/svg%3E");
 +}
 +
  #face-container {

@@ -199,18 +199,46 @@ export class Text extends DrawingObject {
   }
 
   getBoundingBox(ctx) {
-    ctx.font = this.font;
     const lines = this.text.split('\n');
-    const fontSize = parseFloat(this.font) || 24;
-    const lineHeight = fontSize * 1.2;
+    const baseFontSize = parseFloat(this.font) || 24;
+    const fontFamily = this.font.replace(/^[0-9.]+\s*px\s+/, '') || 'sans-serif';
 
     let maxWidth = 0;
-    lines.forEach(line => {
-      maxWidth = Math.max(maxWidth, ctx.measureText(line).width);
+    let totalHeight = 0;
+
+    lines.forEach((line) => {
+      let lineFontSize = baseFontSize;
+      let indent = 0;
+      let cleanText = line;
+
+      if (line.startsWith('# ')) {
+        lineFontSize = baseFontSize * 1.8;
+        cleanText = line.substring(2);
+      } else if (line.startsWith('## ')) {
+        lineFontSize = baseFontSize * 1.4;
+        cleanText = line.substring(3);
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        indent = baseFontSize * 1.2;
+        cleanText = line.substring(2);
+      } else {
+        const numberedMatch = line.match(/^(\d+)\.\s/);
+        if (numberedMatch) {
+          indent = baseFontSize * 1.2;
+          cleanText = line.substring(numberedMatch[0].length);
+        }
+      }
+
+      ctx.font = `${lineFontSize}px ${fontFamily}`;
+      const lineWidth = ctx.measureText(cleanText).width + indent;
+      maxWidth = Math.max(maxWidth, lineWidth);
+      totalHeight += lineFontSize * 1.2;
     });
 
-    const height = lines.length * lineHeight;
-    return { x: this.x, y: this.y, width: maxWidth, height };
+    if (totalHeight === 0) {
+      totalHeight = baseFontSize * 1.2;
+    }
+
+    return { x: this.x, y: this.y, width: maxWidth, height: totalHeight };
   }
 
   clone() {

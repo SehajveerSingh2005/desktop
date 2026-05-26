@@ -1,8 +1,8 @@
 diff --git a/browser/components/screenshots/ScreenshotsUtils.sys.mjs b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
-index 1bc188fa55..f5aa031f21 100644
+index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0dc3fbfdeb 100644
 --- a/browser/components/screenshots/ScreenshotsUtils.sys.mjs
 +++ b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
-@@ -96,6 +96,13 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
+@@ -126,6 +126,13 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
          await ScreenshotsUtils.copyScreenshotFromRegion(region, browser);
          ScreenshotsUtils.exit(browser);
          break;
@@ -16,7 +16,16 @@ index 1bc188fa55..f5aa031f21 100644
        case "Screenshots:DownloadScreenshot":
          ScreenshotsUtils.closePanel(browser);
          ({ title, region } = message.data);
-@@ -901,6 +908,9 @@ export var ScreenshotsUtils = {
+@@ -604,7 +611,7 @@ export var ScreenshotsUtils = {
+   },
+ 
+   maybeLockFocus(event) {
+-    let browser = event.view.gBrowser.selectedBrowser;
++    let browser = event.view.gBrowser?.selectedBrowser || event.view.browsingContext?.topChromeWindow?.gBrowser?.selectedBrowser;
+ 
+     if (!Services.focus.focusedElement) {
+       event.preventDefault();
+@@ -955,6 +962,9 @@ export var ScreenshotsUtils = {
     */
    closeDialogBox(browser) {
      let perBrowserState = this.browserToScreenshotsState.get(browser);
@@ -26,7 +35,7 @@ index 1bc188fa55..f5aa031f21 100644
      if (perBrowserState?.previewDialog) {
        perBrowserState.previewDialog.close();
        return true;
-@@ -908,6 +918,45 @@ export var ScreenshotsUtils = {
+@@ -962,6 +972,45 @@ export var ScreenshotsUtils = {
      return false;
    },
  
@@ -36,7 +45,7 @@ index 1bc188fa55..f5aa031f21 100644
 +   */
 +  async zenSendCaptureToBoard(region, anchor, browser) {
 +    try {
-+      Services.console.logStringMessage("ZenBoard: zenSendCaptureToBoard called! Creating canvas...");
++      Services.console.logStringMessage("ZenBoard: zenSendCaptureToBoard called! Region: " + JSON.stringify(region));
 +      const canvas = await this.createCanvas(region, browser);
 +      Services.console.logStringMessage("ZenBoard: Canvas created. Converting to blob...");
 +      const blob = await canvas.convertToBlob({ type: "image/png" });

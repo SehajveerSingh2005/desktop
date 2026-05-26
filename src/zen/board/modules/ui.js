@@ -8,7 +8,7 @@ import { hideVideoControls } from './video-controls.js';
 import { hideCaptureControls } from './capture-controls.js';
 
 // DOM Elements
-let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn;
+let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn, slashMenu;
 
 const COLORS = ['#000000', '#ffffff', '#FF3B30', '#FF9500', '#FFCC00', '#4CD964', '#5AC8FA', '#007AFF', '#5856D6'];
 
@@ -124,6 +124,120 @@ export function initTools() {
   });
 
   textEditor.addEventListener('input', autoResizeTextEditor);
+
+  slashMenu = document.getElementById('slash-menu');
+  if (slashMenu) {
+    slashMenu.querySelectorAll('.slash-item').forEach(item => {
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Prevent textEditor blur
+        selectSlashItem(item);
+      });
+    });
+  }
+
+  textEditor.addEventListener('keydown', (e) => {
+    if (slashMenu && slashMenu.style.display !== 'none') {
+      const items = slashMenu.querySelectorAll('.slash-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeSlashIndex = (activeSlashIndex + 1) % items.length;
+        updateSlashMenuItems();
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeSlashIndex = (activeSlashIndex - 1 + items.length) % items.length;
+        updateSlashMenuItems();
+        return;
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        selectSlashItem(items[activeSlashIndex]);
+        return;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hideSlashMenu();
+        return;
+      }
+    }
+
+    // Auto-increment list and backspace logic
+    const selectionStart = textEditor.selectionStart;
+    const selectionEnd = textEditor.selectionEnd;
+
+    if (selectionStart === selectionEnd) {
+      const text = textEditor.value;
+      const textBeforeCursor = text.substring(0, selectionStart);
+      const textAfterCursor = text.substring(selectionStart);
+      const lines = textBeforeCursor.split('\n');
+      const currentLine = lines[lines.length - 1];
+
+      if (e.key === 'Enter') {
+        const emptyNumberedMatch = currentLine.match(/^(\s*)(\d+)\.\s*$/);
+        const emptyBulletMatch = currentLine.match(/^(\s*)([-*•])\s*$/);
+
+        if (emptyNumberedMatch || emptyBulletMatch) {
+          e.preventDefault();
+          const lineStartPos = selectionStart - currentLine.length;
+          const indentation = emptyNumberedMatch?.[1] || emptyBulletMatch?.[1] || '';
+          const newText = text.substring(0, lineStartPos) + indentation + textAfterCursor;
+          textEditor.value = newText;
+          const newCaretPos = lineStartPos + indentation.length;
+          textEditor.setSelectionRange(newCaretPos, newCaretPos);
+          autoResizeTextEditor();
+          return;
+        }
+
+        const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s+(.*)$/);
+        const bulletMatch = currentLine.match(/^(\s*)([-*•])\s+(.*)$/);
+        let nextPrefix = null;
+
+        if (numberedMatch) {
+          const nextNum = parseInt(numberedMatch[2], 10) + 1;
+          nextPrefix = `\n${numberedMatch[1]}${nextNum}. `;
+        } else if (bulletMatch) {
+          nextPrefix = `\n${bulletMatch[1]}${bulletMatch[2]} `;
+        }
+
+        if (nextPrefix !== null) {
+          e.preventDefault();
+          const newText = textBeforeCursor + nextPrefix + textAfterCursor;
+          textEditor.value = newText;
+          const newCaretPos = selectionStart + nextPrefix.length;
+          textEditor.setSelectionRange(newCaretPos, newCaretPos);
+          autoResizeTextEditor();
+          return;
+        }
+      } else if (e.key === 'Backspace') {
+        const emptyNumberedMatch = currentLine.match(/^(\s*)(\d+)\.\s*$/);
+        const emptyBulletMatch = currentLine.match(/^(\s*)([-*•])\s*$/);
+
+        if (emptyNumberedMatch || emptyBulletMatch) {
+          e.preventDefault();
+          const lineStartPos = selectionStart - currentLine.length;
+          const indentation = emptyNumberedMatch?.[1] || emptyBulletMatch?.[1] || '';
+          const newText = text.substring(0, lineStartPos) + indentation + textAfterCursor;
+          textEditor.value = newText;
+          const newCaretPos = lineStartPos + indentation.length;
+          textEditor.setSelectionRange(newCaretPos, newCaretPos);
+          autoResizeTextEditor();
+          return;
+        }
+      }
+    }
+  });
+
+  textEditor.addEventListener('keyup', (e) => {
+    const caretPos = textEditor.selectionStart;
+    const textBeforeCaret = textEditor.value.substring(0, caretPos);
+    const currentLine = textBeforeCaret.split('\n').pop();
+    
+    if (currentLine === '/') {
+      if (slashMenu && slashMenu.style.display !== 'flex') {
+        showSlashMenu();
+      }
+    } else if (slashMenu && slashMenu.style.display !== 'none' && !currentLine.includes('/')) {
+      hideSlashMenu();
+    }
+  });
 
   // Prevent font controls from stealing focus from the text editor.
   // Without this, clicking a font button would blur the textarea and
@@ -252,6 +366,10 @@ export function updateTextEditorPosition() {
   fontOptionsPanel.style.left = `${screenX - 60}px`;
   fontOptionsPanel.style.top = `${screenY}px`;
   fontOptionsPanel.style.transform = `scale(${scale})`;
+
+  if (slashMenu && slashMenu.style.display !== 'none') {
+    updateSlashMenuPosition();
+  }
 }
 
 export function activateTextEditor(x, y, existingObject = null) {
@@ -298,6 +416,7 @@ export function activateTextEditor(x, y, existingObject = null) {
 
   textEditor.style.visibility = 'visible';
   fontOptionsPanel.classList.add('visible');
+  hideSlashMenu();
 
   setTimeout(() => textEditor.focus(), 0);
 
@@ -337,6 +456,7 @@ export function deactivateTextEditor() {
     }
   }
 
+  hideSlashMenu();
   textEditor.value = '';
   textEditor.style.visibility = 'hidden';
   setState({ editingTextObject: null });
@@ -346,6 +466,64 @@ export function deactivateTextEditor() {
 
   redrawCanvas();
   pushHistory();
+}
+
+// Slash Menu Helpers
+let activeSlashIndex = 0;
+
+function showSlashMenu() {
+  if (!slashMenu) return;
+  activeSlashIndex = 0;
+  updateSlashMenuItems();
+  slashMenu.style.display = 'flex';
+  updateSlashMenuPosition();
+}
+
+export function hideSlashMenu() {
+  if (!slashMenu) return;
+  slashMenu.style.display = 'none';
+}
+
+function updateSlashMenuItems() {
+  const items = slashMenu.querySelectorAll('.slash-item');
+  items.forEach((item, index) => {
+    item.classList.toggle('active', index === activeSlashIndex);
+  });
+}
+
+function updateSlashMenuPosition() {
+  if (!slashMenu || !textEditor) return;
+  const { scale } = getState();
+  const rect = textEditor.getBoundingClientRect();
+  slashMenu.style.left = `${rect.left}px`;
+  slashMenu.style.top = `${rect.bottom + 5}px`;
+  slashMenu.style.transform = `scale(${scale})`;
+  slashMenu.style.transformOrigin = `top left`;
+}
+
+function selectSlashItem(item) {
+  if (!item || !textEditor) return;
+  const val = item.getAttribute('data-value');
+  
+  const caretPos = textEditor.selectionStart;
+  const textVal = textEditor.value;
+  const textBefore = textVal.substring(0, caretPos);
+  const textAfter = textVal.substring(caretPos);
+  
+  const lastNewlineIndex = textBefore.lastIndexOf('\n');
+  const lineStart = lastNewlineIndex === -1 ? 0 : lastNewlineIndex + 1;
+  
+  const beforeLine = textVal.substring(0, lineStart);
+  const lineContent = textVal.substring(lineStart, caretPos);
+  
+  if (lineContent.startsWith('/')) {
+    textEditor.value = beforeLine + val + textAfter;
+    textEditor.selectionStart = textEditor.selectionEnd = lineStart + val.length;
+  }
+  
+  hideSlashMenu();
+  autoResizeTextEditor();
+  textEditor.focus();
 }
 
 function autoResizeTextEditor() {
@@ -359,6 +537,10 @@ function autoResizeTextEditor() {
   // Add a buffer to prevent clipping (especially for italic/bold or custom fonts)
   textEditor.style.height = `${textEditor.scrollHeight + 4}px`;
   textEditor.style.width = `${textEditor.scrollWidth + 4}px`;
+
+  if (slashMenu && slashMenu.style.display !== 'none') {
+    updateSlashMenuPosition();
+  }
 }
 
 // Shape Tools

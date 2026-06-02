@@ -44,6 +44,7 @@ export class nsZenBoostEditor {
     this.lastDotSetPos = { x: 0, y: 0 };
     this.currentBoostData = null;
     this.boostInfo = null;
+    this.isDarkMode = this.openerWindow.gZenThemePicker.isDarkMode;
 
     this.killOtherEditorInstances();
 
@@ -52,6 +53,7 @@ export class nsZenBoostEditor {
     });
 
     this.init();
+    this.initColorScheme();
     this.initColorPicker();
     this.initFonts();
     this.loadBoost(domain);
@@ -185,6 +187,17 @@ export class nsZenBoostEditor {
   }
 
   /**
+   * Initializes the color scheme of the editor window based on the current theme (dark or light mode)
+   */
+  initColorScheme() {
+    if (this.isDarkMode) {
+      this.doc.documentElement.style.colorScheme = "dark";
+    } else {
+      this.doc.documentElement.style.colorScheme = "light";
+    }
+  }
+
+  /**
    * Initializes the code editor for the css editor
    */
   async initCodeEditor() {
@@ -205,7 +218,7 @@ export class nsZenBoostEditor {
     const editor = new Editor({
       mode: Editor.modes.css,
       lineNumbers: true,
-      theme: "default", // default is light theme
+      theme: "mozilla",
       readOnly: false,
       gutters: ["CodeMirror-linenumbers"],
     });
@@ -824,13 +837,19 @@ ${cssSelector} {
     const dotSec = this.doc.querySelector(
       "#zen-boost-color-picker-dot-secondary"
     );
+
+    const dotDistance = this.currentBoostData.dotDistance;
+    const dotAngleDeg = this.currentBoostData.dotAngleDeg;
+    const secondaryDotAngleDelta =
+      this.currentBoostData.secondaryDotAngleDegDelta ?? 0;
+
     dot.style.setProperty(
       "--zen-theme-picker-dot-color",
-      `hsl(${this.currentBoostData.dotAngleDeg}deg, ${this.currentBoostData.dotDistance * 100}%, 55%)`
+      `hsl(${dotAngleDeg}deg, ${dotDistance * 100}%, 55%)`
     );
     dotSec.style.setProperty(
       "--zen-theme-picker-dot-color",
-      `hsl(${this.currentBoostData.dotAngleDeg + this.currentBoostData.secondaryDotAngleDegDelta}deg, ${this.currentBoostData.dotDistance * 100}%, 20%)`
+      `hsl(${dotAngleDeg + secondaryDotAngleDelta}deg, ${dotDistance * 100}%, 20%)`
     );
   }
 
@@ -854,22 +873,23 @@ ${cssSelector} {
     const centerY = rect.top + rect.height / 2;
     const radius = (rect.width - padding) / 2;
 
+    const dotDistance = this.currentBoostData.dotDistance;
+    const primaryDotAngleDeg = this.currentBoostData.dotAngleDeg;
+
     let angle = null;
-    if (!pixelX || !pixelY) {
+    if (pixelX == null || pixelY == null) {
       pixelX = centerX;
       pixelY = centerY;
       angle = this.currentBoostData.secondaryDotAngleDegDelta;
     } else {
       angle = Math.atan2(pixelY - centerY, pixelX - centerX);
-      pixelX =
-        centerX + Math.cos(angle) * this.currentBoostData.dotDistance * radius;
-      pixelY =
-        centerY + Math.sin(angle) * this.currentBoostData.dotDistance * radius;
+      pixelX = centerX + Math.cos(angle) * dotDistance * radius;
+      pixelY = centerY + Math.sin(angle) * dotDistance * radius;
     }
 
     // Rad to degree
     this.currentBoostData.secondaryDotAngleDegDelta =
-      ((angle * 180) / Math.PI + 100 - this.currentBoostData.dotAngleDeg) % 360;
+      ((angle * 180) / Math.PI + 100 - primaryDotAngleDeg) % 360;
     if (this.currentBoostData.secondaryDotAngleDegDelta < 0) {
       this.currentBoostData.secondaryDotAngleDegDelta += 360;
     }
@@ -902,14 +922,19 @@ ${cssSelector} {
     const cx = rect.width / 2;
     const cy = rect.height / 2;
 
+    const dotDistance = this.currentBoostData.dotDistance;
+    const dotAngleDeg = this.currentBoostData.dotAngleDeg;
+    const secondaryDotAngleDelta =
+      this.currentBoostData.secondaryDotAngleDegDelta ?? 0;
+
     // Updating the circle size to match the distance of the point
     const circle = this.doc.querySelector(".zen-boost-color-picker-circle");
     circle.setAttribute("animated", "false");
-    circle.style.width = `${this.currentBoostData.dotDistance * radius * 2}px`;
-    circle.style.height = `${this.currentBoostData.dotDistance * radius * 2}px`;
+    circle.style.width = `${dotDistance * radius * 2}px`;
+    circle.style.height = `${dotDistance * radius * 2}px`;
 
-    const dotColor = `hsl(${this.currentBoostData.dotAngleDeg}deg, ${this.currentBoostData.dotDistance * 100}%, 55%)`;
-    const dotColorSec = `hsl(${this.currentBoostData.dotAngleDeg + this.currentBoostData.secondaryDotAngleDegDelta}deg, ${this.currentBoostData.dotDistance * 100}%, 20%)`;
+    const dotColor = `hsl(${dotAngleDeg}deg, ${dotDistance * 100}%, 55%)`;
+    const dotColorSec = `hsl(${dotAngleDeg + secondaryDotAngleDelta}deg, ${dotDistance * 100}%, 20%)`;
 
     this.updateArcFill(cx, cy, radius, dotColor, dotColorSec);
   }
@@ -1146,12 +1171,6 @@ ${cssSelector} {
       autoThemeButton.classList.add("zen-boost-button-active");
     } else {
       autoThemeButton.classList.remove("zen-boost-button-active");
-    }
-
-    if (this.currentBoostData.smartInvert) {
-      invertButton.classList.add("zen-boost-button-active");
-    } else {
-      invertButton.classList.remove("zen-boost-button-active");
     }
 
     if (this.currentBoostData.smartInvert) {

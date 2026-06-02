@@ -3,13 +3,13 @@
 import { canvas, resizeCanvas, redrawCanvas, setTransform, getTransformedPoint } from './modules/canvas.js';
 import { toolHandlers } from './modules/tools.js';
 import { getState, setState } from './modules/state.js';
-import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor } from './modules/ui.js';
+import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor, updateTextEditorPosition } from './modules/ui.js';
 import { findObjectAt } from './modules/interactions.js';
 import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.js';
 import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modules/media.js';
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
 import { pushHistory, undo, redo } from './modules/history.js';
-import { hideVideoControls } from './modules/video-controls.js';
+import { hideVideoControls, updateVideoControlsPosition } from './modules/video-controls.js';
 import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected } from './modules/capture-controls.js';
 
 window.getState = getState;
@@ -55,8 +55,82 @@ function applyTransparency(isTransparent) {
   }
 }
 
+// Wheel Panning and Zooming Animation Logic
+let isAnimatingWheel = false;
+let targetScale = 1;
+let targetOffsetX = 0;
+let targetOffsetY = 0;
+
+let currentScale = 1;
+let currentOffsetX = 0;
+let currentOffsetY = 0;
+
+function startWheelAnimation() {
+  if (isAnimatingWheel) return;
+  isAnimatingWheel = true;
+
+  const { scale, offsetX, offsetY } = getState();
+  currentScale = scale;
+  currentOffsetX = offsetX;
+  currentOffsetY = offsetY;
+
+  // Initialize targets if they are in their default state
+  if (targetScale === 1 && targetOffsetX === 0 && targetOffsetY === 0) {
+    targetScale = scale;
+    targetOffsetX = offsetX;
+    targetOffsetY = offsetY;
+  }
+
+  function step() {
+    if (!isAnimatingWheel) return;
+
+    const lerp = (start, end, amt) => start + (end - start) * amt;
+    
+    // Smooth lerp updates
+    currentScale = lerp(currentScale, targetScale, 0.15);
+    currentOffsetX = lerp(currentOffsetX, targetOffsetX, 0.15);
+    currentOffsetY = lerp(currentOffsetY, targetOffsetY, 0.15);
+
+    const scaleDiff = Math.abs(currentScale - targetScale);
+    const offsetXDiff = Math.abs(currentOffsetX - targetOffsetX);
+    const offsetYDiff = Math.abs(currentOffsetY - targetOffsetY);
+
+    if (scaleDiff < 0.001 && offsetXDiff < 0.05 && offsetYDiff < 0.05) {
+      // Snap to target at the end of interpolation
+      setTransform(targetScale, targetOffsetX, targetOffsetY);
+      redrawCanvas();
+      updateZoomDisplay();
+      updateVideoControlsPosition();
+      updateCaptureControlsPosition();
+      if (getState().editingTextObject) {
+        updateTextEditorPosition();
+      }
+      isAnimatingWheel = false;
+      return;
+    }
+
+    setTransform(currentScale, currentOffsetX, currentOffsetY);
+    redrawCanvas();
+    updateZoomDisplay();
+    updateVideoControlsPosition();
+    updateCaptureControlsPosition();
+    if (getState().editingTextObject) {
+      updateTextEditorPosition();
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
+function stopWheelAnimation() {
+  isAnimatingWheel = false;
+}
+
 // Zoom Logic
 function zoom(direction) {
+  stopWheelAnimation();
   const { scale, offsetX, offsetY } = getState();
   const zoomFactor = 1.1;
   const oldScale = scale;
@@ -73,11 +147,18 @@ function zoom(direction) {
   setTransform(newScale, newOffsetX, newOffsetY);
   redrawCanvas();
   updateZoomDisplay();
+
+  updateVideoControlsPosition();
+  updateCaptureControlsPosition();
+  if (getState().editingTextObject) {
+    updateTextEditorPosition();
+  }
 }
 
 // Event Delegation
 
 function onMouseDown(e) {
+  stopWheelAnimation();
   const { currentTool } = getState();
   toolHandlers[currentTool].onMouseDown(e);
 }
@@ -365,6 +446,63 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Note: deliberate omission of triggerSave() here to stop IDB save spam when just hovering out
   });
   canvas.addEventListener('dblclick', onDoubleClick);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    
+    // If not currently animating, synchronize targets with the actual state
+    const { scale, offsetX, offsetY } = getState();
+    if (!isAnimatingWheel) {
+      targetScale = scale;
+      targetOffsetX = offsetX;
+      targetOffsetY = offsetY;
+    }
+
+    // Normalize deltas for consistent panning speed across delta modes
+    let dx = e.deltaX;
+    let dy = e.deltaY;
+
+    if (e.deltaMode === 1) { // DOM_DELTA_LINE
+      dx *= 20; // 20px per line
+      dy *= 20;
+    } else if (e.deltaMode === 2) { // DOM_DELTA_PAGE
+      dx *= 400; // 400px per page
+      dy *= 400;
+    }
+
+    if (e.ctrlKey) {
+      // Zoom centered at the cursor position
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      // Determine zoom factor: trackpads (deltaMode 0) send small pixel deltas; mouse wheels send raw/line deltas
+      let zoomFactor = 0.003;
+      if (e.deltaMode === 1) { // Lines
+        zoomFactor = 0.015;
+      } else if (e.deltaMode === 2) { // Pages
+        zoomFactor = 0.1;
+      }
+      
+      const oldTargetScale = targetScale;
+      let newTargetScale = oldTargetScale * Math.exp(-e.deltaY * zoomFactor);
+      newTargetScale = Math.max(0.1, Math.min(newTargetScale, 10));
+
+      // Calculate where the offset needs to go to keep mouseX, mouseY fixed under the new scale
+      targetOffsetX = mouseX - (mouseX - targetOffsetX) * (newTargetScale / oldTargetScale);
+      targetOffsetY = mouseY - (mouseY - targetOffsetY) * (newTargetScale / oldTargetScale);
+      targetScale = newTargetScale;
+    } else {
+      // Pan
+      if (e.shiftKey && !dx) {
+        dx = dy;
+        dy = 0;
+      }
+      targetOffsetX -= dx;
+      targetOffsetY -= dy;
+    }
+
+    startWheelAnimation();
+  }, { passive: false });
 
   zoomInBtn.addEventListener('click', () => zoom(1));
   zoomOutBtn.addEventListener('click', () => zoom(-1));

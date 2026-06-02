@@ -1,6 +1,6 @@
 // main.js (board.js) - Main Entry Point
 
-import { canvas, resizeCanvas, redrawCanvas, setTransform, getTransformedPoint } from './modules/canvas.js';
+import { canvas, resizeCanvas, redrawCanvas, redrawCanvasImmediate, setTransform, getTransformedPoint, invalidateAccentColorCache } from './modules/canvas.js';
 import { toolHandlers } from './modules/tools.js';
 import { getState, setState } from './modules/state.js';
 import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor, updateTextEditorPosition } from './modules/ui.js';
@@ -10,7 +10,7 @@ import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modu
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
 import { pushHistory, undo, redo } from './modules/history.js';
 import { hideVideoControls, updateVideoControlsPosition } from './modules/video-controls.js';
-import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected } from './modules/capture-controls.js';
+import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected, notifyTransformChanged } from './modules/capture-controls.js';
 
 window.getState = getState;
 window.getTransformedPoint = getTransformedPoint;
@@ -98,10 +98,12 @@ function startWheelAnimation() {
     if (scaleDiff < 0.001 && offsetXDiff < 0.05 && offsetYDiff < 0.05) {
       // Snap to target at the end of interpolation
       setTransform(targetScale, targetOffsetX, targetOffsetY);
-      redrawCanvas();
+      // We are already inside a RAF callback — call the draw function directly.
+      redrawCanvasImmediate();
       updateZoomDisplay();
       updateVideoControlsPosition();
       updateCaptureControlsPosition();
+      notifyTransformChanged();
       if (getState().editingTextObject) {
         updateTextEditorPosition();
       }
@@ -110,10 +112,12 @@ function startWheelAnimation() {
     }
 
     setTransform(currentScale, currentOffsetX, currentOffsetY);
-    redrawCanvas();
+    // We are already inside a RAF callback — call the draw function directly.
+    redrawCanvasImmediate();
     updateZoomDisplay();
     updateVideoControlsPosition();
     updateCaptureControlsPosition();
+    notifyTransformChanged();
     if (getState().editingTextObject) {
       updateTextEditorPosition();
     }
@@ -150,6 +154,7 @@ function zoom(direction) {
 
   updateVideoControlsPosition();
   updateCaptureControlsPosition();
+  notifyTransformChanged();
   if (getState().editingTextObject) {
     updateTextEditorPosition();
   }
@@ -195,29 +200,30 @@ function onDoubleClick(e) {
 function handleFile(file, x, y) {
   const id = generateId();
   if (file.type.startsWith('image/')) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const maxWidth = 400;
-        let w = img.width;
-        let h = img.height;
-        if (w > maxWidth) {
-          h = (maxWidth / w) * h;
-          w = maxWidth;
-        }
-        const obj = new ImageObject(id, x - w / 2, y - h / 2, w, h, img);
-        obj._blob = file;
-        addToScene(obj);
-        setState({ selectedObjectId: id });
-        selectTool('select');
-        redrawCanvas();
-        triggerSaveImmediate();
-        pushHistory();
-      };
-      img.src = e.target.result;
+    const objectURL = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectURL);
+      const maxWidth = 400;
+      let w = img.width;
+      let h = img.height;
+      if (w > maxWidth) {
+        h = (maxWidth / w) * h;
+        w = maxWidth;
+      }
+      const obj = new ImageObject(id, x - w / 2, y - h / 2, w, h, img);
+      obj._blob = file;
+      addToScene(obj);
+      setState({ selectedObjectId: id });
+      selectTool('select');
+      redrawCanvas();
+      triggerSaveImmediate();
+      pushHistory();
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectURL);
+    };
+    img.src = objectURL;
   } else if (file.type.startsWith('video/')) {
     // Store a reference to the original Blob so storage.js can put it in IDB
     const blob = file;
@@ -336,13 +342,14 @@ async function initTheme() {
       document.documentElement.style.setProperty('--board-accent-color', primaryColor);
     }
 
-    // Listen for theme or workspace changes
+    // Listen for theme or workspace changes and invalidate the accent color cache
     if (!window._zenThemeListenersAdded) {
-      chromeWindow.addEventListener("ZenGradientCacheChanged", initTheme);
-      chromeWindow.addEventListener("ZenWorkspacesUIUpdate", initTheme);
+      const onThemeChange = () => { invalidateAccentColorCache(); initTheme(); };
+      chromeWindow.addEventListener("ZenGradientCacheChanged", onThemeChange);
+      chromeWindow.addEventListener("ZenWorkspacesUIUpdate", onThemeChange);
       window.addEventListener("pagehide", () => {
-        chromeWindow.removeEventListener("ZenGradientCacheChanged", initTheme);
-        chromeWindow.removeEventListener("ZenWorkspacesUIUpdate", initTheme);
+        chromeWindow.removeEventListener("ZenGradientCacheChanged", onThemeChange);
+        chromeWindow.removeEventListener("ZenWorkspacesUIUpdate", onThemeChange);
       }, { once: true });
       window._zenThemeListenersAdded = true;
     }
@@ -625,9 +632,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   selectTool('select');
   updateZoomDisplay();
   
-  // Wait for web fonts to load so text objects render with the correct font
-  // instead of falling back to serif on initial load.
-  document.fonts.ready.then(() => {
+  // Preload all custom fonts when the page loads so canvas text displays correctly
+  const fontsToPreload = [
+    "24px 'Roboto'",
+    "24px 'Archivo Black'",
+    "24px 'Instrument Serif'",
+    "24px 'Maple Mono'"
+  ];
+  Promise.all(fontsToPreload.map(f => document.fonts.load(f))).then(() => {
+    redrawCanvas();
+  }).catch(e => {
+    console.warn("ZenBoard: Some fonts failed to preload", e);
     redrawCanvas();
   });
 });

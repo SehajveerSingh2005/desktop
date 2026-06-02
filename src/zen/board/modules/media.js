@@ -42,6 +42,8 @@ export class ImageObject extends DrawingObject {
         const cloned = new ImageObject(this.id, this.x, this.y, this.width, this.height, this.image);
         cloned._blob = this._blob;
         cloned.sourceRegion = this.sourceRegion;
+        cloned._assetFile = this._assetFile;
+        cloned._assetHash = this._assetHash;
         return cloned;
     }
 }
@@ -141,6 +143,7 @@ export class VideoObject extends DrawingObject {
     clone() {
         const cloned = new VideoObject(this.id, this.x, this.y, this.width, this.height, this.video);
         cloned._blob = this._blob;
+        cloned._assetFile = this._assetFile;
         cloned._assetHash = this._assetHash;
         cloned.isPlaying = this.isPlaying;
         cloned.isMuted = this.isMuted;
@@ -213,6 +216,7 @@ export class CaptureObject extends DrawingObject {
         const cloned = new CaptureObject(this.id, this.x, this.y, this.width, this.height, this.image, this.sourceUrl);
         cloned._blob = this._blob;
         cloned.sourceRegion = this.sourceRegion;
+        cloned._assetFile = this._assetFile;
         cloned._assetHash = this._assetHash;
         cloned.visible = this.visible;
         return cloned;
@@ -340,6 +344,7 @@ export class LiveEmbedObject extends DrawingObject {
     clone() {
         const cloned = new LiveEmbedObject(this.id, this.x, this.y, this.width, this.height, this.sourceUrl);
         cloned.sourceRegion = this.sourceRegion;
+        cloned._assetFile = this._assetFile;
         cloned._assetHash = this._assetHash;
         cloned.visible = this.visible;
         return cloned;

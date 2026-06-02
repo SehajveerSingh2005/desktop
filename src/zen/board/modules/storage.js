@@ -1,14 +1,26 @@
 // modules/storage.js
-// High-level save/load logic that bridges the board state with IndexedDB.
-// - Images: stored as base64 data URLs directly in the scene JSON (fast, no async)
-// - Videos: heavy blobs stored in the IDB assets store; referenced by hash in JSON
+// High-level save/load logic bridging board state with IndexedDB (scene JSON)
+// and the native filesystem (media assets via assets.js).
+//
+// Storage strategy:
+//   - Board metadata + scene JSON → IndexedDB 'boards' store (tiny, fast)
+//   - Images / Videos / Captures → native filesystem via IOUtils/PathUtils
+//     (stored as plain files in <profile>/zen-board-assets/)
+//
+// Advantages over pure-IDB blob storage:
+//   - No SHA-256 hashing of large files in JS (no ArrayBuffer heap spikes)
+//   - Videos can be streamed natively from file:// URLs (byte-range, seek, HW decode)
+//   - IDB stays lean (only JSON metadata, a few KB per board)
+//   - Easy manual backup: just copy the zen-board-assets folder
 
-import { storeAsset, getAsset, saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard } from './db.js';
+import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard } from './db.js';
+import { saveAsset, getAssetURL, deleteAsset } from './assets.js';
 
 // The URL param key used to link a tab to a board ID
 const BOARD_ID_PARAM = 'id';
 
-// ObjectURLs we've created for video blobs so we can revoke on unload
+// ObjectURLs we created for video blobs (file:// URLs need no revocation,
+// but blob: fallbacks for legacy data do). Track so we can clean up.
 const _createdObjectURLs = [];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -27,8 +39,7 @@ function dataURLToBlob(dataURL) {
 
 /**
  * Serialize a single scene object to a plain JSON-safe object.
- * Images → extracted src (data URL) kept inline as string.
- * Videos → blob stored in IDB, replaced with { _assetHash } reference.
+ * Images / Videos / Captures → save to filesystem, store filename reference.
  */
 async function serializeObject(obj) {
   const base = {
@@ -69,41 +80,32 @@ async function serializeObject(obj) {
       };
 
     case 'image': {
-      let hash = obj._assetHash || null;
-      // Legacy: If we loaded from a base64 string, obj._imageSrc will exist instead of a hash
-      if (!hash && obj._blob) {
-        hash = await storeAsset(obj._blob);
-      } else if (!hash && obj.image && obj.image.src && obj.image.src.startsWith('data:')) {
-        // Convert legacy base64 to Blob, so it's clean next save
-        try {
-          const blob = dataURLToBlob(obj.image.src);
-          hash = await storeAsset(blob);
-        } catch(e) { /* ignore */ }
+      // _assetFile is the filesystem filename; stamp it back on the object
+      // so repeat saves don't create new orphaned files.
+      let filename = obj._assetFile || null;
+      if (!filename) {
+        const blob = obj._blob || (obj.image?.src?.startsWith('data:') ? dataURLToBlob(obj.image.src) : null);
+        if (blob) {
+          filename = await saveAsset(blob);
+          obj._assetFile = filename; // stamp back so next save is idempotent
+        }
       }
       return {
         ...base,
         width: obj.width,
         height: obj.height,
-        _assetHash: hash,
-        // Keep _imageSrc fallback for backward compatibility
-        _imageSrc: hash ? undefined : (obj.image?.src || '')
+        _assetFile: filename,
+        _assetHash: obj._assetHash || null,
       };
     }
 
     case 'video': {
-      // Videos are stored as Blobs in IDB (potentially large)
-      let hash = obj._assetHash || null;
-      // Prefer the raw blob if available (avoids fetch() failing if objectURLs are revoked during pagehide)
-      if (!hash && obj._blob) {
-        hash = await storeAsset(obj._blob);
-      } else if (!hash && obj.video && obj.video.src && obj.video.src.startsWith('blob:')) {
-        // Fallback: Fetch the blob back from the objectURL
-        try {
-          const res = await fetch(obj.video.src);
-          const blob = await res.blob();
-          hash = await storeAsset(blob);
-        } catch (e) {
-          console.warn('ZenBoard: Could not store video asset', e);
+      let filename = obj._assetFile || null;
+      if (!filename) {
+        const blob = obj._blob || (obj.video?.src?.startsWith('blob:') ? await fetch(obj.video.src).then(r => r.blob()).catch(() => null) : null);
+        if (blob) {
+          filename = await saveAsset(blob);
+          obj._assetFile = filename; // stamp back
         }
       }
       return {
@@ -113,42 +115,48 @@ async function serializeObject(obj) {
         isMuted: obj.isMuted,
         volume: obj.volume,
         isLooping: obj.isLooping,
-        _assetHash: hash,
+        _assetFile: filename,
+        _assetHash: obj._assetHash || null,
       };
     }
 
     case 'capture': {
-      // Capture images are stored as PNG blobs in IDB (same as image objects)
-      let hash = obj._assetHash || null;
-      if (!hash && obj._blob) {
-        hash = await storeAsset(obj._blob);
-      } else if (!hash && obj.image && obj.image.src) {
-        try {
-          const res = await fetch(obj.image.src);
-          const blob = await res.blob();
-          hash = await storeAsset(blob);
-        } catch (e) {
-          console.warn('ZenBoard: Could not store capture asset', e);
+      let filename = obj._assetFile || null;
+      if (!filename) {
+        const blob = obj._blob || (obj.image?.src ? await fetch(obj.image.src).then(r => r.blob()).catch(() => null) : null);
+        if (blob) {
+          filename = await saveAsset(blob);
+          obj._assetFile = filename; // stamp back
         }
       }
       return {
         ...base,
         width: obj.width,
         height: obj.height,
-        _assetHash: hash,
+        _assetFile: filename,
+        _assetHash: obj._assetHash || null,
         sourceUrl: obj.sourceUrl || '',
         sourceRegion: obj.sourceRegion || null,
       };
     }
 
     case 'live-embed': {
-      // Only the URL is stored; the iframe is reconstructed on load.
+      let filename = obj._assetFile || null;
+      if (!filename && obj._placeholderImage?.src) {
+        try {
+          const res = await fetch(obj._placeholderImage.src);
+          const blob = await res.blob();
+          filename = await saveAsset(blob);
+          obj._assetFile = filename; // stamp back
+        } catch { /* ignore */ }
+      }
       return {
         ...base,
         width: obj.width,
         height: obj.height,
         sourceUrl: obj.sourceUrl || '',
         sourceRegion: obj.sourceRegion || null,
+        _assetFile: filename,
         _assetHash: obj._assetHash || null,
       };
     }
@@ -158,9 +166,33 @@ async function serializeObject(obj) {
   }
 }
 
+// ── Deserialization ────────────────────────────────────────────────────────
+
+/**
+ * Resolve the URL for an asset.
+ * Handles:
+ *   1. New filesystem assets (_assetFile) → file:// URL via IOUtils
+ *   2. Legacy IDB assets (_assetHash)     → fetch blob from IDB, use data: URL
+ *   3. Inline data URLs                   → returned as-is
+ */
+async function resolveAssetURL(data, legacyFetcher) {
+  // New-style: filesystem file
+  if (data._assetFile) {
+    try {
+      return await getAssetURL(data._assetFile);
+    } catch (e) {
+      console.warn('ZenBoard: Could not resolve asset file', data._assetFile, e);
+    }
+  }
+  // Legacy: IDB hash
+  if (data._assetHash && legacyFetcher) {
+    return await legacyFetcher(data._assetHash);
+  }
+  return null;
+}
+
 /**
  * Deserialize a plain JSON scene-object back to the appropriate class instance.
- * Returns a promise because videos need an async IDB fetch.
  */
 async function deserializeObject(data, classes) {
   const { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject, CaptureObject, LiveEmbedObject } = classes;
@@ -170,89 +202,96 @@ async function deserializeObject(data, classes) {
       const obj = new Path(data.id, data.color, data.lineWidth, data.x, data.y);
       obj.rawRelativePoints = data.rawRelativePoints || [];
       obj.boundingBox = data.boundingBox || { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-      // Re-smooth
       const { smoothPoints } = await import('./smoothing.js');
       obj.smoothedRelativePoints = smoothPoints(obj.rawRelativePoints);
       return obj;
     }
 
-    case 'rectangle': {
+    case 'rectangle':
       return new Rectangle(
         data.id, data.x, data.y, data.width, data.height,
         data.strokeColor, data.strokeWidth, data.isFilled, data.fillColor
       );
-    }
 
-    case 'ellipse': {
+    case 'ellipse':
       return new Ellipse(
         data.id, data.x, data.y, data.width, data.height,
         data.strokeColor, data.strokeWidth, data.isFilled, data.fillColor
       );
-    }
 
-    case 'text': {
+    case 'text':
       return new Text(data.id, data.text, data.x, data.y, data.font, data.color);
-    }
 
     case 'image': {
-      let objectURL = data._imageSrc || '';
-      if (data._assetHash) {
+      // Try new filesystem URL first, then legacy inline src
+      let imgSrc = data._imageSrc || '';
+
+      if (data._assetFile) {
+        imgSrc = await resolveAssetURL(data, null);
+      } else if (data._assetHash) {
+        // Legacy IDB path — lazy import to avoid circular dep
+        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
           if (blob) {
-            objectURL = URL.createObjectURL(blob);
-            _createdObjectURLs.push(objectURL);
+            const tmpURL = URL.createObjectURL(blob);
+            // We'll revoke after load
+            imgSrc = tmpURL;
           }
         } catch (e) {
-          console.warn('ZenBoard: Could not load image asset', e);
+          console.warn('ZenBoard: Could not load legacy image asset', e);
         }
       }
+
       const img = new Image();
+      const isTmpBlob = imgSrc && imgSrc.startsWith('blob:');
       await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve; // best-effort
-        img.src = objectURL;
+        img.onload = () => { if (isTmpBlob) URL.revokeObjectURL(imgSrc); resolve(); };
+        img.onerror = () => { if (isTmpBlob) URL.revokeObjectURL(imgSrc); resolve(); };
+        img.src = imgSrc;
       });
       const result = new ImageObject(data.id, data.x, data.y, data.width, data.height, img);
-      result._assetHash = data._assetHash;
+      result._assetFile = data._assetFile || null;
+      result._assetHash = data._assetHash || null;
       return result;
     }
 
     case 'video': {
-      let objectURL = '';
-      if (data._assetHash) {
+      let videoSrc = '';
+
+      if (data._assetFile) {
+        // file:// URL → the browser media engine can stream this directly
+        videoSrc = await resolveAssetURL(data, null);
+      } else if (data._assetHash) {
+        // Legacy IDB path — load blob and create a lasting blob: URL for playback
+        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
           if (blob) {
-            objectURL = URL.createObjectURL(blob);
-            _createdObjectURLs.push(objectURL);
+            videoSrc = URL.createObjectURL(blob);
+            _createdObjectURLs.push(videoSrc); // revoke on pagehide
           }
         } catch (e) {
-          console.warn('ZenBoard: Could not load video asset', e);
+          console.warn('ZenBoard: Could not load legacy video asset', e);
         }
       }
+
       const videoEl = document.createElement('video');
       videoEl.preload = 'metadata';
       const result = await new Promise((resolve) => {
-        videoEl.onloadedmetadata = () => resolve(
-          new VideoObject(data.id, data.x, data.y, data.width, data.height, videoEl)
-        );
-        videoEl.onerror = () => resolve(
-          new VideoObject(data.id, data.x, data.y, data.width, data.height, videoEl)
-        );
-        videoEl.src = objectURL;
+        videoEl.onloadedmetadata = () => resolve(new VideoObject(data.id, data.x, data.y, data.width, data.height, videoEl));
+        videoEl.onerror = () => resolve(new VideoObject(data.id, data.x, data.y, data.width, data.height, videoEl));
+        videoEl.src = videoSrc;
       });
-      result._assetHash = data._assetHash;
+      result._assetFile = data._assetFile || null;
+      result._assetHash = data._assetHash || null;
       result.isMuted = data.isMuted ?? true;
       result.volume = data.volume ?? 0.5;
       result.isLooping = data.isLooping ?? true;
       result.video.muted = result.isMuted;
       result.video.volume = result.volume;
       result.video.loop = result.isLooping;
-      
-      // We don't have direct access to redrawCanvas here, but it's okay because 
-      // board.js handles the global redraw loop. For the video playback loop though,
-      // it's better if we hook up the same requestAnimationFrame optimization.
+
       const forceRedraw = () => window.dispatchEvent(new CustomEvent('ZenBoardVideoFrame'));
       videoEl.onloadeddata = forceRedraw;
       videoEl.onseeked = forceRedraw;
@@ -262,7 +301,6 @@ async function deserializeObject(data, classes) {
       videoEl.onplay = () => {
         const update = () => {
           if (!videoEl.paused && !videoEl.ended && result.visible) {
-            // Avoid stacking overlapping loops
             forceRedraw();
             frameRequest = requestAnimationFrame(update);
           }
@@ -270,74 +308,70 @@ async function deserializeObject(data, classes) {
         if (frameRequest) cancelAnimationFrame(frameRequest);
         update();
       };
-      
       videoEl.onpause = () => {
-        if (frameRequest) {
-          cancelAnimationFrame(frameRequest);
-          frameRequest = null;
-        }
+        if (frameRequest) { cancelAnimationFrame(frameRequest); frameRequest = null; }
       };
-      
+
       return result;
     }
 
     case 'capture': {
-      // Load PNG blob from IDB, reconstruct Image element
-      let objectURL = '';
-      if (data._assetHash) {
+      let imgSrc = '';
+
+      if (data._assetFile) {
+        imgSrc = await resolveAssetURL(data, null);
+      } else if (data._assetHash) {
+        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
-          if (blob) {
-            objectURL = URL.createObjectURL(blob);
-            _createdObjectURLs.push(objectURL);
-          }
+          if (blob) { imgSrc = URL.createObjectURL(blob); }
         } catch (e) {
-          console.warn('ZenBoard: Could not load capture asset', e);
+          console.warn('ZenBoard: Could not load legacy capture asset', e);
         }
       }
+
       const img = new Image();
+      const isTmp = imgSrc && imgSrc.startsWith('blob:');
       await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-        img.src = objectURL;
+        img.onload = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
+        img.onerror = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
+        img.src = imgSrc;
       });
-      const captureResult = new CaptureObject(
-        data.id, data.x, data.y, data.width, data.height, img, data.sourceUrl || ''
-      );
+      const captureResult = new CaptureObject(data.id, data.x, data.y, data.width, data.height, img, data.sourceUrl || '');
       captureResult.sourceRegion = data.sourceRegion || null;
-      captureResult._assetHash = data._assetHash;
+      captureResult._assetFile = data._assetFile || null;
+      captureResult._assetHash = data._assetHash || null;
       return captureResult;
     }
 
     case 'live-embed': {
-      // Reconstruct the object. The iframe is created lazily when selected.
-      let objectURL = '';
-      if (data._assetHash) {
+      let imgSrc = '';
+
+      if (data._assetFile) {
+        imgSrc = await resolveAssetURL(data, null);
+      } else if (data._assetHash) {
+        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
-          if (blob) {
-            objectURL = URL.createObjectURL(blob);
-            _createdObjectURLs.push(objectURL);
-          }
+          if (blob) { imgSrc = URL.createObjectURL(blob); }
         } catch (e) {
-          console.warn('ZenBoard: Could not load live-embed asset', e);
+          console.warn('ZenBoard: Could not load legacy live-embed asset', e);
         }
       }
-      const liveObj = new LiveEmbedObject(
-        data.id, data.x, data.y, data.width, data.height, data.sourceUrl || ''
-      );
-      if (objectURL) {
+
+      const liveObj = new LiveEmbedObject(data.id, data.x, data.y, data.width, data.height, data.sourceUrl || '');
+      if (imgSrc) {
         const img = new Image();
-        // Fire resolving independently so board load isn't terribly blocked
-        // but typically synchronous enough if objectURL works immediately
+        const isTmp = imgSrc.startsWith('blob:');
         await new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve;
-          img.src = objectURL;
+          img.onload = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
+          img.onerror = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
+          img.src = imgSrc;
         });
         liveObj._placeholderImage = img;
       }
       liveObj.sourceRegion = data.sourceRegion || null;
+      liveObj._assetFile = data._assetFile || null;
       liveObj._assetHash = data._assetHash || null;
       return liveObj;
     }
@@ -349,27 +383,17 @@ async function deserializeObject(data, classes) {
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-/**
- * Get the board ID from the current URL (?id=...).
- */
 export function getBoardIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get(BOARD_ID_PARAM) || null;
 }
 
-/**
- * Push the board ID into the current URL without reloading.
- */
 export function setBoardIdInURL(id) {
   const url = new URL(window.location.href);
   url.searchParams.set(BOARD_ID_PARAM, id);
   history.replaceState(null, '', url.toString());
 }
 
-/**
- * Get the board ID for the current tab (from URL) or create a new one.
- * Returns: the board ID string.
- */
 export async function ensureBoardId() {
   let id = getBoardIdFromURL();
   if (!id) {
@@ -380,27 +404,18 @@ export async function ensureBoardId() {
 }
 
 /**
- * Saves the given scene array to IDB.
+ * Save the board scene to IndexedDB (JSON) and media assets to the filesystem.
  */
 export async function saveBoard(id, title, isTransparent, scale, offsetX, offsetY, sceneArray) {
-  // Serialize all objects in parallel (faster asset hashing)
-  const serializedScene = await Promise.all(
-    sceneArray.map((obj) => serializeObject(obj))
-  );
-
+  const serializedScene = await Promise.all(sceneArray.map(serializeObject));
   await dbSaveBoard(id, title, isTransparent, scale, offsetX, offsetY, serializedScene);
-
-  // Inform background script of update
   document.dispatchEvent(new CustomEvent('ZenBoardUpdated', {
     detail: { id, title, isTransparent, lastEdited: Date.now() }
   }));
 }
 
 /**
- * Load a board from IndexedDB and hydrate all objects.
- * @param {string} id
- * @param {object} classes - { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject }
- * @returns {{ title, isTransparent, scale, offsetX, offsetY, scene: DrawingObject[] } | null}
+ * Load a board from IndexedDB and hydrate all objects (media from filesystem).
  */
 export async function loadBoard(id, classes) {
   const board = await dbLoadBoard(id);
@@ -421,7 +436,7 @@ export async function loadBoard(id, classes) {
 }
 
 /**
- * Revoke any ObjectURLs created for video blobs (call on pagehide).
+ * Revoke any legacy blob: ObjectURLs (only videos loaded from old IDB data).
  */
 export function revokeAllObjectURLs() {
   _createdObjectURLs.forEach(url => URL.revokeObjectURL(url));

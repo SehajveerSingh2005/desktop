@@ -2,15 +2,43 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// XPCOMUtils replaced by chromeWindow.Services
+// ── Native filesystem asset storage ──────────────────────────────────────────
+// Captures (and any other blobs) are stored as files in the user's profile
+// directory instead of as blobs in IndexedDB.
+// This avoids SHA-256 hashing in JavaScript (no ArrayBuffer allocation),
+// keeps IndexedDB tiny, and enables direct file:// streaming.
 
-// ── Native Zen Board IDB Logic ────────────────────────────────────────────────────────
-const DB_NAME = 'zen-board-db';
+const ASSETS_FOLDER_NAME = 'zen-board-assets';
+let _nativeAssetsFolder = null;
 
-async function hashBlob(blob) {
-    const buf = await blob.arrayBuffer();
-    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+async function getNativeAssetsFolder() {
+    if (_nativeAssetsFolder) return _nativeAssetsFolder;
+    const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
+    await IOUtils.makeDirectory(folder, { ignoreExisting: true });
+    _nativeAssetsFolder = folder;
+    return folder;
+}
+
+function mimeToExt(mimeType) {
+    const map = {
+        'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg',
+        'image/gif': 'gif', 'image/webp': 'webp',
+        'video/mp4': 'mp4', 'video/webm': 'webm',
+    };
+    return map[mimeType] || 'bin';
+}
+
+/**
+ * Write a Blob to the zen-board-assets folder. Returns the filename.
+ */
+async function saveAssetToFilesystem(blob) {
+    const folder = await getNativeAssetsFolder();
+    const ext = mimeToExt(blob.type);
+    const filename = `${crypto.randomUUID()}.${ext}`;
+    const destPath = PathUtils.join(folder, filename);
+    const buffer = await blob.arrayBuffer();
+    await IOUtils.write(destPath, new Uint8Array(buffer));
+    return filename;
 }
 
 function openDB(window) {
@@ -46,24 +74,6 @@ function createBoard(db, title) {
     });
 }
 
-async function storeAsset(db, blob) {
-    const hash = await hashBlob(blob);
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction('assets', 'readwrite');
-        const store = tx.objectStore('assets');
-        const getAct = store.get(hash);
-        getAct.onsuccess = () => {
-            if (!getAct.result) {
-                const put = store.put({ hash, blob });
-                put.onsuccess = () => resolve(hash);
-                put.onerror = () => reject(put.error);
-            } else {
-                resolve(hash);
-            }
-        };
-        getAct.onerror = () => reject(getAct.error);
-    });
-}
 
 function appendCaptureToBoard(db, boardId, captureData) {
     return new Promise((resolve, reject) => {
@@ -87,7 +97,8 @@ function appendCaptureToBoard(db, boardId, captureData) {
 async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, region) {
     try {
         const db = await openDB(chromeWindow);
-        const hash = await storeAsset(db, blob);
+        // Save the capture PNG to the native filesystem (no hashing, no IDB blob storage)
+        const assetFilename = await saveAssetToFilesystem(blob);
 
         const gb = chromeWindow.gBrowser;
         const existingTab = gb ? Array.from(gb.tabs).find(t => {
@@ -133,9 +144,9 @@ async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, 
                 viewportWidth: region.viewportWidth || 0,
                 viewportHeight: region.viewportHeight || 0
             } : null,
-            _assetHash: hash,
+            _assetFile: assetFilename,  // filesystem reference (new)
+            _assetHash: null,           // IDB reference (legacy, unused)
         };
-        console.error("ZenBoard: Saving capture with sourceRegion:", captureObj.sourceRegion);
         await appendCaptureToBoard(db, boardId, captureObj);
 
 

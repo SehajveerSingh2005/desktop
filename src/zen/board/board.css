@@ -264,6 +264,11 @@ body {
   color: #000;
   border-radius: 0;
   box-sizing: content-box;
+  transform-origin: top left;
+}
+
+#font-options-panel {
+  transform-origin: top left;
 }
 
 #active-color-display {

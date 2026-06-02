@@ -21,6 +21,11 @@ export function removeFromScene(id) {
 }
 
 export function clearScene() {
+  for (const obj of scene) {
+    if (typeof obj.destroy === 'function') {
+      obj.destroy();
+    }
+  }
   scene.length = 0;
 }
 

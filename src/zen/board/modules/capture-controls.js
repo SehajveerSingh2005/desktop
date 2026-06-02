@@ -21,31 +21,34 @@ let overlayContainer = null;
 let currentObject = null;
 let animationFrameId = null;
 
-// ── Global iframe sync loop ──────────────────────────────────────────────────
-// Keeps ALL live-embed iframes positioned correctly relative to the canvas
-// transform, regardless of whether the object is currently selected.
-// This prevents iframes from drifting when the user pans/zooms after deselecting.
+// ── Global iframe position sync ───────────────────────────────────────────────
+// Keeps ALL live-embed iframes positioned correctly after a pan/zoom.
+// Instead of running a continuous RAF loop (which burns CPU every frame even
+// when idle), callers signal a transform change via notifyTransformChanged().
+// We schedule a single one-shot RAF to resync all iframe positions.
 let _globalSyncId = null;
 
-function startGlobalSyncLoop() {
-  if (_globalSyncId) return; // Already running
-  const loop = () => {
+export function notifyTransformChanged() {
+  // Only schedule a sync if there are any live embeds with injected iframes.
+  const hasLiveEmbeds = scene.some(o => o.type === 'live-embed' && o._iframeEl);
+  if (!hasLiveEmbeds) return;
+
+  if (_globalSyncId) return; // Already scheduled for this frame
+  _globalSyncId = requestAnimationFrame(() => {
+    _globalSyncId = null;
     const { scale, offsetX, offsetY } = getState();
-    let hasLiveEmbeds = false;
     for (const obj of scene) {
       if (obj.type === 'live-embed' && obj._iframeEl) {
-        hasLiveEmbeds = true;
         obj._syncIframePosition(scale, offsetX, offsetY);
       }
     }
-    // Self-terminate when there are no more live-embed iframes in the scene
-    if (hasLiveEmbeds) {
-      _globalSyncId = requestAnimationFrame(loop);
-    } else {
-      _globalSyncId = null;
-    }
-  };
-  _globalSyncId = requestAnimationFrame(loop);
+  });
+}
+
+// Keep startGlobalSyncLoop as a one-shot call used right after iframe injection
+// so the iframe is positioned immediately without waiting for a transform event.
+function startGlobalSyncLoop() {
+  notifyTransformChanged();
 }
 
 // Elements

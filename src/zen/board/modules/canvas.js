@@ -9,6 +9,21 @@ export function setTransform(newScale, newOffsetX, newOffsetY) {
   setState({ scale: newScale, offsetX: newOffsetX, offsetY: newOffsetY });
 }
 
+// ── Accent color cache ────────────────────────────────────────────────────
+// getComputedStyle is called synchronously and is expensive when called every
+// frame. We cache the value and only refresh it when the theme changes.
+let _cachedAccentColor = '';
+export function invalidateAccentColorCache() {
+  _cachedAccentColor = '';
+}
+export function getAccentColor() {
+  if (!_cachedAccentColor) {
+    _cachedAccentColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--board-accent-color').trim();
+  }
+  return _cachedAccentColor || '#007bff';
+}
+
 // --- Coordinate Transformation ---
 export function getTransformedPoint(x, y) {
   const { scale, offsetX, offsetY } = getState();
@@ -45,7 +60,16 @@ function resetContext() {
   ctx.globalCompositeOperation = 'source-over';
 }
 
+let redrawScheduled = false;
+
 export function redrawCanvas() {
+  if (redrawScheduled) return;
+  redrawScheduled = true;
+  requestAnimationFrame(redrawCanvasImmediate);
+}
+
+export function redrawCanvasImmediate() {
+  redrawScheduled = false;
   ctx.save(); // Save the default state
 
   // Clear the canvas with a transformed rectangle
@@ -88,7 +112,7 @@ export function redrawCanvas() {
       }
 
       const isEditingThis = editingTextObject && editingTextObject.id === selectedObjectId;
-      const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--board-accent-color').trim();
+      const accentColor = getAccentColor();
 
       // Only draw the main selection box if we're not currently editing it in the DOM (to avoid double border)
       if (!isEditingThis) {

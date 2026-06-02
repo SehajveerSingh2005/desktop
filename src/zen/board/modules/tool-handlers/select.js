@@ -7,7 +7,7 @@ import { redrawCanvas } from '../canvas.js';
 import { deactivateTextEditor, activateTextEditor, updateTextEditorPosition } from '../ui.js';
 import { findObjectAt } from '../interactions.js';
 import { showVideoControls, hideVideoControls, updateVideoControlsPosition } from '../video-controls.js';
-import { showCaptureControls, hideCaptureControls, updateCaptureControlsPosition } from '../capture-controls.js';
+import { showCaptureControls, hideCaptureControls, updateCaptureControlsPosition, notifyTransformChanged } from '../capture-controls.js';
 
 export const select = {
   onMouseDown(e) {
@@ -105,11 +105,8 @@ export const select = {
       const { selectedObjectId, resizeHandle, resizeAnchorX, resizeAnchorY, editingTextObject } = getState();
       const selectedObject = scene.find(obj => obj.id === selectedObjectId);
       if (selectedObject) {
-        // Get current mouse position in world coordinates
         const { x: worldX, y: worldY } = getTransformedPoint(e.offsetX, e.offsetY);
-
         selectedObject.resize(resizeHandle, worldX, worldY, resizeAnchorX, resizeAnchorY);
-
         if (editingTextObject && selectedObject.id === editingTextObject.id) {
           updateTextEditorPosition();
         }
@@ -125,7 +122,6 @@ export const select = {
         const dy = e.clientY - dragStartY;
         selectedObject.move(dx / scale, dy / scale);
         setState({ dragStartX: e.clientX, dragStartY: e.clientY });
-
         if (editingTextObject && selectedObject.id === editingTextObject.id) {
           updateTextEditorPosition();
         }
@@ -141,52 +137,45 @@ export const select = {
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
       updateVideoControlsPosition();
       updateCaptureControlsPosition();
+      notifyTransformChanged();
       redrawCanvas();
     } else {
-      // If not dragging or panning, change cursor on hover.
+      // Idle: update cursor based on hover target — only runs when not dragging/panning
       const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
       const { selectedObjectId, scale } = getState();
 
-      // Check for handles first
+      // Check resize handle corners first (early return on match)
       if (selectedObjectId) {
         const obj = scene.find(o => o.id === selectedObjectId);
-        if (obj) {
-          if (obj.type === 'video') {
-            // Pass
-          }
-
-          if (obj.type !== 'text') {
-            const box = obj.getBoundingBox(ctx);
-            const handleSize = 12 / scale;
-            const corners = {
-              nw: { x: box.x, y: box.y, cursor: 'nwse-resize' },
-              ne: { x: box.x + box.width, y: box.y, cursor: 'nesw-resize' },
-              sw: { x: box.x, y: box.y + box.height, cursor: 'nesw-resize' },
-              se: { x: box.x + box.width, y: box.y + box.height, cursor: 'nwse-resize' }
-            };
-
-            for (const corner of Object.values(corners)) {
-              if (Math.abs(x - corner.x) < handleSize / 2 && Math.abs(y - corner.y) < handleSize / 2) {
-                canvas.style.cursor = corner.cursor;
-                return;
-              }
+        if (obj && obj.type !== 'text') {
+          const box = obj.getBoundingBox(ctx);
+          const handleSize = 12 / scale;
+          const corners = {
+            nw: { x: box.x, y: box.y, cursor: 'nwse-resize' },
+            ne: { x: box.x + box.width, y: box.y, cursor: 'nesw-resize' },
+            sw: { x: box.x, y: box.y + box.height, cursor: 'nesw-resize' },
+            se: { x: box.x + box.width, y: box.y + box.height, cursor: 'nwse-resize' },
+          };
+          for (const corner of Object.values(corners)) {
+            if (Math.abs(x - corner.x) < handleSize / 2 && Math.abs(y - corner.y) < handleSize / 2) {
+              canvas.style.cursor = corner.cursor;
+              return;
             }
           }
         }
-
       }
-    }
 
-    // Default cursor behavior if no handles or controls hovered
-    const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
-    const hitObject = findObjectAt(x, y);
-    canvas.style.cursor = hitObject ? 'move' : 'grab';
+      // Default cursor — show 'move' if hovering an object, 'grab' otherwise
+      const hitObject = findObjectAt(x, y);
+      canvas.style.cursor = hitObject ? 'move' : 'grab';
+    }
   },
 
   onMouseUp() {
     setState({ isPanning: false, isDraggingObject: false, isResizingObject: false, resizeHandle: null });
     updateVideoControlsPosition();
     updateCaptureControlsPosition();
-    // The cursor will be updated by the next mousemove event.
+    // Cursor will be updated by the next mousemove event.
   },
 };
+

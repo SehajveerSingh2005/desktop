@@ -23,6 +23,7 @@
         content/browser/zen-board/modules/tool-handlers/shape.js                (../../zen/board/modules/tool-handlers/shape.js)
         content/browser/zen-board/modules/ui.js                                 (../../zen/board/modules/ui.js)
         content/browser/zen-board/modules/db.js                                  (../../zen/board/modules/db.js)
+        content/browser/zen-board/modules/assets.js                              (../../zen/board/modules/assets.js)
         content/browser/zen-board/modules/storage.js                             (../../zen/board/modules/storage.js)
         content/browser/zen-board/modules/capture-controls.js                   (../../zen/board/modules/capture-controls.js)
         content/browser/zen-board/modules/history.js                             (../../zen/board/modules/history.js)

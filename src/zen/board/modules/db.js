@@ -135,9 +135,12 @@ export async function loadBoard(id) {
  * @param {string} id
  * @param {string} title
  * @param {boolean} isTransparent
+ * @param {number} scale
+ * @param {number} offsetX
+ * @param {number} offsetY
  * @param {Array}   serializedScene — already-serialized, asset refs resolved
  */
-export async function saveBoard(id, title, isTransparent, serializedScene) {
+export async function saveBoard(id, title, isTransparent, scale, offsetX, offsetY, serializedScene) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('boards', 'readwrite');
@@ -146,6 +149,9 @@ export async function saveBoard(id, title, isTransparent, serializedScene) {
       id,
       title,
       isTransparent,
+      scale,
+      offsetX,
+      offsetY,
       lastEdited: Date.now(),
       scene: serializedScene,
     };

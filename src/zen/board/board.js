@@ -32,10 +32,10 @@ export function triggerSave() {
 
 export async function triggerSaveImmediate() {
   clearTimeout(_saveTimer);
-  const { boardId, boardTitle, isTransparent } = getState();
+  const { boardId, boardTitle, isTransparent, scale, offsetX, offsetY } = getState();
   if (!boardId) return;
   try {
-    await saveBoard(boardId, boardTitle, isTransparent, [...scene]);
+    await saveBoard(boardId, boardTitle, isTransparent, scale, offsetX, offsetY, [...scene]);
   } catch (e) {
     console.error('ZenBoard: Immediate save failed', e);
   }
@@ -153,6 +153,7 @@ function zoom(direction) {
   if (getState().editingTextObject) {
     updateTextEditorPosition();
   }
+  triggerSave();
 }
 
 // Event Delegation
@@ -385,8 +386,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       } catch (e) { /* ignore */ }
 
       applyTransparency(saved.isTransparent);
+
+      const chromeWindow = window.docShell?.chromeEventHandler?.ownerGlobal;
+      const rememberZoomPan = chromeWindow?.Services?.prefs?.getBoolPref("zen.board.remember-zoom-pan", true) ?? true;
+      if (rememberZoomPan && typeof saved.scale === 'number') {
+        setTransform(saved.scale, saved.offsetX ?? 0, saved.offsetY ?? 0);
+      } else {
+        setTransform(1, 0, 0);
+      }
     } else {
       applyTransparency(true);
+      setTransform(1, 0, 0);
     }
     pushHistory();
   } catch (e) {
@@ -502,6 +512,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     startWheelAnimation();
+    triggerSave();
   }, { passive: false });
 
   zoomInBtn.addEventListener('click', () => zoom(1));
@@ -602,11 +613,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     // Flush any pending save immediately
     clearTimeout(_saveTimer);
-    const { boardId: id, boardTitle, isTransparent } = getState();
+    const { boardId: id, boardTitle, isTransparent, scale, offsetX, offsetY } = getState();
     if (id) {
       // Best-effort synchronous-ish save (sendBeacon not suitable for IDB, 
       // but browser gives ~handful of seconds for pagehide handlers)
-      saveBoard(id, boardTitle, isTransparent, [...scene]).catch(() => {});
+      saveBoard(id, boardTitle, isTransparent, scale, offsetX, offsetY, [...scene]).catch(() => {});
     }
   });
 

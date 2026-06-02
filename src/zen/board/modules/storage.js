@@ -382,13 +382,13 @@ export async function ensureBoardId() {
 /**
  * Saves the given scene array to IDB.
  */
-export async function saveBoard(id, title, isTransparent, sceneArray) {
+export async function saveBoard(id, title, isTransparent, scale, offsetX, offsetY, sceneArray) {
   // Serialize all objects in parallel (faster asset hashing)
   const serializedScene = await Promise.all(
     sceneArray.map((obj) => serializeObject(obj))
   );
 
-  await dbSaveBoard(id, title, isTransparent, serializedScene);
+  await dbSaveBoard(id, title, isTransparent, scale, offsetX, offsetY, serializedScene);
 
   // Inform background script of update
   document.dispatchEvent(new CustomEvent('ZenBoardUpdated', {
@@ -400,7 +400,7 @@ export async function saveBoard(id, title, isTransparent, sceneArray) {
  * Load a board from IndexedDB and hydrate all objects.
  * @param {string} id
  * @param {object} classes - { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject }
- * @returns {{ title, isTransparent, scene: DrawingObject[] } | null}
+ * @returns {{ title, isTransparent, scale, offsetX, offsetY, scene: DrawingObject[] } | null}
  */
 export async function loadBoard(id, classes) {
   const board = await dbLoadBoard(id);
@@ -413,6 +413,9 @@ export async function loadBoard(id, classes) {
   return {
     title: board.title || 'Untitled Board',
     isTransparent: board.isTransparent ?? true,
+    scale: board.scale,
+    offsetX: board.offsetX,
+    offsetY: board.offsetY,
     scene: hydratedObjects.filter(Boolean),
   };
 }

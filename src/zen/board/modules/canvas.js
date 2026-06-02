@@ -52,8 +52,10 @@ export function redrawCanvas() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Apply the viewport transform
+  // Apply the viewport transform with devicePixelRatio scaling
   const { scale, offsetX, offsetY, selectedObjectId, editingTextObject } = getState();
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
@@ -125,8 +127,9 @@ export function redrawCanvas() {
 }
 
 export function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
   redrawCanvas();
 }
 

@@ -64,8 +64,8 @@ function zoom(direction) {
   // Clamp zoom level
   newScale = Math.max(0.1, Math.min(newScale, 10));
 
-  const centerX = canvas.width / 2;
-  const centerY = canvas.height / 2;
+  const centerX = window.innerWidth / 2;
+  const centerY = window.innerHeight / 2;
 
   const newOffsetX = centerX - (centerX - offsetX) * (newScale / oldScale);
   const newOffsetY = centerY - (centerY - offsetY) * (newScale / oldScale);

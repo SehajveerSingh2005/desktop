@@ -2,7 +2,7 @@
 
 import { canvas, redrawCanvas } from './canvas.js';
 import { getState, setState } from './state.js';
-import { scene, addToScene, generateId, Text } from './scene.js';
+import { scene, addToScene, generateId, Text, parseFont } from './scene.js';
 import { pushHistory } from './history.js';
 import { hideVideoControls } from './video-controls.js';
 import { hideCaptureControls } from './capture-controls.js';
@@ -324,6 +324,7 @@ function updateTextareaFont() {
     const fontName = fontFamilies[currentFontIndex];
     const fontSpec = `${currentFontSize}px '${fontName}'`;
     textEditor.style.font = fontSpec;
+    textEditor.style.lineHeight = '1.3';
     fontCycleBtn.style.fontFamily = `'${fontName}', sans-serif`;
 
     // Ensure the font is loaded before measuring for auto-resize. 
@@ -393,15 +394,11 @@ export function activateTextEditor(x, y, existingObject = null) {
 
   if (existingObject) {
     existingObject.visible = false;
-    const fontParts = existingObject.font.match(/(\d+)px "?([^"]*)"?/);
-    if (fontParts && fontParts.length === 3) {
-      let { fontFamilies } = getState();
-      let currentFontSize = parseFloat(fontParts[1]);
-      const fontName = fontParts[2].replace(/'/g, "");
-      let currentFontIndex = fontFamilies.indexOf(fontName);
-      if (currentFontIndex === -1) currentFontIndex = 0;
-      setState({ currentFontSize, currentFontIndex });
-    }
+    const { fontSize: currentFontSize, fontFamily: fontName } = parseFont(existingObject.font);
+    let { fontFamilies } = getState();
+    let currentFontIndex = fontFamilies.indexOf(fontName);
+    if (currentFontIndex === -1) currentFontIndex = 0;
+    setState({ currentFontSize, currentFontIndex });
     textEditor.value = existingObject.text;
     textEditor.style.color = existingObject.color;
     selectColor(existingObject.color); // Sync palette

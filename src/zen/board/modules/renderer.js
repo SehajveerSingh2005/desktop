@@ -1,5 +1,6 @@
 // renderer.js
 import { getState } from './state.js';
+import { parseFont } from './scene.js';
 
 function drawPath(context, object) {
   context.save();
@@ -82,8 +83,7 @@ function drawText(context, object) {
   context.textBaseline = 'top';
 
   const lines = object.text.split('\n');
-  const baseFontSize = parseFloat(object.font) || 24;
-  const fontFamily = object.font.replace(/^[0-9.]+\s*px\s+/, '') || 'sans-serif';
+  const { fontSize: baseFontSize, fontFamily } = parseFont(object.font);
 
   let currentY = object.y;
 
@@ -115,22 +115,22 @@ function drawText(context, object) {
       }
     }
 
-    context.font = `${lineFontSize}px ${fontFamily}`;
+    context.font = `${lineFontSize}px '${fontFamily}'`;
 
     if (isBullet) {
-      const bulletX = object.x + indent * 0.4;
-      const bulletY = currentY + lineFontSize * 0.45;
+      const bulletX = object.x + indent * 0.4 + 2;
+      const bulletY = currentY + lineFontSize * 0.5 + 2;
       const radius = lineFontSize * 0.15;
       context.beginPath();
       context.arc(bulletX, bulletY, radius, 0, 2 * Math.PI);
       context.fill();
     } else if (isNumbered) {
-      const numX = object.x + indent * 0.1;
-      context.fillText(numStr, numX, currentY);
+      const numX = object.x + indent * 0.1 + 2;
+      context.fillText(numStr, numX, currentY + 2);
     }
 
-    context.fillText(cleanText, object.x + indent, currentY);
-    currentY += lineFontSize * 1.2;
+    context.fillText(cleanText, object.x + indent + 2, currentY + 2);
+    currentY += lineFontSize * 1.3;
   });
 
   context.restore();

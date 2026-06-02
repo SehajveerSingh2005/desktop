@@ -190,6 +190,19 @@ export class Ellipse extends Shape {
 }
 
 
+export function parseFont(fontStr) {
+  const match = fontStr.match(/(\d+(?:\.\d+)?)px(?:\s*\/\s*(?:[\d.]+|normal))?\s+(.+)/i);
+  if (match) {
+    return {
+      fontSize: parseFloat(match[1]),
+      fontFamily: match[2].trim().replace(/['"]/g, '')
+    };
+  }
+  const baseFontSize = parseFloat(fontStr) || 24;
+  const fontFamily = fontStr.replace(/^[0-9.]+\s*px\s+/, '').replace(/['"]/g, '') || 'sans-serif';
+  return { fontSize: baseFontSize, fontFamily };
+}
+
 export class Text extends DrawingObject {
   constructor(id, text, x, y, font, color) {
     super(id, 'text', x, y);
@@ -200,8 +213,7 @@ export class Text extends DrawingObject {
 
   getBoundingBox(ctx) {
     const lines = this.text.split('\n');
-    const baseFontSize = parseFloat(this.font) || 24;
-    const fontFamily = this.font.replace(/^[0-9.]+\s*px\s+/, '') || 'sans-serif';
+    const { fontSize: baseFontSize, fontFamily } = parseFont(this.font);
 
     let maxWidth = 0;
     let totalHeight = 0;
@@ -228,14 +240,14 @@ export class Text extends DrawingObject {
         }
       }
 
-      ctx.font = `${lineFontSize}px ${fontFamily}`;
+      ctx.font = `${lineFontSize}px '${fontFamily}'`;
       const lineWidth = ctx.measureText(cleanText).width + indent;
       maxWidth = Math.max(maxWidth, lineWidth);
-      totalHeight += lineFontSize * 1.2;
+      totalHeight += lineFontSize * 1.3;
     });
 
     if (totalHeight === 0) {
-      totalHeight = baseFontSize * 1.2;
+      totalHeight = baseFontSize * 1.3;
     }
 
     return { x: this.x, y: this.y, width: maxWidth, height: totalHeight };

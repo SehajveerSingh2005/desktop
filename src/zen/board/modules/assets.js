@@ -82,12 +82,6 @@ export async function saveAsset(blob, existingFilename = null) {
 export async function getAssetURL(filename) {
   const folder = await getAssetsFolder();
   const filePath = PathUtils.join(folder, filename);
-  // Verify the file exists before returning a URL (catches orphaned references)
-  const exists = await IOUtils.exists(filePath);
-  if (!exists) {
-    console.warn(`ZenBoard: Asset file not found: ${filename}`);
-    return null;
-  }
   return pathToFileURI(filePath);
 }
 

@@ -68,7 +68,7 @@ export const select = {
       // A) Clicked on an object. Select it and prepare for dragging.
       setState({ selectedObjectId: hitObject.id, isDraggingObject: true });
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
-      canvas.style.cursor = 'move';
+      if (canvas.style.cursor !== 'move') canvas.style.cursor = 'move';
 
       // If the clicked object is a text object, re-activate the editor.
       // This preserves the workflow where clicking a text object allows editing.
@@ -92,7 +92,7 @@ export const select = {
       // B) Clicked on empty space. Deselect everything and start panning.
       setState({ selectedObjectId: null, isPanning: true });
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
-      canvas.style.cursor = 'grabbing';
+      if (canvas.style.cursor !== 'grabbing') canvas.style.cursor = 'grabbing';
       hideVideoControls();
       hideCaptureControls();
     }
@@ -158,7 +158,7 @@ export const select = {
           };
           for (const corner of Object.values(corners)) {
             if (Math.abs(x - corner.x) < handleSize / 2 && Math.abs(y - corner.y) < handleSize / 2) {
-              canvas.style.cursor = corner.cursor;
+              if (canvas.style.cursor !== corner.cursor) canvas.style.cursor = corner.cursor;
               return;
             }
           }
@@ -167,7 +167,8 @@ export const select = {
 
       // Default cursor — show 'move' if hovering an object, 'grab' otherwise
       const hitObject = findObjectAt(x, y);
-      canvas.style.cursor = hitObject ? 'move' : 'grab';
+      const targetCursor = hitObject ? 'move' : 'grab';
+      if (canvas.style.cursor !== targetCursor) canvas.style.cursor = targetCursor;
     }
   },
 

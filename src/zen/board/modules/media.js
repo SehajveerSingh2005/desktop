@@ -11,11 +11,9 @@ export class ImageObject extends DrawingObject {
         this.aspectRatio = width / height;
     }
 
-    getBoundingBox() {
-        return { x: this.x, y: this.y, width: this.width, height: this.height };
-    }
 
     resize(handle, mouseX, mouseY, anchorX, anchorY) {
+        super.resize(handle, mouseX, mouseY, anchorX, anchorY);
         const newWidth = Math.abs(mouseX - anchorX);
         const newHeight = Math.abs(mouseY - anchorY);
 
@@ -71,10 +69,6 @@ export class VideoObject extends DrawingObject {
         this.showVolumeSlider = false;
     }
 
-    getBoundingBox() {
-        const baseBox = { x: this.x, y: this.y, width: this.width, height: this.height };
-        return baseBox;
-    }
 
     // Helper for hit-testing controls specifically
     getControlsBox() {
@@ -90,6 +84,7 @@ export class VideoObject extends DrawingObject {
     }
 
     resize(handle, mouseX, mouseY, anchorX, anchorY) {
+        super.resize(handle, mouseX, mouseY, anchorX, anchorY);
         const newWidth = Math.abs(mouseX - anchorX);
         const newHeight = Math.abs(mouseY - anchorY);
 
@@ -121,11 +116,13 @@ export class VideoObject extends DrawingObject {
             this.video.pause();
             this.isPlaying = false;
         }
+        this._serializedCache = null;
     }
 
     toggleMute() {
         this.isMuted = !this.isMuted;
         this.video.muted = this.isMuted;
+        this._serializedCache = null;
         return this.isMuted;
     }
 
@@ -138,6 +135,7 @@ export class VideoObject extends DrawingObject {
         } else if (val === 0 && !this.isMuted) {
             this.toggleMute();
         }
+        this._serializedCache = null;
     }
 
     clone() {
@@ -171,9 +169,6 @@ export class CaptureObject extends DrawingObject {
         this._assetHash = null;
     }
 
-    getBoundingBox() {
-        return { x: this.x, y: this.y, width: this.width, height: this.height };
-    }
 
     /**
      * Returns the screen-space rect of the bottom toolbar for hit-testing.
@@ -191,6 +186,7 @@ export class CaptureObject extends DrawingObject {
     }
 
     resize(handle, mouseX, mouseY, anchorX, anchorY) {
+        super.resize(handle, mouseX, mouseY, anchorX, anchorY);
         const newWidth = Math.abs(mouseX - anchorX);
         const newHeight = Math.abs(mouseY - anchorY);
 
@@ -237,9 +233,6 @@ export class LiveEmbedObject extends DrawingObject {
         this._assetHash = null;
     }
 
-    getBoundingBox() {
-        return { x: this.x, y: this.y, width: this.width, height: this.height };
-    }
 
     getToolbarBox(scale) {
         const s = scale || 1;
@@ -254,6 +247,7 @@ export class LiveEmbedObject extends DrawingObject {
     }
 
     resize(handle, mouseX, mouseY, anchorX, anchorY) {
+        super.resize(handle, mouseX, mouseY, anchorX, anchorY);
         const newWidth = Math.abs(mouseX - anchorX);
         const newHeight = Math.abs(mouseY - anchorY);
 
@@ -278,26 +272,49 @@ export class LiveEmbedObject extends DrawingObject {
     }
 
     move(dx, dy) {
-        this.x += dx;
-        this.y += dy;
+        super.move(dx, dy);
         this._syncIframePosition();
     }
 
     _syncIframePosition(scale, offsetX, offsetY) {
         if (!this._wrapperEl || !this._iframeEl) return;
-        if (scale === undefined) return;
+        if (scale === undefined) {
+            const state = typeof getState === 'function' ? getState() : null;
+            if (!state) return;
+            scale = state.scale;
+            offsetX = state.offsetX;
+            offsetY = state.offsetY;
+        }
 
         const left = this.x * scale + offsetX;
         const top = this.y * scale + offsetY;
 
-        // The wrapper handles position, canvas-scale zooming, and the crop bounding box (overflow: hidden).
-        this._wrapperEl.style.width = `${this.width}px`;
-        this._wrapperEl.style.height = `${this.height}px`;
-        this._wrapperEl.style.transformOrigin = '0 0';
-        this._wrapperEl.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
-        this._wrapperEl.style.left = `0px`;
-        this._wrapperEl.style.top = `0px`;
-        this._wrapperEl.style.overflow = 'hidden';
+        // Cache layout properties so we don't trigger reflows by rewriting the same width/height
+        const targetWrapperW = `${this.width}px`;
+        const targetWrapperH = `${this.height}px`;
+        const targetWrapperTransform = `translate(${left}px, ${top}px) scale(${scale})`;
+
+        if (this._wrapperEl.style.width !== targetWrapperW) {
+            this._wrapperEl.style.width = targetWrapperW;
+        }
+        if (this._wrapperEl.style.height !== targetWrapperH) {
+            this._wrapperEl.style.height = targetWrapperH;
+        }
+        if (this._wrapperEl.style.transformOrigin !== '0 0') {
+            this._wrapperEl.style.transformOrigin = '0 0';
+        }
+        if (this._wrapperEl.style.transform !== targetWrapperTransform) {
+            this._wrapperEl.style.transform = targetWrapperTransform;
+        }
+        if (this._wrapperEl.style.left !== '0px') {
+            this._wrapperEl.style.left = '0px';
+        }
+        if (this._wrapperEl.style.top !== '0px') {
+            this._wrapperEl.style.top = '0px';
+        }
+        if (this._wrapperEl.style.overflow !== 'hidden') {
+            this._wrapperEl.style.overflow = 'hidden';
+        }
 
         // Restoring original layout viewport width.
         // Fallback to a standard desktop width (1280px) if not provided.
@@ -318,14 +335,28 @@ export class LiveEmbedObject extends DrawingObject {
 
         // Position the browser element inside the overflow:hidden wrapper.
         // It is sized to viewportW wide, so the page renders at its original layout width.
-        this._iframeEl.style.width = `${viewportW}px`;
-        this._iframeEl.style.height = `${iframeH}px`;
-        
-        // Shift it negatively and scale it to fit the current object bounds.
-        this._iframeEl.style.transformOrigin = '0 0';
-        this._iframeEl.style.transform = `scale(${s_content}) translate(${-scrollX}px, ${-scrollY}px)`;
-        this._iframeEl.style.left = `0px`;
-        this._iframeEl.style.top = `0px`;
+        const targetIframeW = `${viewportW}px`;
+        const targetIframeH = `${iframeH}px`;
+        const targetIframeTransform = `scale(${s_content}) translate(${-scrollX}px, ${-scrollY}px)`;
+
+        if (this._iframeEl.style.width !== targetIframeW) {
+            this._iframeEl.style.width = targetIframeW;
+        }
+        if (this._iframeEl.style.height !== targetIframeH) {
+            this._iframeEl.style.height = targetIframeH;
+        }
+        if (this._iframeEl.style.transformOrigin !== '0 0') {
+            this._iframeEl.style.transformOrigin = '0 0';
+        }
+        if (this._iframeEl.style.transform !== targetIframeTransform) {
+            this._iframeEl.style.transform = targetIframeTransform;
+        }
+        if (this._iframeEl.style.left !== '0px') {
+            this._iframeEl.style.left = '0px';
+        }
+        if (this._iframeEl.style.top !== '0px') {
+            this._iframeEl.style.top = '0px';
+        }
     }
 
 

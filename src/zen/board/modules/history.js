@@ -1,36 +1,28 @@
-// modules/history.js
 import { scene, clearScene, addToScene } from './scene.js';
 import { redrawCanvas } from './canvas.js';
-import { triggerSaveImmediate } from '../board.js';
+import { triggerSave } from '../board.js';
 import { hideVideoControls } from './video-controls.js';
+import { bumpSceneGeneration, getSceneGeneration } from './state.js';
 
 const MAX_HISTORY = 50;
 let undoStack = [];
 let redoStack = [];
-let lastHistoryHash = '';
+let lastCommittedGeneration = -1;
 
 export function clearHistory() {
   undoStack = [];
   redoStack = [];
-  lastHistoryHash = '';
-}
-
-/** Hashes current scene data for deduplication */
-function getSceneHash() {
-  return JSON.stringify(scene.map(obj => {
-    return { ...obj, type: obj.type, image: undefined, video: undefined, _blob: undefined, _cachedPath2D: undefined, _iframeEl: undefined };
-  }));
+  lastCommittedGeneration = -1;
 }
 
 /** Pushes current state to history if it changed */
 export function pushHistory() {
-  const currentHash = getSceneHash();
-  if (currentHash === lastHistoryHash) return;
+  if (getSceneGeneration() === lastCommittedGeneration) return;
 
   undoStack.push(scene.map(obj => obj.clone()));
   if (undoStack.length > MAX_HISTORY) undoStack.shift();
   redoStack.length = 0;
-  lastHistoryHash = currentHash;
+  lastCommittedGeneration = getSceneGeneration();
 }
 
 export function undo() {
@@ -39,7 +31,7 @@ export function undo() {
   redoStack.push(undoStack.pop());
   const previous = undoStack[undoStack.length - 1];
   restoreSnapshot(previous);
-  lastHistoryHash = getSceneHash();
+  lastCommittedGeneration = getSceneGeneration();
 }
 
 export function redo() {
@@ -48,7 +40,7 @@ export function redo() {
   const next = redoStack.pop();
   undoStack.push(next);
   restoreSnapshot(next);
-  lastHistoryHash = getSceneHash();
+  lastCommittedGeneration = getSceneGeneration();
 }
 
 function restoreSnapshot(snapshot) {
@@ -56,5 +48,7 @@ function restoreSnapshot(snapshot) {
   snapshot.forEach(obj => addToScene(obj.clone()));
   hideVideoControls();
   redrawCanvas();
-  triggerSaveImmediate();
+  triggerSave();
+  bumpSceneGeneration();
 }
+

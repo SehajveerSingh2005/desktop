@@ -257,18 +257,20 @@ function updateVolumeUI(obj) {
     volumeBtn.innerHTML = obj.video.muted || obj.video.volume === 0 ? getIcon('volume-mute') : getIcon('volume-high');
 }
 
-function loop() {
-    const obj = getVideoObject();
-    if (obj && overlayContainer.style.display !== 'none') {
-        const { selectedObjectId } = getState();
-        if (selectedObjectId !== obj.id) {
-            hideVideoControls();
+function startProgressLoop() {
+    // Only run while the video is actively playing
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    const tick = () => {
+        const obj = getVideoObject();
+        if (!obj || !obj.video || obj.video.paused || obj.video.ended) {
+            animationFrameId = null;
             return;
         }
         updateProgress(obj);
         updatePlayIcon(obj);
-        animationFrameId = requestAnimationFrame(loop);
-    }
+        animationFrameId = requestAnimationFrame(tick);
+    };
+    animationFrameId = requestAnimationFrame(tick);
 }
 
 
@@ -276,6 +278,14 @@ export function showVideoControls(videoObj) {
 
     if (!overlayContainer) initDOM();
     if (!overlayContainer) return;
+
+    // Detach previous video's listeners if switching objects
+    if (currentVideoObject && currentVideoObject !== videoObj) {
+        currentVideoObject.video.removeEventListener('play', startProgressLoop);
+        currentVideoObject.video.removeEventListener('pause', _onVideoPause);
+        currentVideoObject.video.removeEventListener('ended', _onVideoPause);
+        currentVideoObject.video.removeEventListener('seeked', _onVideoSeeked);
+    }
 
     currentVideoObject = videoObj;
 
@@ -286,21 +296,46 @@ export function showVideoControls(videoObj) {
     updateProgress(videoObj);
 
     overlayContainer.style.display = 'flex';
-    // Remove fade-out class if present
     overlayContainer.classList.remove('fade-out');
 
     updateVideoControlsPosition();
 
-    // Start UI loop
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    loop();
+    // Start progress loop only if already playing
+    if (!videoObj.video.paused) {
+        startProgressLoop();
+    }
+
+    // Hook video events so the loop starts/stops automatically
+    videoObj.video.addEventListener('play', startProgressLoop);
+    videoObj.video.addEventListener('pause', _onVideoPause);
+    videoObj.video.addEventListener('ended', _onVideoPause);
+    videoObj.video.addEventListener('seeked', _onVideoSeeked);
 }
+
+function _onVideoPause() {
+    if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+    // Sync UI to final paused state
+    const obj = getVideoObject();
+    if (obj) { updateProgress(obj); updatePlayIcon(obj); }
+}
+
+function _onVideoSeeked() {
+    const obj = getVideoObject();
+    if (obj) { updateProgress(obj); updatePlayIcon(obj); }
+}
+
 
 export function hideVideoControls() {
     if (overlayContainer) {
         overlayContainer.style.display = 'none';
+        if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+    }
+    if (currentVideoObject) {
+        currentVideoObject.video.removeEventListener('play', startProgressLoop);
+        currentVideoObject.video.removeEventListener('pause', _onVideoPause);
+        currentVideoObject.video.removeEventListener('ended', _onVideoPause);
+        currentVideoObject.video.removeEventListener('seeked', _onVideoSeeked);
         currentVideoObject = null;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
     }
 }
 
@@ -326,16 +361,23 @@ export function updateVideoControlsPosition() {
     let targetLeft = screenX;
     const width = screenW;
 
-    if (isDraggingObject) {
-        // Just hide when dragging
-        overlayContainer.style.opacity = '0';
-        overlayContainer.style.pointerEvents = 'none';
-    } else {
-        // Show when not dragging
-        overlayContainer.style.opacity = '1';
-        overlayContainer.style.pointerEvents = 'auto';
+    const targetOpacity = isDraggingObject ? '0' : '1';
+    if (overlayContainer.style.opacity !== targetOpacity) {
+        overlayContainer.style.opacity = targetOpacity;
     }
 
-    overlayContainer.style.transform = `translate(${targetLeft}px, ${targetTop}px)`;
-    overlayContainer.style.width = `${width}px`;
+    const targetPointerEvents = isDraggingObject ? 'none' : 'auto';
+    if (overlayContainer.style.pointerEvents !== targetPointerEvents) {
+        overlayContainer.style.pointerEvents = targetPointerEvents;
+    }
+
+    const targetTransform = `translate(${targetLeft}px, ${targetTop}px)`;
+    if (overlayContainer.style.transform !== targetTransform) {
+        overlayContainer.style.transform = targetTransform;
+    }
+
+    const targetWidth = `${width}px`;
+    if (overlayContainer.style.width !== targetWidth) {
+        overlayContainer.style.width = targetWidth;
+    }
 }

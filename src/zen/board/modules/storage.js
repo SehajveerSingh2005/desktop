@@ -13,8 +13,9 @@
 //   - IDB stays lean (only JSON metadata, a few KB per board)
 //   - Easy manual backup: just copy the zen-board-assets folder
 
-import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard } from './db.js';
+import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard, getAsset } from './db.js';
 import { saveAsset, getAssetURL, deleteAsset } from './assets.js';
+import { smoothPoints } from './smoothing.js';
 
 // The URL param key used to link a tab to a board ID
 const BOARD_ID_PARAM = 'id';
@@ -42,6 +43,10 @@ function dataURLToBlob(dataURL) {
  * Images / Videos / Captures → save to filesystem, store filename reference.
  */
 async function serializeObject(obj) {
+  if (obj._serializedCache) {
+    return obj._serializedCache;
+  }
+
   const base = {
     id: obj.id,
     type: obj.type,
@@ -49,19 +54,22 @@ async function serializeObject(obj) {
     y: obj.y,
   };
 
+  let serialized;
   switch (obj.type) {
     case 'path':
-      return {
+      serialized = {
         ...base,
         color: obj.color,
         lineWidth: obj.lineWidth,
         rawRelativePoints: obj.rawRelativePoints,
+        smoothedRelativePoints: obj.smoothedRelativePoints,
         boundingBox: obj.boundingBox,
       };
+      break;
 
     case 'rectangle':
     case 'ellipse':
-      return {
+      serialized = {
         ...base,
         width: obj.width,
         height: obj.height,
@@ -70,14 +78,16 @@ async function serializeObject(obj) {
         isFilled: obj.isFilled,
         fillColor: obj.fillColor,
       };
+      break;
 
     case 'text':
-      return {
+      serialized = {
         ...base,
         text: obj.text,
         font: obj.font,
         color: obj.color,
       };
+      break;
 
     case 'image': {
       // _assetFile is the filesystem filename; stamp it back on the object
@@ -88,15 +98,17 @@ async function serializeObject(obj) {
         if (blob) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back so next save is idempotent
+          obj._blob = null; // clear memory
         }
       }
-      return {
+      serialized = {
         ...base,
         width: obj.width,
         height: obj.height,
         _assetFile: filename,
         _assetHash: obj._assetHash || null,
       };
+      break;
     }
 
     case 'video': {
@@ -106,9 +118,10 @@ async function serializeObject(obj) {
         if (blob) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
+          obj._blob = null; // clear memory
         }
       }
-      return {
+      serialized = {
         ...base,
         width: obj.width,
         height: obj.height,
@@ -118,6 +131,7 @@ async function serializeObject(obj) {
         _assetFile: filename,
         _assetHash: obj._assetHash || null,
       };
+      break;
     }
 
     case 'capture': {
@@ -127,9 +141,10 @@ async function serializeObject(obj) {
         if (blob) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
+          obj._blob = null; // clear memory
         }
       }
-      return {
+      serialized = {
         ...base,
         width: obj.width,
         height: obj.height,
@@ -138,6 +153,7 @@ async function serializeObject(obj) {
         sourceUrl: obj.sourceUrl || '',
         sourceRegion: obj.sourceRegion || null,
       };
+      break;
     }
 
     case 'live-embed': {
@@ -150,7 +166,7 @@ async function serializeObject(obj) {
           obj._assetFile = filename; // stamp back
         } catch { /* ignore */ }
       }
-      return {
+      serialized = {
         ...base,
         width: obj.width,
         height: obj.height,
@@ -159,11 +175,16 @@ async function serializeObject(obj) {
         _assetFile: filename,
         _assetHash: obj._assetHash || null,
       };
+      break;
     }
 
     default:
-      return base;
+      serialized = base;
+      break;
   }
+
+  obj._serializedCache = serialized;
+  return serialized;
 }
 
 // ── Deserialization ────────────────────────────────────────────────────────
@@ -200,10 +221,19 @@ async function deserializeObject(data, classes) {
   switch (data.type) {
     case 'path': {
       const obj = new Path(data.id, data.color, data.lineWidth, data.x, data.y);
-      obj.rawRelativePoints = data.rawRelativePoints || [];
+      const pts = data.rawRelativePoints || [];
+      if (pts.length > 0 && typeof pts[0] === 'object' && pts[0] !== null) {
+        // Convert legacy format to flat format
+        const flat = [];
+        for (let i = 0; i < pts.length; i++) {
+          flat.push(pts[i].x, pts[i].y);
+        }
+        obj.rawRelativePoints = flat;
+      } else {
+        obj.rawRelativePoints = pts;
+      }
       obj.boundingBox = data.boundingBox || { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-      const { smoothPoints } = await import('./smoothing.js');
-      obj.smoothedRelativePoints = smoothPoints(obj.rawRelativePoints);
+      obj.smoothedRelativePoints = data.smoothedRelativePoints || smoothPoints(obj.rawRelativePoints);
       return obj;
     }
 
@@ -229,8 +259,6 @@ async function deserializeObject(data, classes) {
       if (data._assetFile) {
         imgSrc = await resolveAssetURL(data, null);
       } else if (data._assetHash) {
-        // Legacy IDB path — lazy import to avoid circular dep
-        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
           if (blob) {
@@ -263,8 +291,6 @@ async function deserializeObject(data, classes) {
         // file:// URL → the browser media engine can stream this directly
         videoSrc = await resolveAssetURL(data, null);
       } else if (data._assetHash) {
-        // Legacy IDB path — load blob and create a lasting blob: URL for playback
-        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
           if (blob) {
@@ -321,7 +347,6 @@ async function deserializeObject(data, classes) {
       if (data._assetFile) {
         imgSrc = await resolveAssetURL(data, null);
       } else if (data._assetHash) {
-        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
           if (blob) { imgSrc = URL.createObjectURL(blob); }
@@ -350,7 +375,6 @@ async function deserializeObject(data, classes) {
       if (data._assetFile) {
         imgSrc = await resolveAssetURL(data, null);
       } else if (data._assetHash) {
-        const { getAsset } = await import('./db.js');
         try {
           const blob = await getAsset(data._assetHash);
           if (blob) { imgSrc = URL.createObjectURL(blob); }

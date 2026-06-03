@@ -4,3 +4,7 @@
 
 - name: zen.board.remember-zoom-pan
   value: true
+
+- name: zen.board.live-embeds.capture-on-pause
+  value: true
+

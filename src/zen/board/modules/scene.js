@@ -1,11 +1,13 @@
 // scene.js
 
 import { smoothPoints } from './smoothing.js';
+import { bumpSceneGeneration } from './state.js';
 
 export const scene = [];
 
 export function addToScene(object) {
   scene.push(object);
+  bumpSceneGeneration();
 }
 
 export function removeFromScene(id) {
@@ -17,6 +19,7 @@ export function removeFromScene(id) {
       obj.destroy();
     }
     scene.splice(index, 1);
+    bumpSceneGeneration();
   }
 }
 
@@ -27,6 +30,7 @@ export function clearScene() {
     }
   }
   scene.length = 0;
+  bumpSceneGeneration();
 }
 
 export function generateId() {
@@ -38,16 +42,70 @@ export class DrawingObject {
   constructor(id, type, x, y) {
     this.id = id;
     this.type = type;
-    this.x = x;
-    this.y = y;
+    this._x = x;
+    this._y = y;
+    this._width = 0;
+    this._height = 0;
     this.visible = true;
+    this._serializedCache = null;
+    this._cachedBoundingBox = null;
   }
-  getBoundingBox() { return { x: this.x, y: this.y, width: 0, height: 0 }; }
+
+  get x() { return this._x; }
+  set x(val) {
+    if (this._x !== val) {
+      this._x = val;
+      this._cachedBoundingBox = null;
+      this._serializedCache = null;
+    }
+  }
+
+  get y() { return this._y; }
+  set y(val) {
+    if (this._y !== val) {
+      this._y = val;
+      this._cachedBoundingBox = null;
+      this._serializedCache = null;
+    }
+  }
+
+  get width() { return this._width; }
+  set width(val) {
+    if (this._width !== val) {
+      this._width = val;
+      this._cachedBoundingBox = null;
+      this._serializedCache = null;
+    }
+  }
+
+  get height() { return this._height; }
+  set height(val) {
+    if (this._height !== val) {
+      this._height = val;
+      this._cachedBoundingBox = null;
+      this._serializedCache = null;
+    }
+  }
+
+  getBoundingBox() {
+    if (!this._cachedBoundingBox) {
+      this._cachedBoundingBox = { x: this.x, y: this.y, width: this.width || 0, height: this.height || 0 };
+    }
+    return this._cachedBoundingBox;
+  }
   move(dx, dy) {
     this.x += dx;
     this.y += dy;
+    this._serializedCache = null;
+    this._cachedBoundingBox = null;
+    // If this is a path, the translate in drawPath means position shift doesn't
+    // invalidate the Path2D. But clear it anyway to be safe for sub-classes.
+    this._cachedPath2D = null;
   }
-  resize(handle, x, y, anchorX, anchorY) { }
+  resize(handle, x, y, anchorX, anchorY) {
+    this._serializedCache = null;
+    this._cachedBoundingBox = null;
+  }
 }
 
 class Shape extends DrawingObject {
@@ -62,6 +120,7 @@ class Shape extends DrawingObject {
   }
 
   resize(handle, mouseX, mouseY, anchorX, anchorY) {
+    super.resize(handle, mouseX, mouseY, anchorX, anchorY);
     // The stationary point is (anchorX, anchorY)
     // The moving point is (mouseX, mouseY)
 
@@ -82,36 +141,54 @@ export class Path extends DrawingObject {
     super(id, 'path', startX, startY);
     this.color = color;
     this.lineWidth = lineWidth;
-    this.rawRelativePoints = [{ x: 0, y: 0 }];
-    this.smoothedRelativePoints = [{ x: 0, y: 0 }];
+    this.rawRelativePoints = [0, 0];
+    this.smoothedRelativePoints = [0, 0];
     this.boundingBox = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
   }
 
   addPoint(worldX, worldY) {
     const relativeX = worldX - this.x;
     const relativeY = worldY - this.y;
-    this.rawRelativePoints.push({ x: relativeX, y: relativeY });
+
+    if (this.rawRelativePoints.length >= 2) {
+      const lastX = this.rawRelativePoints[this.rawRelativePoints.length - 2];
+      const lastY = this.rawRelativePoints[this.rawRelativePoints.length - 1];
+      const dx = relativeX - lastX;
+      const dy = relativeY - lastY;
+      if (dx * dx + dy * dy < 2.25) { // 1.5 units squared threshold
+        return;
+      }
+    }
+
+    this.rawRelativePoints.push(relativeX, relativeY);
 
     this.boundingBox.minX = Math.min(this.boundingBox.minX, relativeX);
     this.boundingBox.minY = Math.min(this.boundingBox.minY, relativeY);
     this.boundingBox.maxX = Math.max(this.boundingBox.maxX, relativeX);
     this.boundingBox.maxY = Math.max(this.boundingBox.maxY, relativeY);
 
-    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
+    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints, this.smoothedRelativePoints);
     this._cachedPath2D = null; // Invalidate render cache
+    this._serializedCache = null; // Invalidate serialized cache
+    this._cachedBoundingBox = null; // Invalidate bbox cache
+    bumpSceneGeneration();
   }
 
   getBoundingBox() {
-    const padding = this.lineWidth / 2;
-    return {
-      x: this.x + this.boundingBox.minX - padding,
-      y: this.y + this.boundingBox.minY - padding,
-      width: (this.boundingBox.maxX - this.boundingBox.minX) + this.lineWidth,
-      height: (this.boundingBox.maxY - this.boundingBox.minY) + this.lineWidth,
-    };
+    if (!this._cachedBoundingBox) {
+      const padding = this.lineWidth / 2;
+      this._cachedBoundingBox = {
+        x: this.x + this.boundingBox.minX - padding,
+        y: this.y + this.boundingBox.minY - padding,
+        width: (this.boundingBox.maxX - this.boundingBox.minX) + this.lineWidth,
+        height: (this.boundingBox.maxY - this.boundingBox.minY) + this.lineWidth,
+      };
+    }
+    return this._cachedBoundingBox;
   }
 
   resize(handle, mouseX, mouseY, anchorX, anchorY) {
+    super.resize(handle, mouseX, mouseY, anchorX, anchorY);
     const box = this.getBoundingBox();
     const oldWidth = box.width;
     const oldHeight = box.height;
@@ -124,16 +201,14 @@ export class Path extends DrawingObject {
     const scaleY = oldHeight > 0 ? newHeight / oldHeight : 1;
 
     // Update origin
-    const oldX = this.x;
-    const oldY = this.y;
     this.x = Math.min(mouseX, anchorX) - (this.boundingBox.minX * scaleX);
     this.y = Math.min(mouseY, anchorY) - (this.boundingBox.minY * scaleY);
 
     // Scale all points
-    this.rawRelativePoints.forEach(p => {
-      p.x *= scaleX;
-      p.y *= scaleY;
-    });
+    for (let i = 0; i < this.rawRelativePoints.length; i += 2) {
+      this.rawRelativePoints[i] *= scaleX;
+      this.rawRelativePoints[i+1] *= scaleY;
+    }
 
     // Update bounding box
     this.boundingBox.minX *= scaleX;
@@ -144,16 +219,17 @@ export class Path extends DrawingObject {
     // Update smoothed points
     this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
     this._cachedPath2D = null; // Invalidate render cache
-
-    // Scale line width? Maybe not, or maybe slightly. Let's keep it simple for now.
   }
 
   clone() {
     const cloned = new Path(this.id, this.color, this.lineWidth, this.x, this.y);
     cloned.boundingBox = { ...this.boundingBox };
-    cloned.rawRelativePoints = this.rawRelativePoints.map(p => ({ ...p }));
-    cloned.smoothedRelativePoints = this.smoothedRelativePoints.map(p => ({ ...p }));
+    cloned.rawRelativePoints = [...this.rawRelativePoints];
+    cloned.smoothedRelativePoints = [...this.smoothedRelativePoints];
     cloned.visible = this.visible;
+    // Do NOT share the native Path2D object — each clone must build its own
+    // when first rendered to avoid keeping stale C++ objects alive in history
+    cloned._cachedPath2D = null;
     return cloned;
   }
 }
@@ -163,10 +239,6 @@ export class Rectangle extends Shape {
     super(id, 'rectangle', x, y, width, height, strokeColor, strokeWidth);
     this.isFilled = isFilled;
     this.fillColor = fillColor;
-  }
-
-  getBoundingBox() {
-    return { x: this.x, y: this.y, width: this.width, height: this.height };
   }
 
   clone() {
@@ -181,10 +253,6 @@ export class Ellipse extends Shape {
     super(id, 'ellipse', x, y, width, height, strokeColor, strokeWidth);
     this.isFilled = isFilled;
     this.fillColor = fillColor;
-  }
-
-  getBoundingBox() {
-    return { x: this.x, y: this.y, width: this.width, height: this.height };
   }
 
   clone() {
@@ -217,50 +285,54 @@ export class Text extends DrawingObject {
   }
 
   getBoundingBox(ctx) {
-    const lines = this.text.split('\n');
-    const { fontSize: baseFontSize, fontFamily } = parseFont(this.font);
+    if (!this._cachedBoundingBox) {
+      const lines = this.text.split('\n');
+      const { fontSize: baseFontSize, fontFamily } = parseFont(this.font);
 
-    let maxWidth = 0;
-    let totalHeight = 0;
+      let maxWidth = 0;
+      let totalHeight = 0;
 
-    lines.forEach((line) => {
-      let lineFontSize = baseFontSize;
-      let indent = 0;
-      let cleanText = line;
+      lines.forEach((line) => {
+        let lineFontSize = baseFontSize;
+        let indent = 0;
+        let cleanText = line;
 
-      if (line.startsWith('# ')) {
-        lineFontSize = baseFontSize * 1.8;
-        cleanText = line.substring(2);
-      } else if (line.startsWith('## ')) {
-        lineFontSize = baseFontSize * 1.4;
-        cleanText = line.substring(3);
-      } else if (line.startsWith('- ') || line.startsWith('* ')) {
-        indent = baseFontSize * 1.2;
-        cleanText = line.substring(2);
-      } else {
-        const numberedMatch = line.match(/^(\d+)\.\s/);
-        if (numberedMatch) {
+        if (line.startsWith('# ')) {
+          lineFontSize = baseFontSize * 1.8;
+          cleanText = line.substring(2);
+        } else if (line.startsWith('## ')) {
+          lineFontSize = baseFontSize * 1.4;
+          cleanText = line.substring(3);
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
           indent = baseFontSize * 1.2;
-          cleanText = line.substring(numberedMatch[0].length);
+          cleanText = line.substring(2);
+        } else {
+          const numberedMatch = line.match(/^(\d+)\.\s/);
+          if (numberedMatch) {
+            indent = baseFontSize * 1.2;
+            cleanText = line.substring(numberedMatch[0].length);
+          }
         }
+
+        ctx.font = `${lineFontSize}px '${fontFamily}'`;
+        const lineWidth = ctx.measureText(cleanText).width + indent;
+        maxWidth = Math.max(maxWidth, lineWidth);
+        totalHeight += lineFontSize * 1.3;
+      });
+
+      if (totalHeight === 0) {
+        totalHeight = baseFontSize * 1.3;
       }
 
-      ctx.font = `${lineFontSize}px '${fontFamily}'`;
-      const lineWidth = ctx.measureText(cleanText).width + indent;
-      maxWidth = Math.max(maxWidth, lineWidth);
-      totalHeight += lineFontSize * 1.3;
-    });
-
-    if (totalHeight === 0) {
-      totalHeight = baseFontSize * 1.3;
+      this._cachedBoundingBox = { x: this.x, y: this.y, width: maxWidth, height: totalHeight };
     }
-
-    return { x: this.x, y: this.y, width: maxWidth, height: totalHeight };
+    return this._cachedBoundingBox;
   }
 
   clone() {
     const cloned = new Text(this.id, this.text, this.x, this.y, this.font, this.color);
     cloned.visible = this.visible;
+    cloned._cachedBoundingBox = this._cachedBoundingBox;
     return cloned;
   }
 }

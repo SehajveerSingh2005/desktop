@@ -25,13 +25,16 @@
 html,
 body {
   margin: 0;
+  overflow: hidden; /* Prevent DOM overlays from causing body scrollbars */
   /* Prevent white flash by starting with the default translucent state applied by JS */
   background-color: transparent;
+  width: 100%;
+  height: 100%;
 }
 
 #canvas {
   display: block;
-  position: absolute;
+  position: fixed; /* Keep locked to viewport to prevent shifting on auto-scroll-into-view */
   top: 0;
   left: 0;
   width: 100vw;
@@ -333,7 +336,8 @@ body {
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
+  /* Wheel events pass through to canvas below for panning/zooming */
+  pointer-events: none;
   z-index: 1000;
   transform-origin: top left;
   transition: opacity 0.2s ease;
@@ -353,6 +357,7 @@ body {
   cursor: pointer;
   margin-bottom: 8px;
   position: relative;
+  pointer-events: auto; /* Re-enable since container is pointer-events:none */
 }
 
 .video-progress-fill {
@@ -382,6 +387,7 @@ body {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
+  pointer-events: auto; /* Re-enable since container is pointer-events:none */
 }
 
 .video-btn:hover {
@@ -485,7 +491,8 @@ body {
   border-radius: 8px;
   padding: 6px 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
+  /* Wheel events pass through to canvas below for panning/zooming */
+  pointer-events: none;
   z-index: 1000;
   transform-origin: top left;
   transition: opacity 0.2s ease;
@@ -505,6 +512,7 @@ body {
   text-decoration: none;
   cursor: pointer;
   transition: color 0.15s;
+  pointer-events: auto; /* Re-enable since container is pointer-events:none */
 }
 
 .capture-source-url:hover {
@@ -532,6 +540,7 @@ body {
   height: 28px;
   flex-shrink: 0;
   transition: background-color 0.15s;
+  pointer-events: auto; /* Re-enable since container is pointer-events:none */
 }
 
 .capture-btn:hover {

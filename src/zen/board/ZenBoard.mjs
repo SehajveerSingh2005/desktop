@@ -9,6 +9,7 @@
 // keeps IndexedDB tiny, and enables direct file:// streaming.
 
 const ASSETS_FOLDER_NAME = 'zen-board-assets';
+const DB_NAME = 'zen-board-db';
 let _nativeAssetsFolder = null;
 
 async function getNativeAssetsFolder() {

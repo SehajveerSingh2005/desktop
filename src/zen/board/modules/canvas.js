@@ -129,19 +129,25 @@ export function redrawCanvasImmediate() {
         ctx.lineWidth = 1.5 / scale;
         const handleRadius = 6 / scale;
 
-        const handles = [
-          { x: box.x, y: box.y }, // nw
-          { x: box.x + box.width, y: box.y }, // ne
-          { x: box.x, y: box.y + box.height }, // sw
-          { x: box.x + box.width, y: box.y + box.height }, // se
-        ];
+        ctx.beginPath();
+        ctx.arc(box.x, box.y, handleRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
 
-        handles.forEach(h => {
-          ctx.beginPath();
-          ctx.arc(h.x, h.y, handleRadius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-        });
+        ctx.beginPath();
+        ctx.arc(box.x + box.width, box.y, handleRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(box.x, box.y + box.height, handleRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(box.x + box.width, box.y + box.height, handleRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
       }
 
     }

@@ -32,8 +32,9 @@ export const eraser = {
       if (object instanceof Path) {
         const localEraserX = x - object.x;
         const localEraserY = y - object.y;
-        for (const point of object.smoothedRelativePoints) {
-          const distance = Math.hypot(point.x - localEraserX, point.y - localEraserY);
+        const pts = object.smoothedRelativePoints;
+        for (let j = 0; j < pts.length; j += 2) {
+          const distance = Math.hypot(pts[j] - localEraserX, pts[j+1] - localEraserY);
           if (distance < eraserRadius + object.lineWidth / 2) {
             hit = true;
             break;
@@ -47,6 +48,9 @@ export const eraser = {
         }
       }
       if (hit) {
+        if (typeof object.destroy === 'function') {
+          object.destroy();
+        }
         scene.splice(i, 1);
         needsRedraw = true;
       }

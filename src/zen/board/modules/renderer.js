@@ -2,6 +2,32 @@
 import { getState } from './state.js';
 import { parseFont } from './scene.js';
 
+// Cache rounded rect clip paths keyed by "x,y,w,h,r" to avoid rebuilding per-frame
+const _roundedRectCache = new Map();
+function getRoundedRectPath(x, y, w, h, r) {
+  const key = `${x},${y},${w},${h},${r}`;
+  let path = _roundedRectCache.get(key);
+  if (!path) {
+    path = new Path2D();
+    path.moveTo(x + r, y);
+    path.lineTo(x + w - r, y);
+    path.quadraticCurveTo(x + w, y, x + w, y + r);
+    path.lineTo(x + w, y + h - r);
+    path.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    path.lineTo(x + r, y + h);
+    path.quadraticCurveTo(x, y + h, x, y + h - r);
+    path.lineTo(x, y + r);
+    path.quadraticCurveTo(x, y, x + r, y);
+    path.closePath();
+    // Limit cache size to avoid unbounded memory growth
+    if (_roundedRectCache.size > 500) {
+      _roundedRectCache.delete(_roundedRectCache.keys().next().value);
+    }
+    _roundedRectCache.set(key, path);
+  }
+  return path;
+}
+
 function drawPath(context, object) {
   context.save();
   context.translate(object.x, object.y);
@@ -10,42 +36,48 @@ function drawPath(context, object) {
   context.lineCap = 'round';
   context.lineJoin = 'round';
   const points = object.smoothedRelativePoints;
-  
+  const N = points.length / 2;
+
   if (!object._cachedPath2D) {
     const path2d = new Path2D();
-    if (points.length < 3) {
-      if (points.length === 1) {
-        path2d.arc(points[0].x, points[0].y, object.lineWidth / 2, 0, 2 * Math.PI);
-        // Note: filled in renderer below
-      } else if (points.length === 2) {
-        path2d.moveTo(points[0].x, points[0].y);
-        path2d.lineTo(points[1].x, points[1].y);
+    if (N < 3) {
+      if (N === 1) {
+        path2d.arc(points[0], points[1], object.lineWidth / 2, 0, 2 * Math.PI);
+      } else if (N === 2) {
+        path2d.moveTo(points[0], points[1]);
+        path2d.lineTo(points[2], points[3]);
       }
     } else {
-      path2d.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length - 2; i++) {
-        const p0 = points[i - 1];
-        const p1 = points[i];
-        const p2 = points[i + 1];
-        const p3 = points[i + 2];
-        const cp1x = p1.x + (p2.x - p0.x) / 6;
-        const cp1y = p1.y + (p2.y - p0.y) / 6;
-        const cp2x = p2.x - (p3.x - p1.x) / 6;
-        const cp2y = p2.y - (p3.y - p1.y) / 6;
-        path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      path2d.moveTo(points[0], points[1]);
+      for (let i = 1; i < N - 2; i++) {
+        const p0x = points[(i - 1) * 2];
+        const p0y = points[(i - 1) * 2 + 1];
+        const p1x = points[i * 2];
+        const p1y = points[i * 2 + 1];
+        const p2x = points[(i + 1) * 2];
+        const p2y = points[(i + 1) * 2 + 1];
+        const p3x = points[(i + 2) * 2];
+        const p3y = points[(i + 2) * 2 + 1];
+        
+        const cp1x = p1x + (p2x - p0x) / 6;
+        const cp1y = p1y + (p2y - p0y) / 6;
+        const cp2x = p2x - (p3x - p1x) / 6;
+        const cp2y = p2y - (p3y - p1y) / 6;
+        path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y);
       }
-      const last = points.length - 1;
-      path2d.quadraticCurveTo(points[last - 1].x, points[last - 1].y, points[last].x, points[last].y);
+      const last = N - 1;
+      path2d.quadraticCurveTo(points[(last - 1) * 2], points[(last - 1) * 2 + 1], points[last * 2], points[last * 2 + 1]);
     }
     object._cachedPath2D = path2d;
   }
 
-  if (points.length === 1) {
+  if (N === 1) {
     context.fillStyle = object.color;
     context.fill(object._cachedPath2D);
   } else {
     context.stroke(object._cachedPath2D);
   }
+
   context.restore();
 }
 
@@ -155,25 +187,11 @@ function drawImage(context, object) {
   context.save();
   if (isDragging) context.globalAlpha = 0.5;
 
-  // Clip with border radius
-  const radius = 8;
-  context.beginPath();
-  context.moveTo(object.x + radius, object.y);
-  context.lineTo(object.x + object.width - radius, object.y);
-  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
-  context.lineTo(object.x + object.width, object.y + object.height - radius);
-  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
-  context.lineTo(object.x + radius, object.y + object.height);
-  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
-  context.lineTo(object.x, object.y + radius);
-  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
-  context.closePath();
-  context.clip();
+  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
 
   if (object.image && object.image.complete) {
     context.drawImage(object.image, object.x, object.y, object.width, object.height);
   } else {
-    // Fallback or placeholder while loading
     context.fillStyle = '#f0f0f0';
     context.fillRect(object.x, object.y, object.width, object.height);
   }
@@ -181,8 +199,6 @@ function drawImage(context, object) {
 }
 
 function drawCapture(context, object) {
-  // Identical to drawImage but uses the 'capture' type.
-  // The controls toolbar is rendered by capture-controls.js as a DOM overlay.
   const { selectedObjectId, isDraggingObject } = getState();
   const isSelected = selectedObjectId === object.id;
   const isDragging = isSelected && isDraggingObject;
@@ -190,19 +206,7 @@ function drawCapture(context, object) {
   context.save();
   if (isDragging) context.globalAlpha = 0.5;
 
-  const radius = 8;
-  context.beginPath();
-  context.moveTo(object.x + radius, object.y);
-  context.lineTo(object.x + object.width - radius, object.y);
-  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
-  context.lineTo(object.x + object.width, object.y + object.height - radius);
-  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
-  context.lineTo(object.x + radius, object.y + object.height);
-  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
-  context.lineTo(object.x, object.y + radius);
-  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
-  context.closePath();
-  context.clip();
+  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
 
   if (object.image && object.image.complete) {
     context.drawImage(object.image, object.x, object.y, object.width, object.height);
@@ -214,58 +218,29 @@ function drawCapture(context, object) {
 }
 
 function drawLiveEmbedPlaceholder(context, object) {
-  // When deselected, draw the static screenshot as the placeholder so the
-  // object remains visible on the canvas. The live browser overlay is only
-  // shown when the object is selected (wrapper visibility:visible).
   context.save();
 
-  const radius = 8;
-  context.beginPath();
-  context.moveTo(object.x + radius, object.y);
-  context.lineTo(object.x + object.width - radius, object.y);
-  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
-  context.lineTo(object.x + object.width, object.y + object.height - radius);
-  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
-  context.lineTo(object.x + radius, object.y + object.height);
-  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
-  context.lineTo(object.x, object.y + radius);
-  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
-  context.closePath();
-  context.clip();
+  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
 
   if (object._placeholderImage && object._placeholderImage.complete && object._placeholderImage.naturalWidth > 0) {
-    // Draw the static screenshot as the canvas stand-in
     context.drawImage(object._placeholderImage, object.x, object.y, object.width, object.height);
   } else {
-    // Fallback: dark placeholder until image is ready
     context.fillStyle = '#1a1a2e';
-    context.fill();
+    context.fill(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
   }
 
   context.restore();
 }
 
 function drawVideo(context, object) {
-  const { selectedObjectId, isDraggingObject, scale } = getState();
+  const { selectedObjectId, isDraggingObject } = getState();
   const isSelected = selectedObjectId === object.id;
   const isDragging = isSelected && isDraggingObject;
 
   context.save();
   if (isDragging) context.globalAlpha = 0.5;
 
-  const radius = 8;
-  context.beginPath();
-  context.moveTo(object.x + radius, object.y);
-  context.lineTo(object.x + object.width - radius, object.y);
-  context.quadraticCurveTo(object.x + object.width, object.y, object.x + object.width, object.y + radius);
-  context.lineTo(object.x + object.width, object.y + object.height - radius);
-  context.quadraticCurveTo(object.x + object.width, object.y + object.height, object.x + object.width - radius, object.y + object.height);
-  context.lineTo(object.x + radius, object.y + object.height);
-  context.quadraticCurveTo(object.x, object.y + object.height, object.x, object.y + object.height - radius);
-  context.lineTo(object.x, object.y + radius);
-  context.quadraticCurveTo(object.x, object.y, object.x + radius, object.y);
-  context.closePath();
-  context.clip();
+  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
 
   context.drawImage(object.video, object.x, object.y, object.width, object.height);
   context.restore();
@@ -273,8 +248,26 @@ function drawVideo(context, object) {
 
 
 export function drawScene(context, scene) {
+  const { scale, offsetX, offsetY } = getState();
+  const viewportMinX = -offsetX / scale;
+  const viewportMinY = -offsetY / scale;
+  const viewportMaxX = (window.innerWidth - offsetX) / scale;
+  const viewportMaxY = (window.innerHeight - offsetY) / scale;
+
   for (const object of scene) {
     if (object.visible) {
+      if (object.type !== 'text') {
+        const box = object.getBoundingBox(context);
+        if (
+          box.x + box.width < viewportMinX ||
+          box.x > viewportMaxX ||
+          box.y + box.height < viewportMinY ||
+          box.y > viewportMaxY
+        ) {
+          continue;
+        }
+      }
+
       const drawFn = drawingFunctions[object.type];
       if (drawFn) {
         drawFn(context, object);

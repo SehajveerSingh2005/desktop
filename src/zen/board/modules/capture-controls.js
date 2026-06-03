@@ -14,6 +14,7 @@ import { scene, removeFromScene, addToScene, generateId } from './scene.js';
 import { redrawCanvas } from './canvas.js';
 import { CaptureObject, LiveEmbedObject } from './media.js';
 import { storeAsset, getAsset } from './db.js';
+import { saveAsset, deleteAsset } from './assets.js';
 import { triggerSave, triggerSaveImmediate } from '../board.js';
 import { pushHistory } from './history.js';
 
@@ -21,26 +22,29 @@ let overlayContainer = null;
 let currentObject = null;
 let animationFrameId = null;
 
-// ── Global iframe position sync ───────────────────────────────────────────────
-// Keeps ALL live-embed iframes positioned correctly after a pan/zoom.
-// Instead of running a continuous RAF loop (which burns CPU every frame even
-// when idle), callers signal a transform change via notifyTransformChanged().
-// We schedule a single one-shot RAF to resync all iframe positions.
 let _globalSyncId = null;
+export const activeLiveEmbeds = new Set();
 
 export function notifyTransformChanged() {
-  // Only schedule a sync if there are any live embeds with injected iframes.
-  const hasLiveEmbeds = scene.some(o => o.type === 'live-embed' && o._iframeEl);
-  if (!hasLiveEmbeds) return;
+  // clean up any stale live embeds that are no longer in the scene
+  for (const obj of activeLiveEmbeds) {
+    if (!scene.includes(obj)) {
+      activeLiveEmbeds.delete(obj);
+    }
+  }
+
+  if (activeLiveEmbeds.size === 0) return;
 
   if (_globalSyncId) return; // Already scheduled for this frame
   _globalSyncId = requestAnimationFrame(() => {
     _globalSyncId = null;
     const { scale, offsetX, offsetY } = getState();
-    for (const obj of scene) {
-      if (obj.type === 'live-embed' && obj._iframeEl) {
-        obj._syncIframePosition(scale, offsetX, offsetY);
+    for (const obj of activeLiveEmbeds) {
+      if (!obj._iframeEl) {
+        activeLiveEmbeds.delete(obj);
+        continue;
       }
+      obj._syncIframePosition(scale, offsetX, offsetY);
     }
   });
 }
@@ -169,6 +173,7 @@ function convertToLiveEmbed(captureObj) {
   );
   liveEmbed.sourceRegion = captureObj.sourceRegion;
   liveEmbed._assetHash = captureObj._assetHash;
+  liveEmbed._assetFile = captureObj._assetFile;
   // Copy the static image so the renderer can draw it as the deselected placeholder
   liveEmbed._placeholderImage = captureObj.image || null;
 
@@ -193,38 +198,120 @@ function convertToLiveEmbed(captureObj) {
  */
 async function convertToStaticCapture(liveEmbedObj) {
   // Hide the live controls immediately to signal the transition is happening
-  playPauseBtn.disabled = true;
-  playPauseBtn.title = 'Converting…';
+  if (playPauseBtn) {
+    playPauseBtn.disabled = true;
+    playPauseBtn.title = 'Converting…';
+  }
 
   try {
     let blob = null;
-    if (liveEmbedObj._assetHash) {
+
+    const chromeWin = window.docShell?.chromeEventHandler?.ownerGlobal || window.top;
+    const captureOnPause = chromeWin?.Services?.prefs?.getBoolPref("zen.board.live-embeds.capture-on-pause", true) ?? true;
+
+    // 1. Try to take a screenshot of the live iframe via ScreenshotsUtils
+    if (liveEmbedObj._iframeEl && captureOnPause) {
       try {
-        blob = await getAsset(liveEmbedObj._assetHash);
+        let ScreenshotsUtils = chromeWin?.ScreenshotsUtils;
+        if (!ScreenshotsUtils && chromeWin?.ChromeUtils) {
+          try {
+            const modules = chromeWin.ChromeUtils.importESModule("resource:///modules/ScreenshotsUtils.sys.mjs");
+            ScreenshotsUtils = modules.ScreenshotsUtils;
+          } catch (e1) {
+            const modules = chromeWin.ChromeUtils.importESModule("resource://app/modules/ScreenshotsUtils.sys.mjs");
+            ScreenshotsUtils = modules.ScreenshotsUtils;
+          }
+        }
+        if (!ScreenshotsUtils) {
+          throw new Error("ScreenshotsUtils not found in parent window or parent ChromeUtils");
+        }
+
+        const left = Math.round(liveEmbedObj.sourceRegion?.left || 0);
+        const top = Math.round(liveEmbedObj.sourceRegion?.top || 0);
+        const width = Math.max(1, Math.round(liveEmbedObj.sourceRegion?.width || liveEmbedObj.width));
+        const height = Math.max(1, Math.round(liveEmbedObj.sourceRegion?.height || liveEmbedObj.height));
+        const region = {
+          left,
+          top,
+          right: left + width,
+          bottom: top + height,
+          width,
+          height,
+          devicePixelRatio: liveEmbedObj.sourceRegion?.devicePixelRatio || window.devicePixelRatio || 1,
+          viewportWidth: Math.max(800, liveEmbedObj.sourceRegion?.viewportWidth || 1280),
+          viewportHeight: Math.max(600, liveEmbedObj.sourceRegion?.viewportHeight || 800)
+        };
+        const canvas = await ScreenshotsUtils.createCanvas(region, liveEmbedObj._iframeEl);
+        if (canvas) {
+          blob = await canvas.convertToBlob({ type: 'image/png' });
+        }
       } catch (e) {
-        console.warn('ZenBoard: Could not load capture asset for static conversion', e);
+        console.warn('ZenBoard: Could not capture live iframe via ScreenshotsUtils', e);
       }
     }
 
-    // If we couldn't get a snapshot, fall back to a placeholder
-    if (!blob) {
-      const offscreen = new OffscreenCanvas(Math.round(liveEmbedObj.width), Math.round(liveEmbedObj.height));
-      const ctx = offscreen.getContext('2d');
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-      blob = await offscreen.convertToBlob({ type: 'image/png' });
+    // 2. Fall back to reading the existing filesystem file
+    if (!blob && liveEmbedObj._assetFile) {
+      try {
+        const folder = PathUtils.join(PathUtils.profileDir, 'zen-board-assets');
+        const filePath = PathUtils.join(folder, liveEmbedObj._assetFile);
+        const data = await IOUtils.read(filePath);
+        blob = new Blob([data], { type: 'image/png' });
+      } catch (e) {
+        console.warn('ZenBoard: Could not load capture asset from filesystem', e);
+      }
     }
 
-    const objUrl = URL.createObjectURL(blob);
-    const img = new Image();
-    await new Promise((res) => { img.onload = res; img.onerror = res; img.src = objUrl; });
+    // 3. Fall back to legacy IDB asset
+    if (!blob && liveEmbedObj._assetHash) {
+      try {
+        blob = await getAsset(liveEmbedObj._assetHash);
+      } catch (e) {
+        console.warn('ZenBoard: Could not load legacy capture asset from DB', e);
+      }
+    }
+
+    // 4. Fall back to offscreen canvas filled with placeholder color
+    if (!blob) {
+      try {
+        const offscreen = new OffscreenCanvas(Math.max(1, Math.round(liveEmbedObj.width)), Math.max(1, Math.round(liveEmbedObj.height)));
+        const ctx = offscreen.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+        blob = await offscreen.convertToBlob({ type: 'image/png' });
+      } catch (e) {
+        console.error('ZenBoard: OffscreenCanvas fallback failed', e);
+      }
+    }
+
+    let filename = liveEmbedObj._assetFile;
+    if (blob) {
+      // Save the fresh blob to a new asset file
+      const newFilename = await saveAsset(blob);
+      // Delete the old asset file if it's different and exists
+      if (liveEmbedObj._assetFile && liveEmbedObj._assetFile !== newFilename) {
+        await deleteAsset(liveEmbedObj._assetFile);
+      }
+      filename = newFilename;
+    }
+
+    let img = new Image();
+    if (blob) {
+      const objUrl = URL.createObjectURL(blob);
+      await new Promise((res) => {
+        img.onload = () => { URL.revokeObjectURL(objUrl); res(); };
+        img.onerror = () => { URL.revokeObjectURL(objUrl); res(); };
+        img.src = objUrl;
+      });
+    }
 
     const captureObj = new CaptureObject(
       liveEmbedObj.id, liveEmbedObj.x, liveEmbedObj.y,
       liveEmbedObj.width, liveEmbedObj.height,
       img, liveEmbedObj.sourceUrl
     );
-    captureObj._assetHash = liveEmbedObj._assetHash;
+    captureObj._assetFile = filename;
+    captureObj._assetHash = null;
     captureObj.sourceRegion = liveEmbedObj.sourceRegion;
 
     // Destroy iframe and replace in scene
@@ -279,6 +366,7 @@ export function ensureIframeInjected(liveEmbedObj) {
 
   liveEmbedObj._wrapperEl = wrapper;
   liveEmbedObj._iframeEl = iframe;
+  activeLiveEmbeds.add(liveEmbedObj);
   
   const boardBrowser = window.docShell.chromeEventHandler;
   boardBrowser.parentNode.appendChild(wrapper);
@@ -405,10 +493,6 @@ export function showCaptureControls(obj) {
   overlayContainer.classList.remove('fade-out');
 
   updateCaptureControlsPosition();
-
-  // Start position sync loop so iframe tracks panning/zooming
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  _startSyncLoop();
 }
 
 export function hideCaptureControls() {
@@ -444,22 +528,36 @@ export function updateCaptureControlsPosition() {
   const screenH = obj.height * scale;
   const pad = 8;
 
-  overlayContainer.style.transform = `translate(${screenX}px, ${screenY + screenH + pad}px)`;
-  overlayContainer.style.width = `${screenW}px`;
+  const targetTransform = `translate(${screenX}px, ${screenY + screenH + pad}px)`;
+  if (overlayContainer.style.transform !== targetTransform) {
+    overlayContainer.style.transform = targetTransform;
+  }
 
-  if (isDraggingObject || isResizingObject) {
-    overlayContainer.style.opacity = '0';
-    overlayContainer.style.pointerEvents = 'none';
-    if (obj.type === 'live-embed' && obj._wrapperEl) {
-      obj._wrapperEl.style.opacity = '0.5';
-      obj._wrapperEl.style.pointerEvents = 'none';
+  const targetWidth = `${screenW}px`;
+  if (overlayContainer.style.width !== targetWidth) {
+    overlayContainer.style.width = targetWidth;
+  }
+
+  const isDraggingOrResizing = isDraggingObject || isResizingObject;
+
+  const targetOpacity = isDraggingOrResizing ? '0' : '1';
+  if (overlayContainer.style.opacity !== targetOpacity) {
+    overlayContainer.style.opacity = targetOpacity;
+  }
+
+  const targetPointerEvents = isDraggingOrResizing ? 'none' : 'auto';
+  if (overlayContainer.style.pointerEvents !== targetPointerEvents) {
+    overlayContainer.style.pointerEvents = targetPointerEvents;
+  }
+
+  if (obj.type === 'live-embed' && obj._wrapperEl) {
+    const targetWrapperOpacity = isDraggingOrResizing ? '0.5' : '1';
+    if (obj._wrapperEl.style.opacity !== targetWrapperOpacity) {
+      obj._wrapperEl.style.opacity = targetWrapperOpacity;
     }
-  } else {
-    overlayContainer.style.opacity = '1';
-    overlayContainer.style.pointerEvents = 'auto';
-    if (obj.type === 'live-embed' && obj._wrapperEl) {
-      obj._wrapperEl.style.opacity = '1';
-      obj._wrapperEl.style.pointerEvents = 'auto';
+    const targetWrapperPointerEvents = isDraggingOrResizing ? 'none' : 'auto';
+    if (obj._wrapperEl.style.pointerEvents !== targetWrapperPointerEvents) {
+      obj._wrapperEl.style.pointerEvents = targetWrapperPointerEvents;
     }
   }
 }
@@ -468,18 +566,7 @@ export function getCurrentCaptureObject() {
   return currentObject;
 }
 
-function _startSyncLoop() {
-  // This loop drives the capture-controls TOOLBAR overlay position.
-  // Iframe position is handled independently by startGlobalSyncLoop().
-  const loop = () => {
-    const { selectedObjectId } = getState();
-    if (!currentObject || overlayContainer.style.display === 'none') return;
-    if (selectedObjectId !== currentObject.id) {
-      hideCaptureControls();
-      return;
-    }
-    updateCaptureControlsPosition();
-    animationFrameId = requestAnimationFrame(loop);
-  };
-  animationFrameId = requestAnimationFrame(loop);
-}
+// Position updates are now event-driven (via updateCaptureControlsPosition
+// called from select.js on drag/resize, and notifyTransformChanged on pan/zoom)
+// so no polling loop is needed here.
+

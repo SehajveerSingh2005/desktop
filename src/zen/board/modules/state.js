@@ -41,3 +41,11 @@ export function getState() {
 export function setState(newState) {
   Object.assign(state, newState);
 }
+
+// ── Scene generation counter ─────────────────────────────────────────────────
+// Lightweight dirty-flag for history.js to avoid JSON.stringify on every push.
+// scene.js and the drawing tools bump this whenever they mutate scene data.
+let _sceneGeneration = 0;
+export function bumpSceneGeneration() { _sceneGeneration++; }
+export function getSceneGeneration() { return _sceneGeneration; }
+

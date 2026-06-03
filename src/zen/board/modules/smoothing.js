@@ -1,31 +1,45 @@
 // smoothing.js
 
-function getAveragePoint(points, startIndex, endIndex) {
-  const window = points.slice(startIndex, endIndex);
-  if (window.length === 0) return { x: 0, y: 0 };
-
-  const total = window.reduce((acc, point) => {
-    acc.x += point.x;
-    acc.y += point.y;
-    return acc;
-  }, { x: 0, y: 0 });
-
-  return {
-    x: total.x / window.length,
-    y: total.y / window.length,
-  };
-}
-
-export function smoothPoints(points) {
-  const smoothed = [];
-  const windowSize = 4;
-  if (points.length < 2) {
+export function smoothPoints(points, existingSmoothed = null) {
+  const N = points.length / 2; // number of points in the flat array
+  if (N < 2) {
     return [...points];
   }
-  for (let i = 0; i < points.length; i++) {
-      const startIndex = Math.max(0, i - windowSize);
-      const endIndex = Math.min(points.length, i + windowSize + 1);
-      smoothed.push(getAveragePoint(points, startIndex, endIndex));
+
+  const windowSize = 4;
+  const recomputeStart = existingSmoothed ? Math.max(0, N - 1 - windowSize) : 0;
+
+  let smoothed;
+  if (existingSmoothed) {
+    smoothed = existingSmoothed;
+    if (smoothed.length > recomputeStart * 2) {
+      smoothed.length = recomputeStart * 2;
+    }
+  } else {
+    smoothed = new Array(N * 2);
   }
+
+  for (let i = recomputeStart; i < N; i++) {
+    const startIndex = Math.max(0, i - windowSize);
+    const endIndex = Math.min(N, i + windowSize + 1);
+
+    const len = endIndex - startIndex;
+    let totalX = 0;
+    let totalY = 0;
+    for (let j = startIndex; j < endIndex; j++) {
+      totalX += points[j * 2];
+      totalY += points[j * 2 + 1];
+    }
+
+    const avgX = totalX / len;
+    const avgY = totalY / len;
+    if (existingSmoothed) {
+      smoothed.push(avgX, avgY);
+    } else {
+      smoothed[i * 2] = avgX;
+      smoothed[i * 2 + 1] = avgY;
+    }
+  }
+
   return smoothed;
 }

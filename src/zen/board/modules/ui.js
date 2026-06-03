@@ -445,6 +445,8 @@ export function deactivateTextEditor() {
       editingTextObject.font = textEditor.style.font;
       editingTextObject.color = textEditor.style.color;
       editingTextObject.visible = true;
+      editingTextObject._serializedCache = null;
+      editingTextObject._cachedBoundingBox = null;
 
       // If it was a new, temporary object, add it to the main scene now.
       if (!isInScene) {
@@ -611,10 +613,15 @@ export function selectTool(toolName) {
   redrawCanvas();
 }
 
+let _lastZoomPercent = -1;
 export function updateZoomDisplay() {
   const { scale } = getState();
   if (zoomDisplay) {
-    zoomDisplay.textContent = `${Math.round(scale * 100)}%`;
+    const percent = Math.round(scale * 100);
+    if (percent !== _lastZoomPercent) {
+      zoomDisplay.textContent = `${percent}%`;
+      _lastZoomPercent = percent;
+    }
   }
 }
 

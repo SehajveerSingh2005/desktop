@@ -26,6 +26,12 @@ let _saveTimer = null;
 export function triggerSave() {
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(async () => {
+    const { isDrawing, isPanning, isDraggingObject, isResizingObject } = getState();
+    if (isDrawing || isPanning || isDraggingObject || isResizingObject) {
+      // Postpone saving because user is actively interacting
+      triggerSave();
+      return;
+    }
     triggerSaveImmediate();
   }, 1000); // 1-second debounce
 }
@@ -108,6 +114,7 @@ function startWheelAnimation() {
         updateTextEditorPosition();
       }
       isAnimatingWheel = false;
+      triggerSave();
       return;
     }
 
@@ -464,7 +471,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   canvas.addEventListener('dblclick', onDoubleClick);
 
-  canvas.addEventListener('wheel', (e) => {
+  // Prevent any browser-induced layout scrolling (like focusing an offscreen input/textarea)
+  window.addEventListener('scroll', () => {
+    document.documentElement.scrollLeft = 0;
+    document.documentElement.scrollTop = 0;
+    document.body.scrollLeft = 0;
+    document.body.scrollTop = 0;
+  }, { passive: true });
+
+  window.addEventListener('wheel', (e) => {
     e.preventDefault();
     
     // If not currently animating, synchronize targets with the actual state
@@ -519,7 +534,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 
     startWheelAnimation();
-    triggerSave();
   }, { passive: false });
 
   zoomInBtn.addEventListener('click', () => zoom(1));

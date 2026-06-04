@@ -286,6 +286,26 @@ function handleFile(file, x, y) {
 // =================================================================
 // === Board Title =================================================
 // =================================================================
+function adjustTitleInputWidth() {
+  if (!boardTitleInput) return;
+  let span = document.getElementById('title-width-tester');
+  if (!span) {
+    span = document.createElement('span');
+    span.id = 'title-width-tester';
+    span.style.fontFamily = window.getComputedStyle(boardTitleInput).fontFamily;
+    span.style.fontSize = window.getComputedStyle(boardTitleInput).fontSize;
+    span.style.fontWeight = window.getComputedStyle(boardTitleInput).fontWeight;
+    span.style.position = 'absolute';
+    span.style.visibility = 'hidden';
+    span.style.whiteSpace = 'pre';
+    document.body.appendChild(span);
+  }
+  span.textContent = boardTitleInput.value || boardTitleInput.placeholder || '';
+  const textWidth = span.getBoundingClientRect().width;
+  const padding = 24;
+  boardTitleInput.style.width = Math.min(Math.max(textWidth + padding, 120), window.innerWidth * 0.8) + 'px';
+}
+
 function initTitleInput() {
   if (!boardTitleInput) return;
 
@@ -301,8 +321,10 @@ function initTitleInput() {
   }
   boardTitleInput.value = displayTitle;
   document.title = displayTitle;
+  adjustTitleInputWidth();
 
   boardTitleInput.addEventListener('input', () => {
+    adjustTitleInputWidth();
     const newTitle = boardTitleInput.value.trim() || 'Untitled Board';
     setState({ boardTitle: newTitle });
     document.title = newTitle;
@@ -450,6 +472,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       } catch (e) {}
     }
     boardTitleInput.value = displayTitle;
+    adjustTitleInputWidth();
   }
 
   // ── Set up event listeners ───────────────────────────────────
@@ -458,6 +481,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!resizeTicking) {
       window.requestAnimationFrame(() => {
         resizeCanvas();
+        adjustTitleInputWidth();
         resizeTicking = false;
       });
       resizeTicking = true;

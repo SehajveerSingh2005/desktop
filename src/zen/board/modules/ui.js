@@ -2,7 +2,7 @@
 
 import { canvas, redrawCanvas } from './canvas.js';
 import { getState, setState } from './state.js';
-import { scene, addToScene, generateId, Text, parseFont } from './scene.js';
+import { scene, addToScene, removeFromScene, generateId, Text, parseFont } from './scene.js';
 import { pushHistory } from './history.js';
 import { hideVideoControls } from './video-controls.js';
 import { hideCaptureControls } from './capture-controls.js';
@@ -436,8 +436,7 @@ export function deactivateTextEditor() {
     if (newText.trim() === '') {
       // If the object was already in the scene, find and remove it.
       if (isInScene) {
-        const index = scene.findIndex(obj => obj.id === editingTextObject.id);
-        if (index > -1) scene.splice(index, 1);
+        removeFromScene(editingTextObject.id);
       }
     } else {
       // The object has text, so we update its properties.

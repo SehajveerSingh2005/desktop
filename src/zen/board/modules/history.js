@@ -2,12 +2,17 @@ import { scene, clearScene, addToScene } from './scene.js';
 import { redrawCanvas } from './canvas.js';
 import { triggerSave } from '../board.js';
 import { hideVideoControls } from './video-controls.js';
-import { bumpSceneGeneration, getSceneGeneration } from './state.js';
+import { bumpSceneGeneration, getSceneGeneration, setState } from './state.js';
 
 const MAX_HISTORY = 50;
 let undoStack = [];
 let redoStack = [];
 let lastCommittedGeneration = -1;
+let onRestoreCallback = null;
+
+export function registerOnRestore(cb) {
+  onRestoreCallback = cb;
+}
 
 export function clearHistory() {
   undoStack = [];
@@ -46,6 +51,10 @@ export function redo() {
 function restoreSnapshot(snapshot) {
   clearScene();
   snapshot.forEach(obj => addToScene(obj.clone()));
+  setState({ selectedObjectId: null });
+  if (onRestoreCallback) {
+    onRestoreCallback(scene);
+  }
   hideVideoControls();
   redrawCanvas();
   triggerSave();

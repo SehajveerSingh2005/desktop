@@ -2,13 +2,13 @@
 
 import { canvas, resizeCanvas, redrawCanvas, redrawCanvasImmediate, setTransform, getTransformedPoint, invalidateAccentColorCache } from './modules/canvas.js';
 import { toolHandlers } from './modules/tools.js';
-import { getState, setState } from './modules/state.js';
+import { getState, setState, bumpSceneGeneration } from './modules/state.js';
 import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor, updateTextEditorPosition } from './modules/ui.js';
 import { findObjectAt } from './modules/interactions.js';
 import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.js';
 import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modules/media.js';
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
-import { pushHistory, undo, redo } from './modules/history.js';
+import { pushHistory, undo, redo, registerOnRestore } from './modules/history.js';
 import { hideVideoControls, updateVideoControlsPosition } from './modules/video-controls.js';
 import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected, notifyTransformChanged } from './modules/capture-controls.js';
 
@@ -190,7 +190,10 @@ function onMouseUp(e) {
   // For the select tool, only commit history when something was actually
   // moved or resized. Clicks, panning, and deselects don't change the scene.
   const sceneModified = currentTool !== 'select' || isDraggingObject || isResizingObject;
-  if (sceneModified) pushHistory();
+  if (sceneModified) {
+    bumpSceneGeneration();
+    pushHistory();
+  }
 }
 
 function onDoubleClick(e) {
@@ -552,7 +555,14 @@ window.addEventListener('DOMContentLoaded', async () => {
       const saved = await loadBoard(getState().boardId, classes);
       if (saved) {
         scene.length = 0;
-        saved.scene.forEach(obj => scene.push(obj));
+        saved.scene.forEach(obj => {
+          scene.push(obj);
+          if (obj.type === 'live-embed') {
+            ensureIframeInjected(obj);
+          }
+        });
+        bumpSceneGeneration();
+        pushHistory();
         redrawCanvas();
       }
     } catch (err) {
@@ -613,6 +623,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         removeFromScene(selectedObjectId);
         setState({ selectedObjectId: null });
         hideVideoControls();
+        hideCaptureControls();
         redrawCanvas();
         triggerSave();
         pushHistory();
@@ -642,10 +653,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Register restore snapshot handler
+  registerOnRestore((restoredScene) => {
+    hideCaptureControls();
+    restoredScene.forEach(obj => {
+      if (obj.type === 'live-embed') {
+        ensureIframeInjected(obj);
+      }
+    });
+  });
+
   // Initial setup
   selectTool('select');
   updateZoomDisplay();
-  
+
   // Preload all custom fonts when the page loads so canvas text displays correctly
   const fontsToPreload = [
     "24px 'Roboto'",

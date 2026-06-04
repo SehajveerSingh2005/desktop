@@ -9,7 +9,7 @@
 //   - Position is updated via updateCaptureControlsPosition()
 //   - show/hide are exported for use in select.js hit-testing
 
-import { getState } from './state.js';
+import { getState, bumpSceneGeneration } from './state.js';
 import { scene, removeFromScene, addToScene, generateId } from './scene.js';
 import { redrawCanvas } from './canvas.js';
 import { CaptureObject, LiveEmbedObject } from './media.js';
@@ -181,6 +181,8 @@ function convertToLiveEmbed(captureObj) {
   const idx = scene.findIndex(o => o.id === captureObj.id);
   if (idx !== -1) scene[idx] = liveEmbed;
 
+  bumpSceneGeneration();
+
   // Inject the iframe immediately
   ensureIframeInjected(liveEmbed);
 
@@ -318,6 +320,8 @@ async function convertToStaticCapture(liveEmbedObj) {
     if (liveEmbedObj.destroy) liveEmbedObj.destroy();
     const idx = scene.findIndex(o => o.id === liveEmbedObj.id);
     if (idx !== -1) scene[idx] = captureObj;
+
+    bumpSceneGeneration();
 
     showCaptureControls(captureObj);
     redrawCanvas();

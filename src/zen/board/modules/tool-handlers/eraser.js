@@ -1,10 +1,12 @@
 // modules/tool-handlers/eraser.js
 
 import { getTransformedPoint, ctx } from '../canvas.js';
-import { scene, Path, Text, Rectangle, Ellipse } from '../scene.js';
+import { scene, removeFromScene, Path, Text, Rectangle, Ellipse } from '../scene.js';
 import { getState, setState } from '../state.js';
 import { redrawCanvas } from '../canvas.js';
 import { deactivateTextEditor } from '../ui.js';
+import { hideVideoControls } from '../video-controls.js';
+import { hideCaptureControls } from '../capture-controls.js';
 
 export const eraser = {
   onMouseDown(e) {
@@ -48,10 +50,13 @@ export const eraser = {
         }
       }
       if (hit) {
-        if (typeof object.destroy === 'function') {
-          object.destroy();
+        const { selectedObjectId } = getState();
+        if (selectedObjectId === object.id) {
+          setState({ selectedObjectId: null });
+          hideVideoControls();
+          hideCaptureControls();
         }
-        scene.splice(i, 1);
+        removeFromScene(object.id);
         needsRedraw = true;
       }
     }

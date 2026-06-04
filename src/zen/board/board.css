@@ -20,6 +20,7 @@
 
 :root {
   --board-accent-color: #007bff;
+  color-scheme: light dark;
 }
 
 html,
@@ -75,52 +76,53 @@ body {
   position: fixed;
   bottom: 20px;
   left: 20px;
-  background-color: color-mix(in srgb, #333 80%, transparent);
-  padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  background-color: light-dark(rgba(255, 255, 255, 0.85), rgba(28, 28, 28, 0.85));
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  padding: 6px;
+  border-radius: var(--zen-border-radius, 12px);
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  box-shadow: 0 8px 32px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.35));
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   z-index: 1001;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .tool-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .tool-separator {
   width: 1px;
-  height: 24px;
-  background-color: #555;
-  margin: 0 8px;
+  height: 20px;
+  background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  margin: 0 6px;
 }
 
-#zoom-display {
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-  padding: 0 8px;
-  min-width: 50px;
-  text-align: center;
-  cursor: default;
-}
 
 .options-panel {
   position: fixed;
-  background-color: color-mix(in srgb, #444 90%, transparent);
+  background-color: light-dark(rgba(255, 255, 255, 0.85), rgba(28, 28, 28, 0.85));
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   padding: 8px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border-radius: var(--zen-border-radius, 12px);
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  box-shadow: 0 8px 32px light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.35));
   z-index: 1000;
   display: flex;
   align-items: center;
   gap: 8px;
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+  transform: translateY(10px);
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+              visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #pen-options,
@@ -138,41 +140,47 @@ body {
 .options-panel.visible {
   visibility: visible;
   opacity: 1;
+  transform: translateY(0);
 }
 
 .options-panel label {
-  color: white;
-  font-size: 14px;
+  color: light-dark(#444, #ccc);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: system-ui, sans-serif;
 }
 
 .options-panel.vertical {
   flex-direction: column;
   padding: 4px;
-  gap: 2px;
+  gap: 4px;
 }
 
 .options-panel.vertical button {
-  width: 28px;
-  height: 28px;
-  background: #555;
-  color: white;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  color: light-dark(#2c2c2c, #e2e2e2);
   border: none;
-  border-radius: 4px;
+  border-radius: calc(var(--zen-border-radius, 8px) - 2px);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  font-weight: bold;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.options-panel.vertical button img[src*="plus.svg"] {
-  filter: invert(1);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.1s ease;
 }
 
 .options-panel.vertical button:hover {
-  background: #777;
+  background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+}
+
+.options-panel.vertical button:active {
+  transform: scale(0.92);
 }
 
 #font-cycle {
@@ -184,71 +192,144 @@ body {
   -webkit-appearance: none;
   appearance: none;
   width: 100px;
-  height: 8px;
-  background: #777;
+  height: 6px;
+  background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.2));
   outline: none;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 #brush-size::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   background: var(--board-accent-color);
   border-radius: 50%;
   cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+#brush-size::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
 }
 
 #brush-size::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   background: var(--board-accent-color);
   border-radius: 50%;
+  border: none;
   cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+#brush-size::-moz-range-thumb:hover {
+  transform: scale(1.15);
 }
 
 .tool-button {
-  background-color: #555;
-  color: white;
+  background-color: transparent;
+  color: light-dark(#2c2c2c, #e2e2e2);
   border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 5px;
+  width: 36px;
+  height: 36px;
+  border-radius: calc(var(--zen-border-radius, 8px) - 2px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease;
-}
-
-.tool-button img,
-.shape-button img {
-  width: 20px;
-  height: 20px;
-  color: white;
-  /* Ensure custom icons inherit white */
-}
-
-/* Specific rule for standard Zen icons to make them white on dark background */
-.tool-button img[src*="zen-icons/"],
-.shape-button img[src*="zen-icons/"] {
-  filter: invert(1);
-}
-
-.shape-button img {
-  width: 24px;
-  height: 24px;
-  /* Specific override for shape buttons if their default is different */
-  filter: invert(1);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.1s ease;
 }
 
 .tool-button:hover {
-  background-color: #777;
+  background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
 }
 
-.tool-button.active {
-  background-color: color-mix(in srgb, var(--board-accent-color, #777) 40%, transparent);
+.tool-button:active {
+  transform: scale(0.92);
+}
+
+.tool-button.active,
+.shape-button.active {
+  background-color: color-mix(in srgb, var(--board-accent-color) 85%, light-dark(#000000, transparent)) !important;
+  color: #ffffff !important;
+}
+
+/* Icon Masking System for Vector Styling and Accent Color Adoption */
+.tool-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+/* Zoom Hover-Slide UIUX */
+#zoom-controls-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  transition: gap 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#zoom-controls-wrapper:hover {
+  gap: 4px;
+}
+
+#zoom-out-btn,
+#zoom-in-btn {
+  width: 0;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.2s ease,
+              transform 0.1s ease;
+}
+
+#zoom-controls-wrapper:hover #zoom-out-btn,
+#zoom-controls-wrapper:hover #zoom-in-btn {
+  width: 36px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#zoom-display {
+  color: light-dark(#2c2c2c, #e2e2e2);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+  width: 44px;
+  height: 36px;
+  border-radius: calc(var(--zen-border-radius, 8px) - 2px);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+  line-height: 1;
+  box-sizing: border-box;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.1s ease;
+}
+
+#zoom-display:hover {
+  background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+}
+
+#zoom-display:active {
+  transform: scale(0.92);
 }
 
 .canvas-text-input {
@@ -275,28 +356,43 @@ body {
 }
 
 #active-color-display {
-  width: 20px;
-  height: 20px;
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background-color: #000;
-  border: 2px solid white;
+  border: 1.5px solid light-dark(#ffffff, #1c1c1c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
   box-sizing: border-box;
+  z-index: 2;
+  transition: transform 0.15s ease;
 }
 
 .shape-button {
   background-color: transparent;
-  border: 2px solid transparent;
-  padding: 4px;
-  border-radius: 4px;
+  color: light-dark(#2c2c2c, #e2e2e2);
+  border: none;
+  padding: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: calc(var(--zen-border-radius, 8px) - 2px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.1s ease;
 }
 
-.shape-button.active {
-  border-color: var(--board-accent-color);
+.shape-button:hover {
+  background-color: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+}
+
+.shape-button:active {
+  transform: scale(0.92);
 }
 
 .color-options {
@@ -309,18 +405,20 @@ body {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid #555;
+  border: 2px solid light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.2));
   cursor: pointer;
-  transition: transform 0.1s ease, border-color 0.2s ease;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
 }
 
 .color-swatch:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
 }
 
 .color-swatch.active {
-  border-color: white;
-  transform: scale(1.1);
+  border-color: light-dark(#fff, #1c1c1c);
+  transform: scale(1.15);
   box-shadow: 0 0 0 2px var(--board-accent-color);
 }
 

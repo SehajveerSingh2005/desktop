@@ -667,6 +667,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   selectTool('select');
   updateZoomDisplay();
 
+  const zoomDisplay = document.getElementById('zoom-display');
+  if (zoomDisplay) {
+    zoomDisplay.addEventListener('click', () => {
+      setTransform(1, 0, 0);
+      redrawCanvas();
+      updateZoomDisplay();
+      notifyTransformChanged();
+      triggerSave();
+    });
+  }
+
   // Preload all custom fonts when the page loads so canvas text displays correctly
   const fontsToPreload = [
     "24px 'Roboto'",

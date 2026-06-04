@@ -33,6 +33,7 @@
         content/browser/zen-board/capture-board-picker.js                        (../../zen/board/capture-board-picker.js)
 
         content/browser/zen-board/icons/select.svg                              (../../zen/board/icons/select.svg)
+        content/browser/zen-board/icons/mouse-pointer.svg                       (../../zen/board/icons/mouse-pointer.svg)
         content/browser/zen-board/icons/pen.svg                                 (../../zen/board/icons/pen.svg)
         content/browser/zen-board/icons/text.svg                                (../../zen/board/icons/text.svg)
         content/browser/zen-board/icons/eraser.svg                              (../../zen/board/icons/eraser.svg)
@@ -40,6 +41,7 @@
         content/browser/zen-board/icons/zoom-out.svg                            (../../zen/board/icons/zoom-out.svg)
         content/browser/zen-board/icons/minus.svg                               (../../zen/board/icons/minus.svg)
         content/browser/zen-board/icons/fill-none.svg                           (../../zen/board/icons/fill-none.svg)
+        content/browser/zen-board/icons/palette.svg                             (../../zen/board/icons/palette.svg)
         content/browser/zen-board/icons/fill-solid.svg                          (../../zen/board/icons/fill-solid.svg)
         content/browser/zen-board/icons/loop.svg                                (../../zen/board/icons/loop.svg)
         content/browser/zen-board/icons/play.svg                                (../../zen/board/icons/play.svg)

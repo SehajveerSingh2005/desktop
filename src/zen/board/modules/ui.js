@@ -100,6 +100,12 @@ export function initTools() {
 
   initColorPalette(mainColorsContainer);
 
+  const initialColor = getState().currentColor || '#000000';
+  const colorDisplay = document.getElementById('active-color-display');
+  if (colorDisplay) {
+    colorDisplay.style.backgroundColor = initialColor;
+  }
+
   colorToolBtn.addEventListener('click', (e) => {
     e.stopPropagation(); // Prevent document click from immediately closing it
     const isVisible = colorOptionsPanel.classList.toggle('visible');
@@ -552,7 +558,7 @@ function toggleFill() {
   let { isShapeFilled } = getState();
   isShapeFilled = !isShapeFilled;
   setState({ isShapeFilled });
-  fillToggleBtn.innerHTML = `<img src="chrome://browser/content/zen-board/icons/${isShapeFilled ? 'fill-solid' : 'fill-none'}.svg" alt="Fill">`;
+  fillToggleBtn.innerHTML = `<span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/${isShapeFilled ? 'fill-solid' : 'fill-none'}.svg');"></span>`;
 }
 
 // --- Tool Selection ---

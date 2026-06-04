@@ -19,28 +19,36 @@
 
   <div id="toolbar">
     <div class="tool-group">
-      <button id="select-tool" class="tool-button" title="Select/Pan" data-l10n-id="zen-board-select-tool"><img
-          src="chrome://browser/content/zen-board/icons/select.svg" alt="Select"></button>
-      <button id="pen-tool" class="tool-button" title="Pen" data-l10n-id="zen-board-pen-tool"><img src="chrome://browser/content/zen-board/icons/pen.svg"
-          alt="Pen"></button>
-      <button id="shapes-tool" class="tool-button" title="Shapes" data-l10n-id="zen-board-shapes-tool"><img
-          src="chrome://browser/skin/zen-icons/selectable/shapes.svg" alt="Shapes"></button>
-      <button id="text-tool" class="tool-button" title="Text" data-l10n-id="zen-board-text-tool"><img
-          src="chrome://browser/content/zen-board/icons/text.svg" alt="Text"></button>
-      <button id="eraser-tool" class="tool-button" title="Eraser" data-l10n-id="zen-board-eraser-tool"><img
-          src="chrome://browser/content/zen-board/icons/eraser.svg" alt="Eraser"></button>
+      <button id="select-tool" class="tool-button" title="Select/Pan" data-l10n-id="zen-board-select-tool">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/mouse-pointer.svg');"></span>
+      </button>
+      <button id="pen-tool" class="tool-button" title="Pen" data-l10n-id="zen-board-pen-tool">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/pen.svg');"></span>
+      </button>
+      <button id="shapes-tool" class="tool-button" title="Shapes" data-l10n-id="zen-board-shapes-tool">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/skin/zen-icons/selectable/shapes.svg');"></span>
+      </button>
+      <button id="text-tool" class="tool-button" title="Text" data-l10n-id="zen-board-text-tool">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/text.svg');"></span>
+      </button>
+      <button id="eraser-tool" class="tool-button" title="Eraser" data-l10n-id="zen-board-eraser-tool">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/eraser.svg');"></span>
+      </button>
       <div class="tool-separator"></div>
-      <button id="color-tool" class="tool-button" title="Colors" data-l10n-id="zen-board-colors-tool">
+      <button id="color-tool" class="tool-button" title="Colors" data-l10n-id="zen-board-colors-tool" style="position: relative;">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/palette.svg');"></span>
         <div id="active-color-display"></div>
       </button>
     </div>
     <div class="tool-separator"></div>
-    <div class="tool-group">
-      <button id="zoom-out-btn" class="tool-button" title="Zoom Out" data-l10n-id="zen-board-zoom-out"><img
-          src="chrome://browser/content/zen-board/icons/zoom-out.svg" alt="Zoom Out"></button>
-      <div id="zoom-display" title="Zoom Level" data-l10n-id="zen-board-zoom-level">100%</div>
-      <button id="zoom-in-btn" class="tool-button" title="Zoom In" data-l10n-id="zen-board-zoom-in"><img
-          src="chrome://browser/content/zen-board/icons/zoom-in.svg" alt="Zoom In"></button>
+    <div id="zoom-controls-wrapper" class="tool-group">
+      <button id="zoom-out-btn" class="tool-button" title="Zoom Out" data-l10n-id="zen-board-zoom-out">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/zoom-out.svg');"></span>
+      </button>
+      <button id="zoom-display" class="tool-button" title="Zoom Level (Click to Reset)" data-l10n-id="zen-board-zoom-level">100%</button>
+      <button id="zoom-in-btn" class="tool-button" title="Zoom In" data-l10n-id="zen-board-zoom-in">
+        <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/zoom-in.svg');"></span>
+      </button>
     </div>
   </div>
 
@@ -50,13 +58,16 @@
   </div>
 
   <div id="shape-options-panel" class="options-panel">
-    <button id="shape-rectangle" class="shape-button active" title="Rectangle" data-l10n-id="zen-board-shape-rectangle"><img
-        src="chrome://browser/skin/zen-icons/selectable/square.svg" alt="Rectangle"></button>
-    <button id="shape-ellipse" class="shape-button" title="Ellipse" data-l10n-id="zen-board-shape-ellipse"><img
-        src="chrome://browser/skin/zen-icons/selectable/circle.svg" alt="Ellipse"></button>
+    <button id="shape-rectangle" class="shape-button active" title="Rectangle" data-l10n-id="zen-board-shape-rectangle">
+      <span class="tool-icon" style="mask-image: url('chrome://browser/skin/zen-icons/selectable/square.svg');"></span>
+    </button>
+    <button id="shape-ellipse" class="shape-button" title="Ellipse" data-l10n-id="zen-board-shape-ellipse">
+      <span class="tool-icon" style="mask-image: url('chrome://browser/skin/zen-icons/selectable/circle.svg');"></span>
+    </button>
     <div class="tool-separator"></div>
-    <button id="fill-toggle" class="tool-button" title="Toggle Fill" data-l10n-id="zen-board-fill-toggle"><img
-        src="chrome://browser/content/zen-board/icons/fill-none.svg" alt="Fill"></button>
+    <button id="fill-toggle" class="tool-button" title="Toggle Fill" data-l10n-id="zen-board-fill-toggle">
+      <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/fill-none.svg');"></span>
+    </button>
   </div>
 
   <div id="color-options-panel" class="options-panel">
@@ -74,11 +85,13 @@
   <div id="capture-controls" class="capture-controls-overlay" style="display: none;"></div>
 
   <div id="font-options-panel" class="options-panel vertical">
-    <button id="font-size-increase" title="Increase font size" data-l10n-id="zen-board-font-increase"><img src="chrome://global/skin/icons/plus.svg"
-        alt="Increase"></button>
+    <button id="font-size-increase" title="Increase font size" data-l10n-id="zen-board-font-increase">
+      <span class="tool-icon" style="mask-image: url('chrome://global/skin/icons/plus.svg');"></span>
+    </button>
     <button id="font-cycle" title="Cycle font" data-l10n-id="zen-board-font-cycle">Aa</button>
-    <button id="font-size-decrease" title="Decrease font size" data-l10n-id="zen-board-font-decrease"><img
-        src="chrome://browser/content/zen-board/icons/minus.svg" alt="Decrease"></button>
+    <button id="font-size-decrease" title="Decrease font size" data-l10n-id="zen-board-font-decrease">
+      <span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/minus.svg');"></span>
+    </button>
   </div>
 
   <script src="board.js" type="module"></script>

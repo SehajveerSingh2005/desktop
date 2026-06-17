@@ -394,7 +394,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     await document.l10n.ready;
   } catch (e) {}
-  initTheme();
+  await initTheme();
   initTools();
   resizeCanvas();
 
@@ -715,4 +715,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.warn("ZenBoard: Some fonts failed to preload", e);
     redrawCanvas();
   });
+
+  // Mark the board as ready to trigger smooth fade-in transition
+  document.body.classList.add('ready');
 });

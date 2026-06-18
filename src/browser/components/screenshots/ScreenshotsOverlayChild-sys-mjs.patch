@@ -6,7 +6,7 @@ index 7f35341fe05175336bd339b39be1853e4a73b773..30e206d3f7f2c114016ef6c7957c62b0
        downloadAttributes,
        copyAttributes,
        previewFaceAriaLabel,
-+      zenAddToBoardAttributes,
++      screenshotsZenAddToBoardAttributes,
      ] = lazy.overlayLocalization.formatMessagesSync([
        { id: "screenshots-cancel-button" },
        { id: "screenshots-component-cancel-button" },
@@ -14,15 +14,15 @@ index 7f35341fe05175336bd339b39be1853e4a73b773..30e206d3f7f2c114016ef6c7957c62b0
          args: { shortcut: copyShorcut },
        },
        { id: "screenshots-overlay-preview-face-label" },
-+      { id: "zen-add-to-board" },
++      { id: "screenshots-zen-add-to-board" },
      ]);
-
+ 
      return `
 @@ -171,6 +173,7 @@ export class ScreenshotsOverlay {
                <button id="cancel" class="screenshots-button" title="${cancelAttributes.attributes[0].value}" aria-label="${cancelAttributes.attributes[1].value}"><img/></button>
                <button id="copy" class="screenshots-button" title="${copyAttributes.attributes[0].value}" aria-label="${copyAttributes.attributes[1].value}"><img/><label>${copyAttributes.value}</label></button>
                <button id="download" class="screenshots-button primary" title="${downloadAttributes.attributes[0].value}" aria-label="${downloadAttributes.attributes[1].value}"><img/><label>${downloadAttributes.value}</label></button>
-+              <button id="zen-add-to-board" class="screenshots-button" title="${zenAddToBoardAttributes.value}" aria-label="${zenAddToBoardAttributes.value}"><img/><label>${zenAddToBoardAttributes.value}</label></button>
++              <button id="zen-add-to-board" class="screenshots-button" title="${screenshotsZenAddToBoardAttributes.value}" aria-label="${screenshotsZenAddToBoardAttributes.value}"><img/><label>${screenshotsZenAddToBoardAttributes.value}</label></button>
              </div>
            </div>
          </div>

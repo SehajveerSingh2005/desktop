@@ -148,7 +148,7 @@ function initDOM() {
     }
     // Open in a new tab via the chrome window
     try {
-      const chromeWin = window.docShell?.chromeEventHandler?.ownerGlobal;
+      const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
       if (chromeWin?.gBrowser) {
         chromeWin.gBrowser.addTrustedTab(obj.sourceUrl, {
           triggeringPrincipal:
@@ -235,7 +235,7 @@ async function convertToStaticCapture(liveEmbedObj) {
     let blob = null;
 
     const chromeWin =
-      window.docShell?.chromeEventHandler?.ownerGlobal || window.top;
+      window.docShell?.chromeEventHandler?.ownerDocument?.defaultView || window.top;
     const captureOnPause =
       chromeWin?.Services?.prefs?.getBoolPref(
         "zen.board.live-embeds.capture-on-pause",
@@ -431,7 +431,7 @@ export function ensureIframeInjected(liveEmbedObj) {
     return;
   } // Already injected
 
-  const chromeWin = window.docShell.chromeEventHandler.ownerGlobal;
+  const chromeWin = window.docShell.chromeEventHandler.ownerDocument.defaultView;
   const chromeDoc = chromeWin.document;
 
   // The wrapper acts as the "cropped window" matching the capture dimensions.

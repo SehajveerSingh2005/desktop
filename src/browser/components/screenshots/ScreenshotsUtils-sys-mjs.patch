@@ -52,7 +52,7 @@ index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0d
 +      const sourceUrl = browser.currentURI?.spec ?? "";
 +      Services.console.logStringMessage("ZenBoard: Blob created. URI: " + sourceUrl);
 +
-+      const chromeWin = browser.ownerGlobal;
++      const chromeWin = browser.ownerDocument.defaultView;
 +      const event = new chromeWin.CustomEvent("ZenBoard:CaptureReady", {
 +        bubbles: false,
 +        cancelable: false,

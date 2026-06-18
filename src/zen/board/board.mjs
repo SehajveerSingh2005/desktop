@@ -408,7 +408,7 @@ function initTitleInput() {
     // Force real-time tab label update for Firefox session restore
     try {
       const browserEl = window.docShell?.chromeEventHandler;
-      const tab = browserEl?.ownerGlobal?.gBrowser?.getTabForBrowser(browserEl);
+      const tab = browserEl?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browserEl);
       if (tab && newTitle) {
         tab.zenStaticLabel = newTitle;
       }
@@ -438,7 +438,7 @@ function initTitleInput() {
 // =================================================================
 async function initTheme() {
   try {
-    const chromeWindow = window.docShell?.chromeEventHandler?.ownerGlobal;
+    const chromeWindow = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
     if (!chromeWindow) {
       return;
     }
@@ -532,7 +532,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       try {
         const browserEl = window.docShell?.chromeEventHandler;
         const tab =
-          browserEl?.ownerGlobal?.gBrowser?.getTabForBrowser(browserEl);
+          browserEl?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browserEl);
         if (tab && saved.title) {
           tab.zenStaticLabel = saved.title;
         }
@@ -542,7 +542,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       applyTransparency(saved.isTransparent);
 
-      const chromeWindow = window.docShell?.chromeEventHandler?.ownerGlobal;
+      const chromeWindow = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
       const rememberZoomPan =
         chromeWindow?.Services?.prefs?.getBoolPref(
           "zen.board.remember-zoom-pan",

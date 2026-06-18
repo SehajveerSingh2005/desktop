@@ -42,7 +42,7 @@ function pathToFileURI(nativePath) {
     const svc =
       typeof Services !== "undefined"
         ? Services
-        : window.docShell?.chromeEventHandler?.ownerGlobal?.Services;
+        : window.docShell?.chromeEventHandler?.ownerDocument?.defaultView?.Services;
     return svc.io.newFileURI(nsFile).spec;
   } catch (e) {
     // Fallback: manual construction (works for ASCII paths and UUID filenames)

@@ -143,7 +143,7 @@
     const { blob, sourceUrl, region } = args;
     // When in a panel browser, window.opener is null, but we can access it via docShell.
     const chromeWindow =
-      window.opener || window.docShell?.chromeEventHandler?.ownerGlobal;
+      window.opener || window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
 
     let db;
     try {

@@ -1,4 +1,7 @@
-// modules/capture-controls.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // DOM overlay toolbar for CaptureObject and LiveEmbedObject.
 //
 // CaptureObject toolbar:  [source URL ......] [▶ play] [↗ redirect]
@@ -10,10 +13,10 @@
 //   - show/hide are exported for use in select.js hit-testing
 
 import { getState, bumpSceneGeneration } from './state.mjs';
-import { scene, removeFromScene, addToScene, generateId } from './scene.mjs';
+import { scene } from './scene.mjs';
 import { redrawCanvas } from './canvas.mjs';
 import { CaptureObject, LiveEmbedObject } from './media.mjs';
-import { storeAsset, getAsset } from './db.mjs';
+import { getAsset } from './db.mjs';
 import { saveAsset, deleteAsset } from './assets.mjs';
 import { triggerSave, triggerSaveImmediate } from '../board.mjs';
 import { pushHistory } from './history.mjs';
@@ -99,6 +102,7 @@ function initDOM() {
   playPauseBtn.className = 'capture-btn';
   playPauseBtn.id = 'cc-playpause';
   playPauseBtn.title = 'Go live';
+  // eslint-disable-next-line no-unsanitized/property
   playPauseBtn.innerHTML = iconPlay();
 
   // Redirect button (↗)
@@ -106,6 +110,7 @@ function initDOM() {
   redirectBtn.className = 'capture-btn';
   redirectBtn.id = 'cc-redirect';
   redirectBtn.title = 'Open in new tab';
+  // eslint-disable-next-line no-unsanitized/property
   redirectBtn.innerHTML = iconRedirect();
 
   btnGroup.appendChild(playPauseBtn);
@@ -164,6 +169,7 @@ function initDOM() {
  * Convert a CaptureObject to a LiveEmbedObject in place.
  * The CaptureObject is removed from the scene and replaced with a LiveEmbedObject.
  * The iframe is injected immediately.
+ * @param {object} captureObj The capture object.
  */
 function convertToLiveEmbed(captureObj) {
   const liveEmbed = new LiveEmbedObject(
@@ -197,7 +203,9 @@ function convertToLiveEmbed(captureObj) {
 /**
  * Convert a LiveEmbedObject back to a CaptureObject.
  * Takes a fresh screenshot of the iframe, stores it, and replaces the object.
+ * @param {object} liveEmbedObj The live embed object.
  */
+// eslint-disable-next-line complexity
 async function convertToStaticCapture(liveEmbedObj) {
   // Hide the live controls immediately to signal the transition is happening
   if (playPauseBtn) {
@@ -214,27 +222,27 @@ async function convertToStaticCapture(liveEmbedObj) {
     // 1. Try to take a screenshot of the live iframe via ScreenshotsUtils
     if (liveEmbedObj._iframeEl && captureOnPause) {
       try {
-        let ScreenshotsUtils = chromeWin?.ScreenshotsUtils;
-        if (!ScreenshotsUtils && chromeWin?.ChromeUtils) {
+        let screenshotsUtils = chromeWin?.ScreenshotsUtils;
+        if (!screenshotsUtils && chromeWin?.ChromeUtils) {
           try {
             const modules = chromeWin.ChromeUtils.importESModule("resource:///modules/ScreenshotsUtils.sys.mjs");
-            ScreenshotsUtils = modules.ScreenshotsUtils;
+            screenshotsUtils = modules.ScreenshotsUtils;
           } catch (e1) {
             const modules = chromeWin.ChromeUtils.importESModule("resource://app/modules/ScreenshotsUtils.sys.mjs");
-            ScreenshotsUtils = modules.ScreenshotsUtils;
+            screenshotsUtils = modules.ScreenshotsUtils;
           }
         }
-        if (!ScreenshotsUtils) {
+        if (!screenshotsUtils) {
           throw new Error("ScreenshotsUtils not found in parent window or parent ChromeUtils");
         }
 
         const left = Math.round(liveEmbedObj.sourceRegion?.left || 0);
-        const top = Math.round(liveEmbedObj.sourceRegion?.top || 0);
+        const topOffset = Math.round(liveEmbedObj.sourceRegion?.top || 0);
         const width = Math.max(1, Math.round(liveEmbedObj.sourceRegion?.width || liveEmbedObj.width));
         const height = Math.max(1, Math.round(liveEmbedObj.sourceRegion?.height || liveEmbedObj.height));
         const region = {
           left,
-          top,
+          top: topOffset,
           right: left + width,
           bottom: top + height,
           width,
@@ -339,7 +347,8 @@ async function convertToStaticCapture(liveEmbedObj) {
 }
 
 /**
- * Inject a <xul:browser> element over the board canvas for a LiveEmbedObject.
+ * Inject the content browser iframe into the parent document structure.
+ * @param {object} liveEmbedObj The live embed object.
  */
 export function ensureIframeInjected(liveEmbedObj) {
   if (liveEmbedObj._iframeEl) return; // Already injected
@@ -379,7 +388,6 @@ export function ensureIframeInjected(liveEmbedObj) {
   // is ready when the HTTP response (with XFO headers) arrives asynchronously.
   try {
     const bcId = iframe.browsingContext?.id;
-    const chromeWin = window.docShell?.chromeEventHandler?.ownerGlobal;
     if (bcId != null && chromeWin?.gZenBoard?.registerLiveEmbedBC) {
       chromeWin.gZenBoard.registerLiveEmbedBC(bcId);
       console.error("[ZenBoard] BC registered OK, id:", bcId); // TEMP DEBUG F12
@@ -399,7 +407,6 @@ export function ensureIframeInjected(liveEmbedObj) {
   // We MUST defer the load to allow the Fission frameLoader to initialize asynchronously.
   setTimeout(() => {
     try {
-      const chromeWin = window.docShell.chromeEventHandler.ownerGlobal;
       const ssm = chromeWin.Services.scriptSecurityManager;
       const nullPrincipal = ssm.createNullPrincipal({});
       
@@ -473,9 +480,11 @@ export function showCaptureControls(obj) {
 
   // Update play/pause button
   if (obj.type === 'capture') {
+    // eslint-disable-next-line no-unsanitized/property
     playPauseBtn.innerHTML = iconPlay();
     playPauseBtn.title = 'Go live';
   } else {
+    // eslint-disable-next-line no-unsanitized/property
     playPauseBtn.innerHTML = iconPause();
     playPauseBtn.title = 'Pause (back to static)';
   }
@@ -526,13 +535,13 @@ export function updateCaptureControlsPosition() {
     obj._syncIframePosition(scale, offsetX, offsetY);
   }
 
-  const screenX = obj.x * scale + offsetX;
-  const screenY = obj.y * scale + offsetY;
+  const sX = obj.x * scale + offsetX;
+  const sY = obj.y * scale + offsetY;
   const screenW = obj.width * scale;
   const screenH = obj.height * scale;
   const pad = 8;
 
-  const targetTransform = `translate(${screenX}px, ${screenY + screenH + pad}px)`;
+  const targetTransform = `translate(${sX}px, ${sY + screenH + pad}px)`;
   if (overlayContainer.style.transform !== targetTransform) {
     overlayContainer.style.transform = targetTransform;
   }

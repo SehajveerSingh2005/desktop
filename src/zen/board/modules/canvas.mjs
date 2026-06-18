@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 import { getState, setState } from './state.mjs';
 import { scene } from './scene.mjs';
 import { drawScene } from './renderer.mjs';
@@ -34,19 +38,19 @@ export function getTransformedPoint(x, y) {
 }
 
 // --- Drawing ---
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-  ctx.stroke();
+function drawRoundedRect(canvasCtx, x, y, width, height, radius) {
+  canvasCtx.beginPath();
+  canvasCtx.moveTo(x + radius, y);
+  canvasCtx.lineTo(x + width - radius, y);
+  canvasCtx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  canvasCtx.lineTo(x + width, y + height - radius);
+  canvasCtx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  canvasCtx.lineTo(x + radius, y + height);
+  canvasCtx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  canvasCtx.lineTo(x, y + radius);
+  canvasCtx.quadraticCurveTo(x, y, x + radius, y);
+  canvasCtx.closePath();
+  canvasCtx.stroke();
 }
 
 function resetContext() {

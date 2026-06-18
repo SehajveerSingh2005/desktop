@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // ── Native filesystem asset storage ──────────────────────────────────────────
 // Captures (and any other blobs) are stored as files in the user's profile
 // directory instead of as blobs in IndexedDB.
@@ -31,6 +35,7 @@ function mimeToExt(mimeType) {
 
 /**
  * Write a Blob to the zen-board-assets folder. Returns the filename.
+ * @param {Blob} blob The blob to save.
  */
 async function saveAssetToFilesystem(blob) {
     const folder = await getNativeAssetsFolder();
@@ -42,9 +47,9 @@ async function saveAssetToFilesystem(blob) {
     return filename;
 }
 
-function openDB(window) {
+function openDB(win) {
     return new Promise((resolve, reject) => {
-        const req = window.indexedDB.open(DB_NAME, 2);
+        const req = win.indexedDB.open(DB_NAME, 2);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });
@@ -183,7 +188,8 @@ async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, 
 const zenBoardLiveEmbedBCIds = new Set();
 
 const ZenBoardXFOObserver = {
-    observe(subject, topic, data) {
+    // eslint-disable-next-line complexity
+    observe(subject, topic, _data) {
         if (topic !== "http-on-examine-response" &&
             topic !== "http-on-examine-merged-response" &&
             topic !== "http-on-examine-cached-response" &&
@@ -259,35 +265,32 @@ const ZenBoardXFOObserver = {
 };
 
 let xfoObserverRegistered = false;
-function registerObserver(Services) {
+function registerObserver(services) {
     if (xfoObserverRegistered) return;
     try {
-        Services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-response", false);
-        Services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-merged-response", false);
-        Services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-cached-response", false);
-        // Also watch requests to confirm the HTTP request is even being made.
-        Services.obs.addObserver(ZenBoardXFOObserver, "http-on-modify-request", false);
+        services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-response", false);
+        services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-merged-response", false);
+        services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-cached-response", false);
+        services.obs.addObserver(ZenBoardXFOObserver, "http-on-modify-request", false);
         xfoObserverRegistered = true;
     } catch (e) { }
 }
 
 export class ZenBoard {
-    openZenBoard(window) {
-        if (!window || !window.gBrowser) {
+    openZenBoard(win) {
+        if (!win || !win.gBrowser) {
             console.error("ZenBoard: Invalid window provided");
             return;
         }
-        registerObserver(window.Services);
+        registerObserver(win.Services);
         const url = "chrome://browser/content/zen-board/board.html";
-        const tab = window.gBrowser.addTrustedTab(url, {
-            triggeringPrincipal: window.Services.scriptSecurityManager.getSystemPrincipal(),
-            _forZenEmptyTab: true
+        const tab = win.gBrowser.addTrustedTab(url, {
+            triggeringPrincipal: win.Services.scriptSecurityManager.getSystemPrincipal(),
+            _forZenEmptyTab: true,
         });
-        // Remove zen-empty-tab so workspace logic treats this as a normal tab,
-        // but keep zen-board-tab so session restore knows to use a transparent browser.
-        tab.removeAttribute("zen-empty-tab");
-        tab.setAttribute("zen-board-tab", "true");
-        window.gBrowser.selectedTab = tab;
+        tab.removeAttribute('zen-empty-tab');
+        tab.setAttribute('zen-board-tab', 'true');
+        win.gBrowser.selectedTab = tab;
     }
 
     /**
@@ -321,7 +324,6 @@ export class ZenBoard {
             const { blob, sourceUrl, region, anchor } = event.detail;
             if (!blob) return;
             console.error("ZenBoard: Captured event received!", { sourceUrl, region });
-            const win = Services.wm.getMostRecentWindow("Zen:BoardPicker");
 
             const doc = chromeWindow.document;
             let popupSet = doc.getElementById("mainPopupSet");
@@ -431,9 +433,9 @@ export class ZenBoard {
 
                     // Safety Check: Check if the board is bookmarked!
                     try {
-                        const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
+                        const placesUtils = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs").PlacesUtils;
                         const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
-                        const isBookmarked = await PlacesUtils.bookmarks.fetch({ url: boardUrl }).then(bm => !!bm);
+                        const isBookmarked = await placesUtils.bookmarks.fetch({ url: boardUrl }).then(bm => !!bm);
                         if (isBookmarked) {
                             console.error(`ZenBoard: Board ${boardId} is bookmarked, skipping deletion.`);
                             return;

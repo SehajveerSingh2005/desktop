@@ -1,7 +1,9 @@
-// modules/tool-handlers/eraser.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { getTransformedPoint, ctx } from '../canvas.mjs';
-import { scene, removeFromScene, Path, Text, Rectangle, Ellipse } from '../scene.mjs';
+import { scene, removeFromScene, Path } from '../scene.mjs';
 import { getState, setState } from '../state.mjs';
 import { redrawCanvas } from '../canvas.mjs';
 import { deactivateTextEditor } from '../ui.mjs';

@@ -1,7 +1,10 @@
-// ui.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { canvas, redrawCanvas } from './canvas.mjs';
 import { getState, setState } from './state.mjs';
+// eslint-disable-next-line no-shadow
 import { scene, addToScene, removeFromScene, generateId, Text, parseFont } from './scene.mjs';
 import { pushHistory } from './history.mjs';
 import { hideVideoControls } from './video-controls.mjs';
@@ -231,7 +234,7 @@ export function initTools() {
     }
   });
 
-  textEditor.addEventListener('keyup', (e) => {
+  textEditor.addEventListener('keyup', (_e) => {
     const caretPos = textEditor.selectionStart;
     const textBeforeCaret = textEditor.value.substring(0, caretPos);
     const currentLine = textBeforeCaret.split('\n').pop();
@@ -363,15 +366,15 @@ export function updateTextEditorPosition() {
   const { editingTextObject, scale, offsetX, offsetY } = getState();
   if (!editingTextObject) return;
 
-  const screenX = editingTextObject.x * scale + offsetX;
-  const screenY = editingTextObject.y * scale + offsetY;
+  const sX = editingTextObject.x * scale + offsetX;
+  const sY = editingTextObject.y * scale + offsetY;
 
-  textEditor.style.left = `${screenX}px`;
-  textEditor.style.top = `${screenY}px`;
+  textEditor.style.left = `${sX}px`;
+  textEditor.style.top = `${sY}px`;
   textEditor.style.transform = `scale(${scale})`;
 
-  fontOptionsPanel.style.left = `${screenX - 60}px`;
-  fontOptionsPanel.style.top = `${screenY}px`;
+  fontOptionsPanel.style.left = `${sX - 60}px`;
+  fontOptionsPanel.style.top = `${sY}px`;
   fontOptionsPanel.style.transform = `scale(${scale})`;
 
   if (slashMenu && slashMenu.style.display !== 'none') {
@@ -558,6 +561,7 @@ function toggleFill() {
   let { isShapeFilled } = getState();
   isShapeFilled = !isShapeFilled;
   setState({ isShapeFilled });
+  // eslint-disable-next-line no-unsanitized/property
   fillToggleBtn.innerHTML = `<span class="tool-icon" style="mask-image: url('chrome://browser/content/zen-board/icons/${isShapeFilled ? 'fill-solid' : 'fill-none'}.svg');"></span>`;
 }
 

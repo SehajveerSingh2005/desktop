@@ -1,4 +1,7 @@
-// modules/media.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 import { DrawingObject } from './scene.mjs';
 import { getState } from './state.mjs';
 
@@ -172,6 +175,7 @@ export class CaptureObject extends DrawingObject {
 
     /**
      * Returns the screen-space rect of the bottom toolbar for hit-testing.
+     * @param {number} scale The scale of the board.
      */
     getToolbarBox(scale) {
         const s = scale || 1;
@@ -287,12 +291,12 @@ export class LiveEmbedObject extends DrawingObject {
         }
 
         const left = this.x * scale + offsetX;
-        const top = this.y * scale + offsetY;
+        const topOffset = this.y * scale + offsetY;
 
         // Cache layout properties so we don't trigger reflows by rewriting the same width/height
         const targetWrapperW = `${this.width}px`;
         const targetWrapperH = `${this.height}px`;
-        const targetWrapperTransform = `translate(${left}px, ${top}px) scale(${scale})`;
+        const targetWrapperTransform = `translate(${left}px, ${topOffset}px) scale(${scale})`;
 
         if (this._wrapperEl.style.width !== targetWrapperW) {
             this._wrapperEl.style.width = targetWrapperW;
@@ -321,8 +325,8 @@ export class LiveEmbedObject extends DrawingObject {
         const viewportW = Math.max(800, this.sourceRegion?.viewportWidth || 1280);
 
         // Ensure scroll offsets are positive.
-        const scrollX = Math.max(0, this.sourceRegion?.left || 0);
-        const scrollY = Math.max(0, this.sourceRegion?.top || 0);
+        const sX = Math.max(0, this.sourceRegion?.left || 0);
+        const sY = Math.max(0, this.sourceRegion?.top || 0);
 
         const origW = this.sourceRegion?.width || this.width;
         const origH = this.sourceRegion?.height || this.height;
@@ -331,13 +335,13 @@ export class LiveEmbedObject extends DrawingObject {
         const s_content = this.width / origW;
 
         // The browser element's height is set large enough to contain the captured area.
-        const iframeH = Math.max(1000, scrollY + origH + 500);
+        const iframeH = Math.max(1000, sY + origH + 500);
 
         // Position the browser element inside the overflow:hidden wrapper.
         // It is sized to viewportW wide, so the page renders at its original layout width.
         const targetIframeW = `${viewportW}px`;
         const targetIframeH = `${iframeH}px`;
-        const targetIframeTransform = `scale(${s_content}) translate(${-scrollX}px, ${-scrollY}px)`;
+        const targetIframeTransform = `scale(${s_content}) translate(${-sX}px, ${-sY}px)`;
 
         if (this._iframeEl.style.width !== targetIframeW) {
             this._iframeEl.style.width = targetIframeW;

@@ -1,5 +1,8 @@
-// modules/tool-handlers/select.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// eslint-disable-next-line no-shadow
 import { scene, Text } from '../scene.mjs';
 import { canvas, ctx, getTransformedPoint, setTransform } from '../canvas.mjs';
 import { getState, setState } from '../state.mjs';

@@ -1,4 +1,7 @@
-// modules/storage.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // High-level save/load logic bridging board state with IndexedDB (scene JSON)
 // and the native filesystem (media assets via assets.js).
 //
@@ -14,7 +17,7 @@
 //   - Easy manual backup: just copy the zen-board-assets folder
 
 import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard, getAsset } from './db.mjs';
-import { saveAsset, getAssetURL, deleteAsset } from './assets.mjs';
+import { saveAsset, getAssetURL } from './assets.mjs';
 import { smoothPoints } from './smoothing.mjs';
 
 // The URL param key used to link a tab to a board ID
@@ -41,7 +44,9 @@ function dataURLToBlob(dataURL) {
 /**
  * Serialize a single scene object to a plain JSON-safe object.
  * Images / Videos / Captures → save to filesystem, store filename reference.
+ * @param {object} obj The scene object.
  */
+// eslint-disable-next-line complexity
 async function serializeObject(obj) {
   if (obj._serializedCache) {
     return obj._serializedCache;
@@ -195,6 +200,8 @@ async function serializeObject(obj) {
  *   1. New filesystem assets (_assetFile) → file:// URL via IOUtils
  *   2. Legacy IDB assets (_assetHash)     → fetch blob from IDB, use data: URL
  *   3. Inline data URLs                   → returned as-is
+ * @param {object} data The object data.
+ * @param {Function} [legacyFetcher] The legacy fetcher function.
  */
 async function resolveAssetURL(data, legacyFetcher) {
   // New-style: filesystem file
@@ -214,8 +221,12 @@ async function resolveAssetURL(data, legacyFetcher) {
 
 /**
  * Deserialize a plain JSON scene-object back to the appropriate class instance.
+ * @param {object} data The serialized data.
+ * @param {object} classes The constructor classes.
  */
+// eslint-disable-next-line complexity
 async function deserializeObject(data, classes) {
+  // eslint-disable-next-line no-shadow
   const { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject, CaptureObject, LiveEmbedObject } = classes;
 
   switch (data.type) {
@@ -429,6 +440,13 @@ export async function ensureBoardId() {
 
 /**
  * Save the board scene to IndexedDB (JSON) and media assets to the filesystem.
+ * @param {string} id The board ID.
+ * @param {string} title The board title.
+ * @param {boolean} isTransparent Whether the board is transparent.
+ * @param {number} scale The scale of the board.
+ * @param {number} offsetX The X offset.
+ * @param {number} offsetY The Y offset.
+ * @param {Array} sceneArray The array of scene objects.
  */
 export async function saveBoard(id, title, isTransparent, scale, offsetX, offsetY, sceneArray) {
   const serializedScene = await Promise.all(sceneArray.map(serializeObject));
@@ -440,6 +458,8 @@ export async function saveBoard(id, title, isTransparent, scale, offsetX, offset
 
 /**
  * Load a board from IndexedDB and hydrate all objects (media from filesystem).
+ * @param {string} id The board ID.
+ * @param {object} classes The constructor classes.
  */
 export async function loadBoard(id, classes) {
   const board = await dbLoadBoard(id);

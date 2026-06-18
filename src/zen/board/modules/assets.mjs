@@ -1,4 +1,7 @@
-// modules/assets.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // Native filesystem asset store for Zen Board.
 // Assets are saved as plain files under the user's profile directory:
 //   <profile>/zen-board-assets/<uuid>.<ext>
@@ -64,6 +67,8 @@ function mimeToExt(mimeType) {
 /**
  * Save a Blob to disk. Returns the stable filename (UUID.ext) stored in JSON.
  * Pass existingFilename to skip the write and return the existing name.
+ * @param {Blob} blob The blob to save.
+ * @param {string} [existingFilename] The existing filename if any.
  */
 export async function saveAsset(blob, existingFilename = null) {
   if (existingFilename) return existingFilename;
@@ -78,6 +83,7 @@ export async function saveAsset(blob, existingFilename = null) {
 /**
  * Build a file:// URL for a stored asset so the browser can load it directly.
  * Returns null if the file doesn't exist.
+ * @param {string} filename The filename of the asset.
  */
 export async function getAssetURL(filename) {
   const folder = await getAssetsFolder();
@@ -87,6 +93,7 @@ export async function getAssetURL(filename) {
 
 /**
  * Delete a stored asset file.
+ * @param {string} filename The filename of the asset.
  */
 export async function deleteAsset(filename) {
   try {
@@ -99,6 +106,7 @@ export async function deleteAsset(filename) {
 
 /**
  * Check whether an asset file exists on disk.
+ * @param {string} filename The filename of the asset.
  */
 export async function assetExists(filename) {
   try {

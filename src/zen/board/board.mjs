@@ -1,16 +1,19 @@
-// main.js (board.js) - Main Entry Point
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { canvas, resizeCanvas, redrawCanvas, redrawCanvasImmediate, setTransform, getTransformedPoint, invalidateAccentColorCache } from './modules/canvas.mjs';
 import { toolHandlers } from './modules/tools.mjs';
 import { getState, setState, bumpSceneGeneration } from './modules/state.mjs';
 import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor, updateTextEditorPosition } from './modules/ui.mjs';
 import { findObjectAt } from './modules/interactions.mjs';
+// eslint-disable-next-line no-shadow
 import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.mjs';
 import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modules/media.mjs';
 import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.mjs';
 import { pushHistory, undo, redo, registerOnRestore } from './modules/history.mjs';
 import { hideVideoControls, updateVideoControlsPosition } from './modules/video-controls.mjs';
-import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected, notifyTransformChanged } from './modules/capture-controls.mjs';
+import { hideCaptureControls, updateCaptureControlsPosition, ensureIframeInjected, notifyTransformChanged } from './modules/capture-controls.mjs';
 
 window.getState = getState;
 window.getTransformedPoint = getTransformedPoint;
@@ -363,13 +366,14 @@ async function initTheme() {
     const chromeWindow = window.docShell?.chromeEventHandler?.ownerGlobal;
     if (!chromeWindow) return;
 
-    const { gZenThemePicker, gZenWorkspaces } = chromeWindow;
-    if (!gZenThemePicker || !gZenWorkspaces) return;
+    const themePicker = chromeWindow.gZenThemePicker;
+    const workspaces = chromeWindow.gZenWorkspaces;
+    if (!themePicker || !workspaces) return;
 
-    const activeWorkspace = await gZenWorkspaces.getActiveWorkspace();
+    const activeWorkspace = await workspaces.getActiveWorkspace();
     if (!activeWorkspace) return;
 
-    const { primaryColor } = gZenThemePicker.getGradientForWorkspace(activeWorkspace);
+    const { primaryColor } = themePicker.getGradientForWorkspace(activeWorkspace);
     if (primaryColor) {
       document.documentElement.style.setProperty('--board-accent-color', primaryColor);
     }

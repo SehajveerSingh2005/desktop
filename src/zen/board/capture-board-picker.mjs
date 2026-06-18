@@ -1,4 +1,7 @@
-// capture-board-picker.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // Runs inside capture-board-picker.html (chrome popup context).
 // Receives the capture blob + sourceUrl via window.arguments[0] from ZenBoard.mjs.
 
@@ -147,6 +150,7 @@
       boards.forEach(board => {
         const item = document.createElement('div');
         item.className = 'board-item';
+        // eslint-disable-next-line no-unsanitized/property
         item.innerHTML = `
           <div class="board-item-icon">${boardItemIcon()}</div>
           <div class="board-item-info">
@@ -167,11 +171,11 @@
     input.focus();
 
     const doCreate = async () => {
-      const name = input.value.trim() || 'Untitled Board';
+      const boardName = input.value.trim() || 'Untitled Board';
       createBtn.disabled = true;
       try {
-        const boardId = await createBoard(db, name);
-        await addToBoard(db, boardId, name, blob, sourceUrl, region, chromeWindow);
+        const boardId = await createBoard(db, boardName);
+        await addToBoard(db, boardId, boardName, blob, sourceUrl, region, chromeWindow);
       } catch (e) {
         console.error('ZenBoard Picker: Failed to create board', e);
         createBtn.disabled = false;

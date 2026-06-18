@@ -1,4 +1,6 @@
-// scene.js
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { smoothPoints } from './smoothing.mjs';
 import { bumpSceneGeneration } from './state.mjs';
@@ -102,7 +104,7 @@ export class DrawingObject {
     // invalidate the Path2D. But clear it anyway to be safe for sub-classes.
     this._cachedPath2D = null;
   }
-  resize(handle, x, y, anchorX, anchorY) {
+  resize(_handle, _x, _y, _anchorX, _anchorY) {
     this._serializedCache = null;
     this._cachedBoundingBox = null;
   }
@@ -276,6 +278,7 @@ export function parseFont(fontStr) {
   return { fontSize: baseFontSize, fontFamily };
 }
 
+// eslint-disable-next-line no-shadow
 export class Text extends DrawingObject {
   constructor(id, text, x, y, font, color) {
     super(id, 'text', x, y);

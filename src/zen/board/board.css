@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 @font-face {
   font-family: 'Roboto';
   src: url('chrome://browser/content/zen-board/fonts/Roboto.ttf');
@@ -348,10 +352,10 @@ body.ready {
   overflow: hidden;
   white-space: pre;
   min-height: 1em;
+  font: 24px Arial, sans-serif;
   line-height: 1.3;
   padding: 1px;
   margin: 0;
-  font: 24px Arial;
   color: #000;
   border-radius: 0;
   box-sizing: content-box;

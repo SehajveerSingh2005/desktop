@@ -1,12 +1,12 @@
 // modules/tool-handlers/eraser.js
 
-import { getTransformedPoint, ctx } from '../canvas.js';
-import { scene, removeFromScene, Path, Text, Rectangle, Ellipse } from '../scene.js';
-import { getState, setState } from '../state.js';
-import { redrawCanvas } from '../canvas.js';
-import { deactivateTextEditor } from '../ui.js';
-import { hideVideoControls } from '../video-controls.js';
-import { hideCaptureControls } from '../capture-controls.js';
+import { getTransformedPoint, ctx } from '../canvas.mjs';
+import { scene, removeFromScene, Path, Text, Rectangle, Ellipse } from '../scene.mjs';
+import { getState, setState } from '../state.mjs';
+import { redrawCanvas } from '../canvas.mjs';
+import { deactivateTextEditor } from '../ui.mjs';
+import { hideVideoControls } from '../video-controls.mjs';
+import { hideCaptureControls } from '../capture-controls.mjs';
 
 export const eraser = {
   onMouseDown(e) {

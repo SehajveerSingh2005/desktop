@@ -1,13 +1,13 @@
 // modules/tool-handlers/select.js
 
-import { scene, Text } from '../scene.js';
-import { canvas, ctx, getTransformedPoint, setTransform } from '../canvas.js';
-import { getState, setState } from '../state.js';
-import { redrawCanvas } from '../canvas.js';
-import { deactivateTextEditor, activateTextEditor, updateTextEditorPosition } from '../ui.js';
-import { findObjectAt } from '../interactions.js';
-import { showVideoControls, hideVideoControls, updateVideoControlsPosition } from '../video-controls.js';
-import { showCaptureControls, hideCaptureControls, updateCaptureControlsPosition, notifyTransformChanged } from '../capture-controls.js';
+import { scene, Text } from '../scene.mjs';
+import { canvas, ctx, getTransformedPoint, setTransform } from '../canvas.mjs';
+import { getState, setState } from '../state.mjs';
+import { redrawCanvas } from '../canvas.mjs';
+import { deactivateTextEditor, activateTextEditor, updateTextEditorPosition } from '../ui.mjs';
+import { findObjectAt } from '../interactions.mjs';
+import { showVideoControls, hideVideoControls, updateVideoControlsPosition } from '../video-controls.mjs';
+import { showCaptureControls, hideCaptureControls, updateCaptureControlsPosition, notifyTransformChanged } from '../capture-controls.mjs';
 
 export const select = {
   onMouseDown(e) {

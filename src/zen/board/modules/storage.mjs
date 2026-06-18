@@ -13,9 +13,9 @@
 //   - IDB stays lean (only JSON metadata, a few KB per board)
 //   - Easy manual backup: just copy the zen-board-assets folder
 
-import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard, getAsset } from './db.js';
-import { saveAsset, getAssetURL, deleteAsset } from './assets.js';
-import { smoothPoints } from './smoothing.js';
+import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard, getAsset } from './db.mjs';
+import { saveAsset, getAssetURL, deleteAsset } from './assets.mjs';
+import { smoothPoints } from './smoothing.mjs';
 
 // The URL param key used to link a tab to a board ID
 const BOARD_ID_PARAM = 'id';

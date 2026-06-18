@@ -1,6 +1,6 @@
 // modules/media.js
-import { DrawingObject } from './scene.js';
-import { getState } from './state.js';
+import { DrawingObject } from './scene.mjs';
+import { getState } from './state.mjs';
 
 export class ImageObject extends DrawingObject {
     constructor(id, x, y, width, height, imageElement) {

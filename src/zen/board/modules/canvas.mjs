@@ -1,6 +1,6 @@
-import { getState, setState } from './state.js';
-import { scene } from './scene.js';
-import { drawScene } from './renderer.js';
+import { getState, setState } from './state.mjs';
+import { scene } from './scene.mjs';
+import { drawScene } from './renderer.mjs';
 
 export const canvas = document.getElementById('canvas');
 export const ctx = canvas.getContext('2d', { alpha: true });

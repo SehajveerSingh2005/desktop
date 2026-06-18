@@ -1,16 +1,16 @@
 // main.js (board.js) - Main Entry Point
 
-import { canvas, resizeCanvas, redrawCanvas, redrawCanvasImmediate, setTransform, getTransformedPoint, invalidateAccentColorCache } from './modules/canvas.js';
-import { toolHandlers } from './modules/tools.js';
-import { getState, setState, bumpSceneGeneration } from './modules/state.js';
-import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor, updateTextEditorPosition } from './modules/ui.js';
-import { findObjectAt } from './modules/interactions.js';
-import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.js';
-import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modules/media.js';
-import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.js';
-import { pushHistory, undo, redo, registerOnRestore } from './modules/history.js';
-import { hideVideoControls, updateVideoControlsPosition } from './modules/video-controls.js';
-import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected, notifyTransformChanged } from './modules/capture-controls.js';
+import { canvas, resizeCanvas, redrawCanvas, redrawCanvasImmediate, setTransform, getTransformedPoint, invalidateAccentColorCache } from './modules/canvas.mjs';
+import { toolHandlers } from './modules/tools.mjs';
+import { getState, setState, bumpSceneGeneration } from './modules/state.mjs';
+import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor, updateTextEditorPosition } from './modules/ui.mjs';
+import { findObjectAt } from './modules/interactions.mjs';
+import { scene, addToScene, removeFromScene, generateId, Text, Path, Rectangle, Ellipse } from './modules/scene.mjs';
+import { ImageObject, VideoObject, CaptureObject, LiveEmbedObject } from './modules/media.mjs';
+import { ensureBoardId, saveBoard, loadBoard, revokeAllObjectURLs } from './modules/storage.mjs';
+import { pushHistory, undo, redo, registerOnRestore } from './modules/history.mjs';
+import { hideVideoControls, updateVideoControlsPosition } from './modules/video-controls.mjs';
+import { hideCaptureControls, showCaptureControls, updateCaptureControlsPosition, ensureIframeInjected, notifyTransformChanged } from './modules/capture-controls.mjs';
 
 window.getState = getState;
 window.getTransformedPoint = getTransformedPoint;

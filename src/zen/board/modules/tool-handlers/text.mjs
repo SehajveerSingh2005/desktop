@@ -1,10 +1,10 @@
 // modules/tool-handlers/text.js
 
-import { Text } from '../scene.js';
-import { getTransformedPoint } from '../canvas.js';
-import { findObjectAt } from '../interactions.js';
-import { activateTextEditor, selectTool } from '../ui.js';
-import { setState } from '../state.js';
+import { Text } from '../scene.mjs';
+import { getTransformedPoint } from '../canvas.mjs';
+import { findObjectAt } from '../interactions.mjs';
+import { activateTextEditor, selectTool } from '../ui.mjs';
+import { setState } from '../state.mjs';
 
 export const text = {
   onMouseDown(e) {

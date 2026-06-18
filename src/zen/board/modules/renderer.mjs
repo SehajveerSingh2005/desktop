@@ -1,6 +1,6 @@
 // renderer.js
-import { getState } from './state.js';
-import { parseFont } from './scene.js';
+import { getState } from './state.mjs';
+import { parseFont } from './scene.mjs';
 
 // Cache rounded rect clip paths keyed by "x,y,w,h,r" to avoid rebuilding per-frame
 const _roundedRectCache = new Map();

@@ -1,10 +1,10 @@
 // modules/tool-handlers/pen.js
 
-import { getTransformedPoint } from '../canvas.js';
-import { addToScene, generateId, Path } from '../scene.js';
-import { getState, setState } from '../state.js';
-import { redrawCanvas } from '../canvas.js';
-import { deactivateTextEditor } from '../ui.js';
+import { getTransformedPoint } from '../canvas.mjs';
+import { addToScene, generateId, Path } from '../scene.mjs';
+import { getState, setState } from '../state.mjs';
+import { redrawCanvas } from '../canvas.mjs';
+import { deactivateTextEditor } from '../ui.mjs';
 
 export const pen = {
   onMouseDown(e) {

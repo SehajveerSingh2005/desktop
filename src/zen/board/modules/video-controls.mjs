@@ -1,6 +1,6 @@
 // modules/video-controls.js
-import { getState } from './state.js';
-import { redrawCanvas } from './canvas.js';
+import { getState } from './state.mjs';
+import { redrawCanvas } from './canvas.mjs';
 
 let overlayContainer = null;
 let currentVideoObject = null;

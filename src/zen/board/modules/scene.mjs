@@ -1,7 +1,7 @@
 // scene.js
 
-import { smoothPoints } from './smoothing.js';
-import { bumpSceneGeneration } from './state.js';
+import { smoothPoints } from './smoothing.mjs';
+import { bumpSceneGeneration } from './state.mjs';
 
 export const scene = [];
 

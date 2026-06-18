@@ -1,11 +1,11 @@
 // ui.js
 
-import { canvas, redrawCanvas } from './canvas.js';
-import { getState, setState } from './state.js';
-import { scene, addToScene, removeFromScene, generateId, Text, parseFont } from './scene.js';
-import { pushHistory } from './history.js';
-import { hideVideoControls } from './video-controls.js';
-import { hideCaptureControls } from './capture-controls.js';
+import { canvas, redrawCanvas } from './canvas.mjs';
+import { getState, setState } from './state.mjs';
+import { scene, addToScene, removeFromScene, generateId, Text, parseFont } from './scene.mjs';
+import { pushHistory } from './history.mjs';
+import { hideVideoControls } from './video-controls.mjs';
+import { hideCaptureControls } from './capture-controls.mjs';
 
 // DOM Elements
 let penOptionsPanel, brushSizeSlider, textEditor, zoomDisplay, fontOptionsPanel, fontCycleBtn, fontSizeIncreaseBtn, fontSizeDecreaseBtn, shapeOptionsPanel, shapeRectangleBtn, shapeEllipseBtn, fillToggleBtn, shapesToolBtn, colorToolBtn, colorOptionsPanel, mainColorsContainer, penToolBtn, eraserToolBtn, textToolBtn, selectToolBtn, slashMenu;

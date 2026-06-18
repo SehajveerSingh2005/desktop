@@ -1,10 +1,10 @@
 // modules/tool-handlers/shape.js
 
-import { getTransformedPoint } from '../canvas.js';
-import { addToScene, generateId, Rectangle, Ellipse } from '../scene.js';
-import { getState, setState } from '../state.js';
-import { redrawCanvas } from '../canvas.js';
-import { deactivateTextEditor, selectTool } from '../ui.js';
+import { getTransformedPoint } from '../canvas.mjs';
+import { addToScene, generateId, Rectangle, Ellipse } from '../scene.mjs';
+import { getState, setState } from '../state.mjs';
+import { redrawCanvas } from '../canvas.mjs';
+import { deactivateTextEditor, selectTool } from '../ui.mjs';
 
 export const shape = {
   onMouseDown(e) {

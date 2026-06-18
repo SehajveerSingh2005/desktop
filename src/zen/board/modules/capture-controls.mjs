@@ -9,14 +9,14 @@
 //   - Position is updated via updateCaptureControlsPosition()
 //   - show/hide are exported for use in select.js hit-testing
 
-import { getState, bumpSceneGeneration } from './state.js';
-import { scene, removeFromScene, addToScene, generateId } from './scene.js';
-import { redrawCanvas } from './canvas.js';
-import { CaptureObject, LiveEmbedObject } from './media.js';
-import { storeAsset, getAsset } from './db.js';
-import { saveAsset, deleteAsset } from './assets.js';
-import { triggerSave, triggerSaveImmediate } from '../board.js';
-import { pushHistory } from './history.js';
+import { getState, bumpSceneGeneration } from './state.mjs';
+import { scene, removeFromScene, addToScene, generateId } from './scene.mjs';
+import { redrawCanvas } from './canvas.mjs';
+import { CaptureObject, LiveEmbedObject } from './media.mjs';
+import { storeAsset, getAsset } from './db.mjs';
+import { saveAsset, deleteAsset } from './assets.mjs';
+import { triggerSave, triggerSaveImmediate } from '../board.mjs';
+import { pushHistory } from './history.mjs';
 
 let overlayContainer = null;
 let currentObject = null;

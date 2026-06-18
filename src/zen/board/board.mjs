@@ -516,6 +516,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     boardId = await ensureBoardId();
     setState({ boardId });
 
+    try {
+      const browserEl = window.docShell?.chromeEventHandler;
+      const tab =
+        browserEl?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browserEl);
+      if (tab) {
+        tab.setAttribute("zen-board-id", boardId);
+        tab.setAttribute("zen-board-tab", "true");
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
     const saved = await loadBoard(boardId, classes);
     if (saved) {
       // Populate scene with hydrated objects

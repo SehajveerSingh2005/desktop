@@ -294,6 +294,7 @@
           });
           tab.removeAttribute("zen-empty-tab");
           tab.setAttribute("zen-board-tab", "true");
+          tab.setAttribute("zen-board-id", boardId);
           gb.selectedTab = tab;
         }
       }

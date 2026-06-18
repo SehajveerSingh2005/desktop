@@ -5,6 +5,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+import { deleteBoard } from "./modules/db.mjs";
 
 // ── Native filesystem asset storage ──────────────────────────────────────────
 // Captures (and any other blobs) are stored as files in the user's profile
@@ -214,6 +215,7 @@ async function doAddToBoard(
       });
       tab.removeAttribute("zen-empty-tab");
       tab.setAttribute("zen-board-tab", "true");
+      tab.setAttribute("zen-board-id", boardId);
       gb.selectedTab = tab;
     }
   } catch (e) {
@@ -534,16 +536,17 @@ export class ZenBoard {
       const tab = event.target;
       const linkedBrowser = tab.linkedBrowser;
       const urlSpec = linkedBrowser?.currentURI?.spec;
-      if (
-        urlSpec &&
-        urlSpec.startsWith("chrome://browser/content/zen-board/board.html")
-      ) {
+      const isBoardTab =
+        tab.hasAttribute("zen-board-tab") ||
+        (urlSpec && urlSpec.startsWith("chrome://browser/content/zen-board/board.html"));
+
+      if (isBoardTab) {
         if (chromeWindow.closed || chromeWindow.gBrowser.closing) {
           return;
         }
 
-        const url = new URL(urlSpec);
-        const boardId = url.searchParams.get("id");
+        const url = urlSpec ? new URL(urlSpec) : null;
+        const boardId = tab.getAttribute("zen-board-id") || url?.searchParams.get("id");
         if (boardId) {
           let isStillOpen = false;
           const windows = Services.wm.getEnumerator("navigator:browser");
@@ -554,19 +557,14 @@ export class ZenBoard {
               for (const otherTab of gb.tabs) {
                 if (otherTab !== tab) {
                   const otherUrl = otherTab.linkedBrowser?.currentURI?.spec;
-                  if (
-                    otherUrl &&
-                    otherUrl.startsWith(
-                      "chrome://browser/content/zen-board/board.html"
-                    )
-                  ) {
-                    const otherBoardId = new URL(otherUrl).searchParams.get(
-                      "id"
-                    );
-                    if (otherBoardId === boardId) {
-                      isStillOpen = true;
-                      break;
-                    }
+                  const otherBoardId =
+                    otherTab.getAttribute("zen-board-id") ||
+                    (otherUrl && otherUrl.startsWith("chrome://browser/content/zen-board/board.html")
+                      ? new URL(otherUrl).searchParams.get("id")
+                      : null);
+                  if (otherBoardId === boardId) {
+                    isStillOpen = true;
+                    break;
                   }
                 }
               }
@@ -599,13 +597,10 @@ export class ZenBoard {
             console.error("ZenBoard: Failed to check bookmarks", bookmarkErr);
           }
 
-          // Delete the board from IndexedDB!
+          // Delete the board and clean up assets!
           try {
-            const db = await openDB(chromeWindow);
-            const tx = db.transaction("boards", "readwrite");
-            const store = tx.objectStore("boards");
-            store.delete(boardId);
-            console.error(`ZenBoard: Deleted closed board ${boardId} from IDB`);
+            await deleteBoard(boardId);
+            console.error(`ZenBoard: Deleted closed board ${boardId}`);
           } catch (e) {
             console.error("ZenBoard: Failed to delete board on tab close", e);
           }

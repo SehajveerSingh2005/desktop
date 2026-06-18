@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+import { deleteAsset as deleteFileAsset } from "./assets.mjs";
 
 // Centralized IndexedDB wrapper for Zen Board persistence.
 // Schema:
@@ -221,18 +222,22 @@ export async function listBoards() {
  * @param {string} id The board ID.
  */
 export async function deleteBoard(id) {
-  // First, load the board to get its asset hashes
+  // First, load the board to get its asset hashes and files
   const db = await openDB();
   const board = await loadBoard(id);
   if (!board) {
     return;
   }
 
-  // Collect all asset hashes within this board's scene
+  // Collect all asset hashes and files within this board's scene
   const boardAssetHashes = new Set();
+  const boardAssetFiles = new Set();
   for (const obj of board.scene || []) {
     if (obj._assetHash) {
       boardAssetHashes.add(obj._assetHash);
+    }
+    if (obj._assetFile) {
+      boardAssetFiles.add(obj._assetFile);
     }
   }
 
@@ -244,11 +249,11 @@ export async function deleteBoard(id) {
     req.onerror = () => reject(req.error);
   });
 
-  if (boardAssetHashes.size === 0) {
+  if (boardAssetHashes.size === 0 && boardAssetFiles.size === 0) {
     return;
   }
 
-  // Check if any remaining board uses those hashes
+  // Check if any remaining board uses those hashes or files
   const remaining = await new Promise((resolve, reject) => {
     const tx = db.transaction("boards", "readonly");
     const req = tx.objectStore("boards").getAll();
@@ -257,18 +262,33 @@ export async function deleteBoard(id) {
   });
 
   const usedHashes = new Set();
+  const usedFiles = new Set();
   for (const b of remaining) {
     for (const obj of b.scene || []) {
       if (obj._assetHash) {
         usedHashes.add(obj._assetHash);
       }
+      if (obj._assetFile) {
+        usedFiles.add(obj._assetFile);
+      }
     }
   }
 
-  // Delete orphaned assets
+  // Delete orphaned assets from IndexedDB
   for (const hash of boardAssetHashes) {
     if (!usedHashes.has(hash)) {
       await deleteAsset(hash);
+    }
+  }
+
+  // Delete orphaned assets from filesystem
+  for (const filename of boardAssetFiles) {
+    if (!usedFiles.has(filename)) {
+      try {
+        await deleteFileAsset(filename);
+      } catch (e) {
+        console.error("ZenBoard: Failed to delete orphaned file asset", filename, e);
+      }
     }
   }
 }

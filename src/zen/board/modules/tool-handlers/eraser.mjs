@@ -2,13 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { getTransformedPoint, ctx } from '../canvas.mjs';
-import { scene, removeFromScene, Path } from '../scene.mjs';
-import { getState, setState } from '../state.mjs';
-import { redrawCanvas } from '../canvas.mjs';
-import { deactivateTextEditor } from '../ui.mjs';
-import { hideVideoControls } from '../video-controls.mjs';
-import { hideCaptureControls } from '../capture-controls.mjs';
+import { getTransformedPoint, ctx, redrawCanvas } from "../canvas.mjs";
+import { scene, removeFromScene, Path } from "../scene.mjs";
+import { getState, setState } from "../state.mjs";
+import { deactivateTextEditor } from "../ui.mjs";
+import { hideVideoControls } from "../video-controls.mjs";
+import { hideCaptureControls } from "../capture-controls.mjs";
 
 export const eraser = {
   onMouseDown(e) {
@@ -18,7 +17,9 @@ export const eraser = {
   },
   onMouseMove(e) {
     const { isDrawing } = getState();
-    if (!isDrawing) return;
+    if (!isDrawing) {
+      return;
+    }
     this.erase(e);
   },
   onMouseUp() {
@@ -31,14 +32,19 @@ export const eraser = {
     let needsRedraw = false;
     for (let i = scene.length - 1; i >= 0; i--) {
       const object = scene[i];
-      if (!object.visible) continue;
+      if (!object.visible) {
+        continue;
+      }
       let hit = false;
       if (object instanceof Path) {
         const localEraserX = x - object.x;
         const localEraserY = y - object.y;
         const pts = object.smoothedRelativePoints;
         for (let j = 0; j < pts.length; j += 2) {
-          const distance = Math.hypot(pts[j] - localEraserX, pts[j+1] - localEraserY);
+          const distance = Math.hypot(
+            pts[j] - localEraserX,
+            pts[j + 1] - localEraserY
+          );
           if (distance < eraserRadius + object.lineWidth / 2) {
             hit = true;
             break;
@@ -47,7 +53,12 @@ export const eraser = {
       } else {
         // Generic bounding box check for Shapes, Text, Images, Videos
         const box = object.getBoundingBox(ctx);
-        if (x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height) {
+        if (
+          x > box.x &&
+          x < box.x + box.width &&
+          y > box.y &&
+          y < box.y + box.height
+        ) {
           hit = true;
         }
       }

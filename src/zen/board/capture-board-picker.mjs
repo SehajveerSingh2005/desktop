@@ -6,9 +6,7 @@
 // Receives the capture blob + sourceUrl via window.arguments[0] from ZenBoard.mjs.
 
 (function () {
-  'use strict';
-
-  const DB_NAME = 'zen-board-db';
+  const DB_NAME = "zen-board-db";
   const DB_VERSION = 2;
 
   // ── IDB helpers ────────────────────────────────────────────────
@@ -22,16 +20,17 @@
 
   async function hashBlob(blob) {
     const buf = await blob.arrayBuffer();
-    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+    const hashBuf = await crypto.subtle.digest("SHA-256", buf);
     return Array.from(new Uint8Array(hashBuf))
-      .map(b => b.toString(16).padStart(2, '0')).join('');
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   async function storeAsset(db, blob) {
     const hash = await hashBlob(blob);
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('assets', 'readwrite');
-      const store = tx.objectStore('assets');
+      const tx = db.transaction("assets", "readwrite");
+      const store = tx.objectStore("assets");
       const get = store.get(hash);
       get.onsuccess = () => {
         if (!get.result) {
@@ -48,10 +47,14 @@
 
   async function listBoards(db) {
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('boards', 'readonly');
-      const req = tx.objectStore('boards').getAll();
+      const tx = db.transaction("boards", "readonly");
+      const req = tx.objectStore("boards").getAll();
       req.onsuccess = () => {
-        const boards = req.result.map(({ id, title, lastEdited }) => ({ id, title, lastEdited }));
+        const boards = req.result.map(({ id, title, lastEdited }) => ({
+          id,
+          title,
+          lastEdited,
+        }));
         boards.sort((a, b) => b.lastEdited - a.lastEdited);
         resolve(boards);
       };
@@ -62,9 +65,15 @@
   async function createBoard(db, title) {
     const id = crypto.randomUUID();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('boards', 'readwrite');
-      const store = tx.objectStore('boards');
-      const board = { id, title, isTransparent: true, lastEdited: Date.now(), scene: [] };
+      const tx = db.transaction("boards", "readwrite");
+      const store = tx.objectStore("boards");
+      const board = {
+        id,
+        title,
+        isTransparent: true,
+        lastEdited: Date.now(),
+        scene: [],
+      };
       const req = store.put(board);
       req.onsuccess = () => resolve(id);
       req.onerror = () => reject(req.error);
@@ -73,12 +82,15 @@
 
   async function appendCaptureToBoard(db, boardId, captureData) {
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('boards', 'readwrite');
-      const store = tx.objectStore('boards');
+      const tx = db.transaction("boards", "readwrite");
+      const store = tx.objectStore("boards");
       const getReq = store.get(boardId);
       getReq.onsuccess = () => {
         const board = getReq.result;
-        if (!board) { reject(new Error('Board not found')); return; }
+        if (!board) {
+          reject(new Error("Board not found"));
+          return;
+        }
         board.lastEdited = Date.now();
         board.scene = board.scene || [];
         board.scene.push(captureData);
@@ -92,9 +104,15 @@
 
   // ── UI helpers ──────────────────────────────────────────────────
   function formatDate(ts) {
-    if (!ts) return '';
+    if (!ts) {
+      return "";
+    }
     const d = new Date(ts);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   }
 
   function boardItemIcon() {
@@ -118,81 +136,114 @@
     // Get data passed from ZenBoard.mjs through window.arguments or global property
     const args = window.arguments?.[0] || window.zenPickerArgs;
     if (!args?.blob || !args?.sourceUrl) {
-      console.error('ZenBoard Picker: No capture data provided');
+      console.error("ZenBoard Picker: No capture data provided");
       return;
     }
 
     const { blob, sourceUrl, region } = args;
     // When in a panel browser, window.opener is null, but we can access it via docShell.
-    const chromeWindow = window.opener || window.docShell?.chromeEventHandler?.ownerGlobal;
+    const chromeWindow =
+      window.opener || window.docShell?.chromeEventHandler?.ownerGlobal;
 
     let db;
     try {
       db = await openDB();
     } catch (e) {
-      console.error('ZenBoard Picker: Failed to open DB', e);
+      console.error("ZenBoard Picker: Failed to open DB", e);
       return;
     }
 
     // Render existing boards
-    const boardsList = document.getElementById('boards-list');
-    const emptyMsg = document.getElementById('boards-empty');
+    const boardsList = document.getElementById("boards-list");
+    const emptyMsg = document.getElementById("boards-empty");
     let boards = [];
     try {
       boards = await listBoards(db);
     } catch (e) {
-      console.error('ZenBoard Picker: Failed to list boards', e);
+      console.error("ZenBoard Picker: Failed to list boards", e);
     }
 
     if (boards.length === 0) {
       emptyMsg.hidden = false;
     } else {
       boards.forEach(board => {
-        const item = document.createElement('div');
-        item.className = 'board-item';
+        const item = document.createElement("div");
+        item.className = "board-item";
         // eslint-disable-next-line no-unsanitized/property
         item.innerHTML = `
           <div class="board-item-icon">${boardItemIcon()}</div>
           <div class="board-item-info">
-            <div class="board-item-name">${escapeHTML(board.title || 'Untitled Board')}</div>
+            <div class="board-item-name">${escapeHTML(board.title || "Untitled Board")}</div>
             <div class="board-item-date">${formatDate(board.lastEdited)}</div>
           </div>
           <div class="board-item-arrow">${arrowIcon()}</div>
         `;
-        item.addEventListener('click', () => addToBoard(db, board.id, board.title, blob, sourceUrl, region, chromeWindow));
+        item.addEventListener("click", () =>
+          addToBoard(
+            db,
+            board.id,
+            board.title,
+            blob,
+            sourceUrl,
+            region,
+            chromeWindow
+          )
+        );
         boardsList.appendChild(item);
       });
     }
 
     // New board input
-    const input = document.getElementById('new-board-name');
-    const createBtn = document.getElementById('create-board-btn');
+    const input = document.getElementById("new-board-name");
+    const createBtn = document.getElementById("create-board-btn");
 
     input.focus();
 
     const doCreate = async () => {
-      const boardName = input.value.trim() || 'Untitled Board';
+      const boardName = input.value.trim() || "Untitled Board";
       createBtn.disabled = true;
       try {
         const boardId = await createBoard(db, boardName);
-        await addToBoard(db, boardId, boardName, blob, sourceUrl, region, chromeWindow);
+        await addToBoard(
+          db,
+          boardId,
+          boardName,
+          blob,
+          sourceUrl,
+          region,
+          chromeWindow
+        );
       } catch (e) {
-        console.error('ZenBoard Picker: Failed to create board', e);
+        console.error("ZenBoard Picker: Failed to create board", e);
         createBtn.disabled = false;
       }
     };
 
-    createBtn.addEventListener('click', doCreate);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') doCreate();
+    createBtn.addEventListener("click", doCreate);
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        doCreate();
+      }
     });
-  }
+  };
 
   function escapeHTML(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
-  async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chromeWindow) {
+  async function addToBoard(
+    db,
+    boardId,
+    boardTitle,
+    blob,
+    sourceUrl,
+    region,
+    chromeWindow
+  ) {
     try {
       // Store the image asset in IDB
       const hash = await storeAsset(db, blob);
@@ -205,7 +256,7 @@
         y: -(region?.height || 600) / 2,
         width: region?.width || 800,
         height: region?.height || 600,
-        sourceUrl: sourceUrl,
+        sourceUrl,
         sourceRegion: region,
         _assetHash: hash,
       };
@@ -219,22 +270,30 @@
         const gb = chromeWindow.gBrowser;
         // Check if a tab with this board is already open
         const existingTab = Array.from(gb.tabs).find(t => {
-          try { return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`); } catch { return false; }
+          try {
+            return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`);
+          } catch {
+            return false;
+          }
         });
 
         if (existingTab) {
           gb.selectedTab = existingTab;
           // Dispatch a reload event to the board tab so it picks up the new object
           existingTab.linkedBrowser.contentWindow?.dispatchEvent(
-            new existingTab.linkedBrowser.contentWindow.CustomEvent('ZenBoardCaptureAdded', { detail: { boardId } })
+            new existingTab.linkedBrowser.contentWindow.CustomEvent(
+              "ZenBoardCaptureAdded",
+              { detail: { boardId } }
+            )
           );
         } else {
           const tab = gb.addTrustedTab(boardUrl, {
-            triggeringPrincipal: chromeWindow.Services.scriptSecurityManager.getSystemPrincipal(),
+            triggeringPrincipal:
+              chromeWindow.Services.scriptSecurityManager.getSystemPrincipal(),
             _forZenEmptyTab: true,
           });
-          tab.removeAttribute('zen-empty-tab');
-          tab.setAttribute('zen-board-tab', 'true');
+          tab.removeAttribute("zen-empty-tab");
+          tab.setAttribute("zen-board-tab", "true");
           gb.selectedTab = tab;
         }
       }
@@ -246,11 +305,11 @@
         window.close();
       }
     } catch (e) {
-      console.error('ZenBoard Picker: Failed to add to board', e);
+      console.error("ZenBoard Picker: Failed to add to board", e);
     }
   }
 
-  window.addEventListener('DOMContentLoaded', () => {
+  window.addEventListener("DOMContentLoaded", () => {
     // Only auto-init if arguments are already available (openDialog)
     if (window.arguments && window.arguments[0]) {
       window.zenPickerInit();

@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { scene, clearScene, addToScene } from './scene.mjs';
-import { redrawCanvas } from './canvas.mjs';
-import { triggerSave } from '../board.mjs';
-import { hideVideoControls } from './video-controls.mjs';
-import { bumpSceneGeneration, getSceneGeneration, setState } from './state.mjs';
+import { scene, clearScene, addToScene } from "./scene.mjs";
+import { redrawCanvas } from "./canvas.mjs";
+import { triggerSave } from "../board.mjs";
+import { hideVideoControls } from "./video-controls.mjs";
+import { bumpSceneGeneration, getSceneGeneration, setState } from "./state.mjs";
 
 const MAX_HISTORY = 50;
 let undoStack = [];
@@ -26,16 +26,22 @@ export function clearHistory() {
 
 /** Pushes current state to history if it changed */
 export function pushHistory() {
-  if (getSceneGeneration() === lastCommittedGeneration) return;
+  if (getSceneGeneration() === lastCommittedGeneration) {
+    return;
+  }
 
   undoStack.push(scene.map(obj => obj.clone()));
-  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  if (undoStack.length > MAX_HISTORY) {
+    undoStack.shift();
+  }
   redoStack.length = 0;
   lastCommittedGeneration = getSceneGeneration();
 }
 
 export function undo() {
-  if (undoStack.length < 2) return;
+  if (undoStack.length < 2) {
+    return;
+  }
 
   redoStack.push(undoStack.pop());
   const previous = undoStack[undoStack.length - 1];
@@ -44,7 +50,9 @@ export function undo() {
 }
 
 export function redo() {
-  if (redoStack.length === 0) return;
+  if (redoStack.length === 0) {
+    return;
+  }
 
   const next = redoStack.pop();
   undoStack.push(next);
@@ -64,4 +72,3 @@ function restoreSnapshot(snapshot) {
   triggerSave();
   bumpSceneGeneration();
 }
-

@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { smoothPoints } from './smoothing.mjs';
-import { bumpSceneGeneration } from './state.mjs';
+import { smoothPoints } from "./smoothing.mjs";
+import { bumpSceneGeneration } from "./state.mjs";
 
 export const scene = [];
 
@@ -17,7 +17,7 @@ export function removeFromScene(id) {
   if (index !== -1) {
     const obj = scene[index];
     // Allow objects (e.g. LiveEmbedObject) to clean up DOM resources
-    if (typeof obj.destroy === 'function') {
+    if (typeof obj.destroy === "function") {
       obj.destroy();
     }
     scene.splice(index, 1);
@@ -27,7 +27,7 @@ export function removeFromScene(id) {
 
 export function clearScene() {
   for (const obj of scene) {
-    if (typeof obj.destroy === 'function') {
+    if (typeof obj.destroy === "function") {
       obj.destroy();
     }
   }
@@ -53,7 +53,9 @@ export class DrawingObject {
     this._cachedBoundingBox = null;
   }
 
-  get x() { return this._x; }
+  get x() {
+    return this._x;
+  }
   set x(val) {
     if (this._x !== val) {
       this._x = val;
@@ -62,7 +64,9 @@ export class DrawingObject {
     }
   }
 
-  get y() { return this._y; }
+  get y() {
+    return this._y;
+  }
   set y(val) {
     if (this._y !== val) {
       this._y = val;
@@ -71,7 +75,9 @@ export class DrawingObject {
     }
   }
 
-  get width() { return this._width; }
+  get width() {
+    return this._width;
+  }
   set width(val) {
     if (this._width !== val) {
       this._width = val;
@@ -80,7 +86,9 @@ export class DrawingObject {
     }
   }
 
-  get height() { return this._height; }
+  get height() {
+    return this._height;
+  }
   set height(val) {
     if (this._height !== val) {
       this._height = val;
@@ -91,7 +99,12 @@ export class DrawingObject {
 
   getBoundingBox() {
     if (!this._cachedBoundingBox) {
-      this._cachedBoundingBox = { x: this.x, y: this.y, width: this.width || 0, height: this.height || 0 };
+      this._cachedBoundingBox = {
+        x: this.x,
+        y: this.y,
+        width: this.width || 0,
+        height: this.height || 0,
+      };
     }
     return this._cachedBoundingBox;
   }
@@ -111,7 +124,18 @@ export class DrawingObject {
 }
 
 class Shape extends DrawingObject {
-  constructor(id, type, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
+  constructor(
+    id,
+    type,
+    x,
+    y,
+    width,
+    height,
+    strokeColor,
+    strokeWidth,
+    isFilled,
+    fillColor
+  ) {
     super(id, type, x, y);
     this.width = width;
     this.height = height;
@@ -132,15 +156,19 @@ class Shape extends DrawingObject {
     this.height = Math.abs(mouseY - anchorY);
 
     // Minimum size to keep handles visible
-    if (this.width < 5) this.width = 5;
-    if (this.height < 5) this.height = 5;
+    if (this.width < 5) {
+      this.width = 5;
+    }
+    if (this.height < 5) {
+      this.height = 5;
+    }
   }
 }
 
 // --- Concrete Object Classes ---
 export class Path extends DrawingObject {
   constructor(id, color, lineWidth, startX, startY) {
-    super(id, 'path', startX, startY);
+    super(id, "path", startX, startY);
     this.color = color;
     this.lineWidth = lineWidth;
     this.rawRelativePoints = [0, 0];
@@ -157,7 +185,8 @@ export class Path extends DrawingObject {
       const lastY = this.rawRelativePoints[this.rawRelativePoints.length - 1];
       const dx = relativeX - lastX;
       const dy = relativeY - lastY;
-      if (dx * dx + dy * dy < 2.25) { // 1.5 units squared threshold
+      if (dx * dx + dy * dy < 2.25) {
+        // 1.5 units squared threshold
         return;
       }
     }
@@ -169,7 +198,10 @@ export class Path extends DrawingObject {
     this.boundingBox.maxX = Math.max(this.boundingBox.maxX, relativeX);
     this.boundingBox.maxY = Math.max(this.boundingBox.maxY, relativeY);
 
-    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints, this.smoothedRelativePoints);
+    this.smoothedRelativePoints = smoothPoints(
+      this.rawRelativePoints,
+      this.smoothedRelativePoints
+    );
     this._cachedPath2D = null; // Invalidate render cache
     this._serializedCache = null; // Invalidate serialized cache
     this._cachedBoundingBox = null; // Invalidate bbox cache
@@ -182,8 +214,8 @@ export class Path extends DrawingObject {
       this._cachedBoundingBox = {
         x: this.x + this.boundingBox.minX - padding,
         y: this.y + this.boundingBox.minY - padding,
-        width: (this.boundingBox.maxX - this.boundingBox.minX) + this.lineWidth,
-        height: (this.boundingBox.maxY - this.boundingBox.minY) + this.lineWidth,
+        width: this.boundingBox.maxX - this.boundingBox.minX + this.lineWidth,
+        height: this.boundingBox.maxY - this.boundingBox.minY + this.lineWidth,
       };
     }
     return this._cachedBoundingBox;
@@ -203,13 +235,13 @@ export class Path extends DrawingObject {
     const scaleY = oldHeight > 0 ? newHeight / oldHeight : 1;
 
     // Update origin
-    this.x = Math.min(mouseX, anchorX) - (this.boundingBox.minX * scaleX);
-    this.y = Math.min(mouseY, anchorY) - (this.boundingBox.minY * scaleY);
+    this.x = Math.min(mouseX, anchorX) - this.boundingBox.minX * scaleX;
+    this.y = Math.min(mouseY, anchorY) - this.boundingBox.minY * scaleY;
 
     // Scale all points
     for (let i = 0; i < this.rawRelativePoints.length; i += 2) {
       this.rawRelativePoints[i] *= scaleX;
-      this.rawRelativePoints[i+1] *= scaleY;
+      this.rawRelativePoints[i + 1] *= scaleY;
     }
 
     // Update bounding box
@@ -224,7 +256,13 @@ export class Path extends DrawingObject {
   }
 
   clone() {
-    const cloned = new Path(this.id, this.color, this.lineWidth, this.x, this.y);
+    const cloned = new Path(
+      this.id,
+      this.color,
+      this.lineWidth,
+      this.x,
+      this.y
+    );
     cloned.boundingBox = { ...this.boundingBox };
     cloned.rawRelativePoints = [...this.rawRelativePoints];
     cloned.smoothedRelativePoints = [...this.smoothedRelativePoints];
@@ -237,51 +275,94 @@ export class Path extends DrawingObject {
 }
 
 export class Rectangle extends Shape {
-  constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
-    super(id, 'rectangle', x, y, width, height, strokeColor, strokeWidth);
+  constructor(
+    id,
+    x,
+    y,
+    width,
+    height,
+    strokeColor,
+    strokeWidth,
+    isFilled,
+    fillColor
+  ) {
+    super(id, "rectangle", x, y, width, height, strokeColor, strokeWidth);
     this.isFilled = isFilled;
     this.fillColor = fillColor;
   }
 
   clone() {
-    const cloned = new Rectangle(this.id, this.x, this.y, this.width, this.height, this.strokeColor, this.strokeWidth, this.isFilled, this.fillColor);
+    const cloned = new Rectangle(
+      this.id,
+      this.x,
+      this.y,
+      this.width,
+      this.height,
+      this.strokeColor,
+      this.strokeWidth,
+      this.isFilled,
+      this.fillColor
+    );
     cloned.visible = this.visible;
     return cloned;
   }
 }
 
 export class Ellipse extends Shape {
-  constructor(id, x, y, width, height, strokeColor, strokeWidth, isFilled, fillColor) {
-    super(id, 'ellipse', x, y, width, height, strokeColor, strokeWidth);
+  constructor(
+    id,
+    x,
+    y,
+    width,
+    height,
+    strokeColor,
+    strokeWidth,
+    isFilled,
+    fillColor
+  ) {
+    super(id, "ellipse", x, y, width, height, strokeColor, strokeWidth);
     this.isFilled = isFilled;
     this.fillColor = fillColor;
   }
 
   clone() {
-    const cloned = new Ellipse(this.id, this.x, this.y, this.width, this.height, this.strokeColor, this.strokeWidth, this.isFilled, this.fillColor);
+    const cloned = new Ellipse(
+      this.id,
+      this.x,
+      this.y,
+      this.width,
+      this.height,
+      this.strokeColor,
+      this.strokeWidth,
+      this.isFilled,
+      this.fillColor
+    );
     cloned.visible = this.visible;
     return cloned;
   }
 }
 
-
 export function parseFont(fontStr) {
-  const match = fontStr.match(/(\d+(?:\.\d+)?)px(?:\s*\/\s*(?:[\d.]+|normal))?\s+(.+)/i);
+  const match = fontStr.match(
+    /(\d+(?:\.\d+)?)px(?:\s*\/\s*(?:[\d.]+|normal))?\s+(.+)/i
+  );
   if (match) {
     return {
       fontSize: parseFloat(match[1]),
-      fontFamily: match[2].trim().replace(/['"]/g, '')
+      fontFamily: match[2].trim().replace(/['"]/g, ""),
     };
   }
   const baseFontSize = parseFloat(fontStr) || 24;
-  const fontFamily = fontStr.replace(/^[0-9.]+\s*px\s+/, '').replace(/['"]/g, '') || 'sans-serif';
+  const fontFamily =
+    fontStr.replace(/^[0-9.]+\s*px\s+/, "").replace(/['"]/g, "") ||
+    "sans-serif";
   return { fontSize: baseFontSize, fontFamily };
 }
 
 // eslint-disable-next-line no-shadow
 export class Text extends DrawingObject {
   constructor(id, text, x, y, font, color) {
-    super(id, 'text', x, y);
+    super(id, "text", x, y);
     this.text = text;
     this.font = font;
     this.color = color;
@@ -289,24 +370,24 @@ export class Text extends DrawingObject {
 
   getBoundingBox(ctx) {
     if (!this._cachedBoundingBox) {
-      const lines = this.text.split('\n');
+      const lines = this.text.split("\n");
       const { fontSize: baseFontSize, fontFamily } = parseFont(this.font);
 
       let maxWidth = 0;
       let totalHeight = 0;
 
-      lines.forEach((line) => {
+      lines.forEach(line => {
         let lineFontSize = baseFontSize;
         let indent = 0;
         let cleanText = line;
 
-        if (line.startsWith('# ')) {
+        if (line.startsWith("# ")) {
           lineFontSize = baseFontSize * 1.8;
           cleanText = line.substring(2);
-        } else if (line.startsWith('## ')) {
+        } else if (line.startsWith("## ")) {
           lineFontSize = baseFontSize * 1.4;
           cleanText = line.substring(3);
-        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        } else if (line.startsWith("- ") || line.startsWith("* ")) {
           indent = baseFontSize * 1.2;
           cleanText = line.substring(2);
         } else {
@@ -327,13 +408,25 @@ export class Text extends DrawingObject {
         totalHeight = baseFontSize * 1.3;
       }
 
-      this._cachedBoundingBox = { x: this.x, y: this.y, width: maxWidth, height: totalHeight };
+      this._cachedBoundingBox = {
+        x: this.x,
+        y: this.y,
+        width: maxWidth,
+        height: totalHeight,
+      };
     }
     return this._cachedBoundingBox;
   }
 
   clone() {
-    const cloned = new Text(this.id, this.text, this.x, this.y, this.font, this.color);
+    const cloned = new Text(
+      this.id,
+      this.text,
+      this.x,
+      this.y,
+      this.font,
+      this.color
+    );
     cloned.visible = this.visible;
     cloned._cachedBoundingBox = this._cachedBoundingBox;
     return cloned;

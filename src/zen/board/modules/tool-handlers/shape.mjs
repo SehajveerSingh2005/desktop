@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { getTransformedPoint } from '../canvas.mjs';
-import { addToScene, generateId, Rectangle, Ellipse } from '../scene.mjs';
-import { getState, setState } from '../state.mjs';
-import { redrawCanvas } from '../canvas.mjs';
-import { deactivateTextEditor, selectTool } from '../ui.mjs';
+import { getTransformedPoint, redrawCanvas } from "../canvas.mjs";
+import { addToScene, generateId, Rectangle, Ellipse } from "../scene.mjs";
+import { getState, setState } from "../state.mjs";
+import { deactivateTextEditor, selectTool } from "../ui.mjs";
 
 export const shape = {
   onMouseDown(e) {
@@ -14,16 +13,28 @@ export const shape = {
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
     setState({ isDrawing: true, dragStartX: x, dragStartY: y });
 
-    const { currentShapeType, currentBrushSize, scale, isShapeFilled, currentColor } = getState();
+    const {
+      currentShapeType,
+      currentBrushSize,
+      scale,
+      isShapeFilled,
+      currentColor,
+    } = getState();
 
     const sharedProps = [
-      generateId(), x, y, 0, 0,
-      currentColor, currentBrushSize / scale,
-      isShapeFilled, currentColor
+      generateId(),
+      x,
+      y,
+      0,
+      0,
+      currentColor,
+      currentBrushSize / scale,
+      isShapeFilled,
+      currentColor,
     ];
 
     let newShape;
-    if (currentShapeType === 'rectangle') {
+    if (currentShapeType === "rectangle") {
       newShape = new Rectangle(...sharedProps);
     } else {
       newShape = new Ellipse(...sharedProps);
@@ -32,8 +43,11 @@ export const shape = {
     addToScene(newShape);
   },
   onMouseMove(e) {
-    const { isDrawing, currentDrawingObject, dragStartX, dragStartY } = getState();
-    if (!isDrawing || !currentDrawingObject) return;
+    const { isDrawing, currentDrawingObject, dragStartX, dragStartY } =
+      getState();
+    if (!isDrawing || !currentDrawingObject) {
+      return;
+    }
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
 
     let endX = x;
@@ -61,7 +75,7 @@ export const shape = {
         setState({ selectedObjectId: currentDrawingObject.id });
       }
       setState({ isDrawing: false, currentDrawingObject: null });
-      selectTool('select');
+      selectTool("select");
     }
   },
 };

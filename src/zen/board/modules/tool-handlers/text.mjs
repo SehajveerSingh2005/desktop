@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // eslint-disable-next-line no-shadow
-import { Text } from '../scene.mjs';
-import { getTransformedPoint } from '../canvas.mjs';
-import { findObjectAt } from '../interactions.mjs';
-import { activateTextEditor, selectTool } from '../ui.mjs';
-import { setState } from '../state.mjs';
+import { Text } from "../scene.mjs";
+import { getTransformedPoint } from "../canvas.mjs";
+import { findObjectAt } from "../interactions.mjs";
+import { activateTextEditor, selectTool } from "../ui.mjs";
+import { setState } from "../state.mjs";
 
 export const text = {
   onMouseDown(e) {
@@ -17,7 +17,7 @@ export const text = {
     // Switch to the select tool *before* activating the editor. This prevents a
     // race condition where `selectTool` would immediately call `deactivateTextEditor`
     // on the editor that was just created.
-    selectTool('select');
+    selectTool("select");
 
     if (hitObject && hitObject instanceof Text) {
       // Clicked on existing text. Select it and activate the editor.

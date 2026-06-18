@@ -3,14 +3,32 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // eslint-disable-next-line no-shadow
-import { scene, Text } from '../scene.mjs';
-import { canvas, ctx, getTransformedPoint, setTransform } from '../canvas.mjs';
-import { getState, setState } from '../state.mjs';
-import { redrawCanvas } from '../canvas.mjs';
-import { deactivateTextEditor, activateTextEditor, updateTextEditorPosition } from '../ui.mjs';
-import { findObjectAt } from '../interactions.mjs';
-import { showVideoControls, hideVideoControls, updateVideoControlsPosition } from '../video-controls.mjs';
-import { showCaptureControls, hideCaptureControls, updateCaptureControlsPosition, notifyTransformChanged } from '../capture-controls.mjs';
+import { scene, Text } from "../scene.mjs";
+import {
+  canvas,
+  ctx,
+  getTransformedPoint,
+  setTransform,
+  redrawCanvas,
+} from "../canvas.mjs";
+import { getState, setState } from "../state.mjs";
+import {
+  deactivateTextEditor,
+  activateTextEditor,
+  updateTextEditorPosition,
+} from "../ui.mjs";
+import { findObjectAt } from "../interactions.mjs";
+import {
+  showVideoControls,
+  hideVideoControls,
+  updateVideoControlsPosition,
+} from "../video-controls.mjs";
+import {
+  showCaptureControls,
+  hideCaptureControls,
+  updateCaptureControlsPosition,
+  notifyTransformChanged,
+} from "../capture-controls.mjs";
 
 export const select = {
   onMouseDown(e) {
@@ -26,28 +44,42 @@ export const select = {
     // Check for resize handles if an object is selected
     if (selectedObjectId) {
       const obj = scene.find(o => o.id === selectedObjectId);
-      if (obj && obj.type !== 'text') {
+      if (obj && obj.type !== "text") {
         const box = obj.getBoundingBox(ctx);
         const handleSize = 12 / scale; // Slightly larger hit area than visual size
         const corners = {
           nw: { x: box.x, y: box.y },
           ne: { x: box.x + box.width, y: box.y },
           sw: { x: box.x, y: box.y + box.height },
-          se: { x: box.x + box.width, y: box.y + box.height }
+          se: { x: box.x + box.width, y: box.y + box.height },
         };
 
         for (const [id, pos] of Object.entries(corners)) {
-          if (Math.abs(x - pos.x) < handleSize / 2 && Math.abs(y - pos.y) < handleSize / 2) {
+          if (
+            Math.abs(x - pos.x) < handleSize / 2 &&
+            Math.abs(y - pos.y) < handleSize / 2
+          ) {
             let anchorX, anchorY;
-            if (id === 'nw') { anchorX = box.x + box.width; anchorY = box.y + box.height; }
-            else if (id === 'ne') { anchorX = box.x; anchorY = box.y + box.height; }
-            else if (id === 'sw') { anchorX = box.x + box.width; anchorY = box.y; }
-            else if (id === 'se') { anchorX = box.x; anchorY = box.y; }
+            if (id === "nw") {
+              anchorX = box.x + box.width;
+              anchorY = box.y + box.height;
+            } else if (id === "ne") {
+              anchorX = box.x;
+              anchorY = box.y + box.height;
+            } else if (id === "sw") {
+              anchorX = box.x + box.width;
+              anchorY = box.y;
+            } else if (id === "se") {
+              anchorX = box.x;
+              anchorY = box.y;
+            }
 
             let initialFontSize = 0;
             if (obj instanceof Text) {
               const fontParts = obj.font.match(/(\d+(?:\.\d+)?)px/);
-              if (fontParts) initialFontSize = parseFloat(fontParts[1]);
+              if (fontParts) {
+                initialFontSize = parseFloat(fontParts[1]);
+              }
             }
 
             setState({
@@ -57,7 +89,7 @@ export const select = {
               resizeAnchorY: anchorY,
               resizeInitialFontSize: initialFontSize,
               dragStartX: e.clientX,
-              dragStartY: e.clientY
+              dragStartY: e.clientY,
             });
             return;
           }
@@ -71,7 +103,9 @@ export const select = {
       // A) Clicked on an object. Select it and prepare for dragging.
       setState({ selectedObjectId: hitObject.id, isDraggingObject: true });
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
-      if (canvas.style.cursor !== 'move') canvas.style.cursor = 'move';
+      if (canvas.style.cursor !== "move") {
+        canvas.style.cursor = "move";
+      }
 
       // If the clicked object is a text object, re-activate the editor.
       // This preserves the workflow where clicking a text object allows editing.
@@ -81,10 +115,13 @@ export const select = {
       }
 
       // Handle Video Controls
-      if (hitObject.type === 'video') {
+      if (hitObject.type === "video") {
         showVideoControls(hitObject);
         hideCaptureControls();
-      } else if (hitObject.type === 'capture' || hitObject.type === 'live-embed') {
+      } else if (
+        hitObject.type === "capture" ||
+        hitObject.type === "live-embed"
+      ) {
         showCaptureControls(hitObject);
         hideVideoControls();
       } else {
@@ -95,7 +132,9 @@ export const select = {
       // B) Clicked on empty space. Deselect everything and start panning.
       setState({ selectedObjectId: null, isPanning: true });
       setState({ dragStartX: e.clientX, dragStartY: e.clientY });
-      if (canvas.style.cursor !== 'grabbing') canvas.style.cursor = 'grabbing';
+      if (canvas.style.cursor !== "grabbing") {
+        canvas.style.cursor = "grabbing";
+      }
       hideVideoControls();
       hideCaptureControls();
     }
@@ -105,11 +144,26 @@ export const select = {
     const { isDraggingObject, isPanning, isResizingObject } = getState();
 
     if (isResizingObject) {
-      const { selectedObjectId, resizeHandle, resizeAnchorX, resizeAnchorY, editingTextObject } = getState();
+      const {
+        selectedObjectId,
+        resizeHandle,
+        resizeAnchorX,
+        resizeAnchorY,
+        editingTextObject,
+      } = getState();
       const selectedObject = scene.find(obj => obj.id === selectedObjectId);
       if (selectedObject) {
-        const { x: worldX, y: worldY } = getTransformedPoint(e.offsetX, e.offsetY);
-        selectedObject.resize(resizeHandle, worldX, worldY, resizeAnchorX, resizeAnchorY);
+        const { x: worldX, y: worldY } = getTransformedPoint(
+          e.offsetX,
+          e.offsetY
+        );
+        selectedObject.resize(
+          resizeHandle,
+          worldX,
+          worldY,
+          resizeAnchorX,
+          resizeAnchorY
+        );
         if (editingTextObject && selectedObject.id === editingTextObject.id) {
           updateTextEditorPosition();
         }
@@ -118,7 +172,13 @@ export const select = {
         redrawCanvas();
       }
     } else if (isDraggingObject) {
-      const { selectedObjectId, editingTextObject, dragStartX, dragStartY, scale } = getState();
+      const {
+        selectedObjectId,
+        editingTextObject,
+        dragStartX,
+        dragStartY,
+        scale,
+      } = getState();
       const selectedObject = scene.find(obj => obj.id === selectedObjectId);
       if (selectedObject) {
         const dx = e.clientX - dragStartX;
@@ -150,18 +210,27 @@ export const select = {
       // Check resize handle corners first (early return on match)
       if (selectedObjectId) {
         const obj = scene.find(o => o.id === selectedObjectId);
-        if (obj && obj.type !== 'text') {
+        if (obj && obj.type !== "text") {
           const box = obj.getBoundingBox(ctx);
           const handleSize = 12 / scale;
           const corners = {
-            nw: { x: box.x, y: box.y, cursor: 'nwse-resize' },
-            ne: { x: box.x + box.width, y: box.y, cursor: 'nesw-resize' },
-            sw: { x: box.x, y: box.y + box.height, cursor: 'nesw-resize' },
-            se: { x: box.x + box.width, y: box.y + box.height, cursor: 'nwse-resize' },
+            nw: { x: box.x, y: box.y, cursor: "nwse-resize" },
+            ne: { x: box.x + box.width, y: box.y, cursor: "nesw-resize" },
+            sw: { x: box.x, y: box.y + box.height, cursor: "nesw-resize" },
+            se: {
+              x: box.x + box.width,
+              y: box.y + box.height,
+              cursor: "nwse-resize",
+            },
           };
           for (const corner of Object.values(corners)) {
-            if (Math.abs(x - corner.x) < handleSize / 2 && Math.abs(y - corner.y) < handleSize / 2) {
-              if (canvas.style.cursor !== corner.cursor) canvas.style.cursor = corner.cursor;
+            if (
+              Math.abs(x - corner.x) < handleSize / 2 &&
+              Math.abs(y - corner.y) < handleSize / 2
+            ) {
+              if (canvas.style.cursor !== corner.cursor) {
+                canvas.style.cursor = corner.cursor;
+              }
               return;
             }
           }
@@ -170,16 +239,22 @@ export const select = {
 
       // Default cursor — show 'move' if hovering an object, 'grab' otherwise
       const hitObject = findObjectAt(x, y);
-      const targetCursor = hitObject ? 'move' : 'grab';
-      if (canvas.style.cursor !== targetCursor) canvas.style.cursor = targetCursor;
+      const targetCursor = hitObject ? "move" : "grab";
+      if (canvas.style.cursor !== targetCursor) {
+        canvas.style.cursor = targetCursor;
+      }
     }
   },
 
   onMouseUp() {
-    setState({ isPanning: false, isDraggingObject: false, isResizingObject: false, resizeHandle: null });
+    setState({
+      isPanning: false,
+      isDraggingObject: false,
+      isResizingObject: false,
+      resizeHandle: null,
+    });
     updateVideoControlsPosition();
     updateCaptureControlsPosition();
     // Cursor will be updated by the next mousemove event.
   },
 };
-

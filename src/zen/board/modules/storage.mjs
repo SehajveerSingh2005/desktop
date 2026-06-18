@@ -16,12 +16,17 @@
 //   - IDB stays lean (only JSON metadata, a few KB per board)
 //   - Easy manual backup: just copy the zen-board-assets folder
 
-import { saveBoard as dbSaveBoard, loadBoard as dbLoadBoard, createBoard as dbCreateBoard, getAsset } from './db.mjs';
-import { saveAsset, getAssetURL } from './assets.mjs';
-import { smoothPoints } from './smoothing.mjs';
+import {
+  saveBoard as dbSaveBoard,
+  loadBoard as dbLoadBoard,
+  createBoard as dbCreateBoard,
+  getAsset,
+} from "./db.mjs";
+import { saveAsset, getAssetURL } from "./assets.mjs";
+import { smoothPoints } from "./smoothing.mjs";
 
 // The URL param key used to link a tab to a board ID
-const BOARD_ID_PARAM = 'id';
+const BOARD_ID_PARAM = "id";
 
 // ObjectURLs we created for video blobs (file:// URLs need no revocation,
 // but blob: fallbacks for legacy data do). Track so we can clean up.
@@ -31,11 +36,13 @@ const _createdObjectURLs = [];
 
 // Convert a legacy base64 data URL back to a Blob safely.
 function dataURLToBlob(dataURL) {
-  const [header, base64] = dataURL.split(',');
+  const [header, base64] = dataURL.split(",");
   const mime = header.match(/:(.*?);/)[1];
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
   return new Blob([bytes], { type: mime });
 }
 
@@ -44,6 +51,7 @@ function dataURLToBlob(dataURL) {
 /**
  * Serialize a single scene object to a plain JSON-safe object.
  * Images / Videos / Captures → save to filesystem, store filename reference.
+ *
  * @param {object} obj The scene object.
  */
 // eslint-disable-next-line complexity
@@ -61,7 +69,7 @@ async function serializeObject(obj) {
 
   let serialized;
   switch (obj.type) {
-    case 'path':
+    case "path":
       serialized = {
         ...base,
         color: obj.color,
@@ -72,8 +80,8 @@ async function serializeObject(obj) {
       };
       break;
 
-    case 'rectangle':
-    case 'ellipse':
+    case "rectangle":
+    case "ellipse":
       serialized = {
         ...base,
         width: obj.width,
@@ -85,7 +93,7 @@ async function serializeObject(obj) {
       };
       break;
 
-    case 'text':
+    case "text":
       serialized = {
         ...base,
         text: obj.text,
@@ -94,12 +102,16 @@ async function serializeObject(obj) {
       };
       break;
 
-    case 'image': {
+    case "image": {
       // _assetFile is the filesystem filename; stamp it back on the object
       // so repeat saves don't create new orphaned files.
       let filename = obj._assetFile || null;
       if (!filename) {
-        const blob = obj._blob || (obj.image?.src?.startsWith('data:') ? dataURLToBlob(obj.image.src) : null);
+        const blob =
+          obj._blob ||
+          (obj.image?.src?.startsWith("data:")
+            ? dataURLToBlob(obj.image.src)
+            : null);
         if (blob) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back so next save is idempotent
@@ -116,10 +128,16 @@ async function serializeObject(obj) {
       break;
     }
 
-    case 'video': {
+    case "video": {
       let filename = obj._assetFile || null;
       if (!filename) {
-        const blob = obj._blob || (obj.video?.src?.startsWith('blob:') ? await fetch(obj.video.src).then(r => r.blob()).catch(() => null) : null);
+        const blob =
+          obj._blob ||
+          (obj.video?.src?.startsWith("blob:")
+            ? await fetch(obj.video.src)
+                .then(r => r.blob())
+                .catch(() => null)
+            : null);
         if (blob) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
@@ -139,10 +157,16 @@ async function serializeObject(obj) {
       break;
     }
 
-    case 'capture': {
+    case "capture": {
       let filename = obj._assetFile || null;
       if (!filename) {
-        const blob = obj._blob || (obj.image?.src ? await fetch(obj.image.src).then(r => r.blob()).catch(() => null) : null);
+        const blob =
+          obj._blob ||
+          (obj.image?.src
+            ? await fetch(obj.image.src)
+                .then(r => r.blob())
+                .catch(() => null)
+            : null);
         if (blob) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
@@ -155,13 +179,13 @@ async function serializeObject(obj) {
         height: obj.height,
         _assetFile: filename,
         _assetHash: obj._assetHash || null,
-        sourceUrl: obj.sourceUrl || '',
+        sourceUrl: obj.sourceUrl || "",
         sourceRegion: obj.sourceRegion || null,
       };
       break;
     }
 
-    case 'live-embed': {
+    case "live-embed": {
       let filename = obj._assetFile || null;
       if (!filename && obj._placeholderImage?.src) {
         try {
@@ -169,13 +193,15 @@ async function serializeObject(obj) {
           const blob = await res.blob();
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       serialized = {
         ...base,
         width: obj.width,
         height: obj.height,
-        sourceUrl: obj.sourceUrl || '',
+        sourceUrl: obj.sourceUrl || "",
         sourceRegion: obj.sourceRegion || null,
         _assetFile: filename,
         _assetHash: obj._assetHash || null,
@@ -200,6 +226,7 @@ async function serializeObject(obj) {
  *   1. New filesystem assets (_assetFile) → file:// URL via IOUtils
  *   2. Legacy IDB assets (_assetHash)     → fetch blob from IDB, use data: URL
  *   3. Inline data URLs                   → returned as-is
+ *
  * @param {object} data The object data.
  * @param {Function} [legacyFetcher] The legacy fetcher function.
  */
@@ -209,7 +236,11 @@ async function resolveAssetURL(data, legacyFetcher) {
     try {
       return await getAssetURL(data._assetFile);
     } catch (e) {
-      console.warn('ZenBoard: Could not resolve asset file', data._assetFile, e);
+      console.warn(
+        "ZenBoard: Could not resolve asset file",
+        data._assetFile,
+        e
+      );
     }
   }
   // Legacy: IDB hash
@@ -221,19 +252,30 @@ async function resolveAssetURL(data, legacyFetcher) {
 
 /**
  * Deserialize a plain JSON scene-object back to the appropriate class instance.
+ *
  * @param {object} data The serialized data.
  * @param {object} classes The constructor classes.
  */
 // eslint-disable-next-line complexity
 async function deserializeObject(data, classes) {
-  // eslint-disable-next-line no-shadow
-  const { Path, Rectangle, Ellipse, Text, ImageObject, VideoObject, CaptureObject, LiveEmbedObject } = classes;
+  /* eslint-disable no-shadow */
+  const {
+    Path,
+    Rectangle,
+    Ellipse,
+    Text,
+    ImageObject,
+    VideoObject,
+    CaptureObject,
+    LiveEmbedObject,
+  } = classes;
+  /* eslint-enable no-shadow */
 
   switch (data.type) {
-    case 'path': {
+    case "path": {
       const obj = new Path(data.id, data.color, data.lineWidth, data.x, data.y);
       const pts = data.rawRelativePoints || [];
-      if (pts.length > 0 && typeof pts[0] === 'object' && pts[0] !== null) {
+      if (!!pts.length && typeof pts[0] === "object" && pts[0] !== null) {
         // Convert legacy format to flat format
         const flat = [];
         for (let i = 0; i < pts.length; i++) {
@@ -243,29 +285,56 @@ async function deserializeObject(data, classes) {
       } else {
         obj.rawRelativePoints = pts;
       }
-      obj.boundingBox = data.boundingBox || { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-      obj.smoothedRelativePoints = data.smoothedRelativePoints || smoothPoints(obj.rawRelativePoints);
+      obj.boundingBox = data.boundingBox || {
+        minX: 0,
+        minY: 0,
+        maxX: 0,
+        maxY: 0,
+      };
+      obj.smoothedRelativePoints =
+        data.smoothedRelativePoints || smoothPoints(obj.rawRelativePoints);
       return obj;
     }
 
-    case 'rectangle':
+    case "rectangle":
       return new Rectangle(
-        data.id, data.x, data.y, data.width, data.height,
-        data.strokeColor, data.strokeWidth, data.isFilled, data.fillColor
+        data.id,
+        data.x,
+        data.y,
+        data.width,
+        data.height,
+        data.strokeColor,
+        data.strokeWidth,
+        data.isFilled,
+        data.fillColor
       );
 
-    case 'ellipse':
+    case "ellipse":
       return new Ellipse(
-        data.id, data.x, data.y, data.width, data.height,
-        data.strokeColor, data.strokeWidth, data.isFilled, data.fillColor
+        data.id,
+        data.x,
+        data.y,
+        data.width,
+        data.height,
+        data.strokeColor,
+        data.strokeWidth,
+        data.isFilled,
+        data.fillColor
       );
 
-    case 'text':
-      return new Text(data.id, data.text, data.x, data.y, data.font, data.color);
+    case "text":
+      return new Text(
+        data.id,
+        data.text,
+        data.x,
+        data.y,
+        data.font,
+        data.color
+      );
 
-    case 'image': {
+    case "image": {
       // Try new filesystem URL first, then legacy inline src
-      let imgSrc = data._imageSrc || '';
+      let imgSrc = data._imageSrc || "";
 
       if (data._assetFile) {
         imgSrc = await resolveAssetURL(data, null);
@@ -278,25 +347,42 @@ async function deserializeObject(data, classes) {
             imgSrc = tmpURL;
           }
         } catch (e) {
-          console.warn('ZenBoard: Could not load legacy image asset', e);
+          console.warn("ZenBoard: Could not load legacy image asset", e);
         }
       }
 
       const img = new Image();
-      const isTmpBlob = imgSrc && imgSrc.startsWith('blob:');
-      await new Promise((resolve) => {
-        img.onload = () => { if (isTmpBlob) URL.revokeObjectURL(imgSrc); resolve(); };
-        img.onerror = () => { if (isTmpBlob) URL.revokeObjectURL(imgSrc); resolve(); };
+      const isTmpBlob = imgSrc && imgSrc.startsWith("blob:");
+      await new Promise(resolve => {
+        img.onload = () => {
+          if (isTmpBlob) {
+            URL.revokeObjectURL(imgSrc);
+          }
+          resolve();
+        };
+        img.onerror = () => {
+          if (isTmpBlob) {
+            URL.revokeObjectURL(imgSrc);
+          }
+          resolve();
+        };
         img.src = imgSrc;
       });
-      const result = new ImageObject(data.id, data.x, data.y, data.width, data.height, img);
+      const result = new ImageObject(
+        data.id,
+        data.x,
+        data.y,
+        data.width,
+        data.height,
+        img
+      );
       result._assetFile = data._assetFile || null;
       result._assetHash = data._assetHash || null;
       return result;
     }
 
-    case 'video': {
-      let videoSrc = '';
+    case "video": {
+      let videoSrc = "";
 
       if (data._assetFile) {
         // file:// URL → the browser media engine can stream this directly
@@ -309,15 +395,35 @@ async function deserializeObject(data, classes) {
             _createdObjectURLs.push(videoSrc); // revoke on pagehide
           }
         } catch (e) {
-          console.warn('ZenBoard: Could not load legacy video asset', e);
+          console.warn("ZenBoard: Could not load legacy video asset", e);
         }
       }
 
-      const videoEl = document.createElement('video');
-      videoEl.preload = 'metadata';
-      const result = await new Promise((resolve) => {
-        videoEl.onloadedmetadata = () => resolve(new VideoObject(data.id, data.x, data.y, data.width, data.height, videoEl));
-        videoEl.onerror = () => resolve(new VideoObject(data.id, data.x, data.y, data.width, data.height, videoEl));
+      const videoEl = document.createElement("video");
+      videoEl.preload = "metadata";
+      const result = await new Promise(resolve => {
+        videoEl.onloadedmetadata = () =>
+          resolve(
+            new VideoObject(
+              data.id,
+              data.x,
+              data.y,
+              data.width,
+              data.height,
+              videoEl
+            )
+          );
+        videoEl.onerror = () =>
+          resolve(
+            new VideoObject(
+              data.id,
+              data.x,
+              data.y,
+              data.width,
+              data.height,
+              videoEl
+            )
+          );
         videoEl.src = videoSrc;
       });
       result._assetFile = data._assetFile || null;
@@ -329,7 +435,8 @@ async function deserializeObject(data, classes) {
       result.video.volume = result.volume;
       result.video.loop = result.isLooping;
 
-      const forceRedraw = () => window.dispatchEvent(new CustomEvent('ZenBoardVideoFrame'));
+      const forceRedraw = () =>
+        window.dispatchEvent(new CustomEvent("ZenBoardVideoFrame"));
       videoEl.onloadeddata = forceRedraw;
       videoEl.onseeked = forceRedraw;
       videoEl.oncanplay = forceRedraw;
@@ -342,65 +449,109 @@ async function deserializeObject(data, classes) {
             frameRequest = requestAnimationFrame(update);
           }
         };
-        if (frameRequest) cancelAnimationFrame(frameRequest);
+        if (frameRequest) {
+          cancelAnimationFrame(frameRequest);
+        }
         update();
       };
       videoEl.onpause = () => {
-        if (frameRequest) { cancelAnimationFrame(frameRequest); frameRequest = null; }
+        if (frameRequest) {
+          cancelAnimationFrame(frameRequest);
+          frameRequest = null;
+        }
       };
 
       return result;
     }
 
-    case 'capture': {
-      let imgSrc = '';
+    case "capture": {
+      let imgSrc = "";
 
       if (data._assetFile) {
         imgSrc = await resolveAssetURL(data, null);
       } else if (data._assetHash) {
         try {
           const blob = await getAsset(data._assetHash);
-          if (blob) { imgSrc = URL.createObjectURL(blob); }
+          if (blob) {
+            imgSrc = URL.createObjectURL(blob);
+          }
         } catch (e) {
-          console.warn('ZenBoard: Could not load legacy capture asset', e);
+          console.warn("ZenBoard: Could not load legacy capture asset", e);
         }
       }
 
       const img = new Image();
-      const isTmp = imgSrc && imgSrc.startsWith('blob:');
-      await new Promise((resolve) => {
-        img.onload = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
-        img.onerror = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
+      const isTmp = imgSrc && imgSrc.startsWith("blob:");
+      await new Promise(resolve => {
+        img.onload = () => {
+          if (isTmp) {
+            URL.revokeObjectURL(imgSrc);
+          }
+          resolve();
+        };
+        img.onerror = () => {
+          if (isTmp) {
+            URL.revokeObjectURL(imgSrc);
+          }
+          resolve();
+        };
         img.src = imgSrc;
       });
-      const captureResult = new CaptureObject(data.id, data.x, data.y, data.width, data.height, img, data.sourceUrl || '');
+      const captureResult = new CaptureObject(
+        data.id,
+        data.x,
+        data.y,
+        data.width,
+        data.height,
+        img,
+        data.sourceUrl || ""
+      );
       captureResult.sourceRegion = data.sourceRegion || null;
       captureResult._assetFile = data._assetFile || null;
       captureResult._assetHash = data._assetHash || null;
       return captureResult;
     }
 
-    case 'live-embed': {
-      let imgSrc = '';
+    case "live-embed": {
+      let imgSrc = "";
 
       if (data._assetFile) {
         imgSrc = await resolveAssetURL(data, null);
       } else if (data._assetHash) {
         try {
           const blob = await getAsset(data._assetHash);
-          if (blob) { imgSrc = URL.createObjectURL(blob); }
+          if (blob) {
+            imgSrc = URL.createObjectURL(blob);
+          }
         } catch (e) {
-          console.warn('ZenBoard: Could not load legacy live-embed asset', e);
+          console.warn("ZenBoard: Could not load legacy live-embed asset", e);
         }
       }
 
-      const liveObj = new LiveEmbedObject(data.id, data.x, data.y, data.width, data.height, data.sourceUrl || '');
+      const liveObj = new LiveEmbedObject(
+        data.id,
+        data.x,
+        data.y,
+        data.width,
+        data.height,
+        data.sourceUrl || ""
+      );
       if (imgSrc) {
         const img = new Image();
-        const isTmp = imgSrc.startsWith('blob:');
-        await new Promise((resolve) => {
-          img.onload = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
-          img.onerror = () => { if (isTmp) URL.revokeObjectURL(imgSrc); resolve(); };
+        const isTmp = imgSrc.startsWith("blob:");
+        await new Promise(resolve => {
+          img.onload = () => {
+            if (isTmp) {
+              URL.revokeObjectURL(imgSrc);
+            }
+            resolve();
+          };
+          img.onerror = () => {
+            if (isTmp) {
+              URL.revokeObjectURL(imgSrc);
+            }
+            resolve();
+          };
           img.src = imgSrc;
         });
         liveObj._placeholderImage = img;
@@ -426,13 +577,13 @@ export function getBoardIdFromURL() {
 export function setBoardIdInURL(id) {
   const url = new URL(window.location.href);
   url.searchParams.set(BOARD_ID_PARAM, id);
-  history.replaceState(null, '', url.toString());
+  history.replaceState(null, "", url.toString());
 }
 
 export async function ensureBoardId() {
   let id = getBoardIdFromURL();
   if (!id) {
-    id = await dbCreateBoard({ title: 'Untitled Board', isTransparent: true });
+    id = await dbCreateBoard({ title: "Untitled Board", isTransparent: true });
     setBoardIdInURL(id);
   }
   return id;
@@ -440,6 +591,7 @@ export async function ensureBoardId() {
 
 /**
  * Save the board scene to IndexedDB (JSON) and media assets to the filesystem.
+ *
  * @param {string} id The board ID.
  * @param {string} title The board title.
  * @param {boolean} isTransparent Whether the board is transparent.
@@ -448,29 +600,50 @@ export async function ensureBoardId() {
  * @param {number} offsetY The Y offset.
  * @param {Array} sceneArray The array of scene objects.
  */
-export async function saveBoard(id, title, isTransparent, scale, offsetX, offsetY, sceneArray) {
+export async function saveBoard(
+  id,
+  title,
+  isTransparent,
+  scale,
+  offsetX,
+  offsetY,
+  sceneArray
+) {
   const serializedScene = await Promise.all(sceneArray.map(serializeObject));
-  await dbSaveBoard(id, title, isTransparent, scale, offsetX, offsetY, serializedScene);
-  document.dispatchEvent(new CustomEvent('ZenBoardUpdated', {
-    detail: { id, title, isTransparent, lastEdited: Date.now() }
-  }));
+  await dbSaveBoard(
+    id,
+    title,
+    isTransparent,
+    scale,
+    offsetX,
+    offsetY,
+    serializedScene
+  );
+  document.dispatchEvent(
+    new CustomEvent("ZenBoardUpdated", {
+      detail: { id, title, isTransparent, lastEdited: Date.now() },
+    })
+  );
 }
 
 /**
  * Load a board from IndexedDB and hydrate all objects (media from filesystem).
+ *
  * @param {string} id The board ID.
  * @param {object} classes The constructor classes.
  */
 export async function loadBoard(id, classes) {
   const board = await dbLoadBoard(id);
-  if (!board) return null;
+  if (!board) {
+    return null;
+  }
 
   const hydratedObjects = await Promise.all(
     (board.scene || []).map(data => deserializeObject(data, classes))
   );
 
   return {
-    title: board.title || 'Untitled Board',
+    title: board.title || "Untitled Board",
     isTransparent: board.isTransparent ?? true,
     scale: board.scale,
     offsetX: board.offsetX,

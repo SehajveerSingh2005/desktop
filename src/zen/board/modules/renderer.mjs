@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { getState } from './state.mjs';
-import { parseFont } from './scene.mjs';
+import { getState } from "./state.mjs";
+import { parseFont } from "./scene.mjs";
 
 // Cache rounded rect clip paths keyed by "x,y,w,h,r" to avoid rebuilding per-frame
 const _roundedRectCache = new Map();
@@ -36,8 +36,8 @@ function drawPath(context, object) {
   context.translate(object.x, object.y);
   context.strokeStyle = object.color;
   context.lineWidth = object.lineWidth;
-  context.lineCap = 'round';
-  context.lineJoin = 'round';
+  context.lineCap = "round";
+  context.lineJoin = "round";
   const points = object.smoothedRelativePoints;
   const N = points.length / 2;
 
@@ -61,7 +61,7 @@ function drawPath(context, object) {
         const p2y = points[(i + 1) * 2 + 1];
         const p3x = points[(i + 2) * 2];
         const p3y = points[(i + 2) * 2 + 1];
-        
+
         const cp1x = p1x + (p2x - p0x) / 6;
         const cp1y = p1y + (p2y - p0y) / 6;
         const cp2x = p2x - (p3x - p1x) / 6;
@@ -69,7 +69,12 @@ function drawPath(context, object) {
         path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y);
       }
       const last = N - 1;
-      path2d.quadraticCurveTo(points[(last - 1) * 2], points[(last - 1) * 2 + 1], points[last * 2], points[last * 2 + 1]);
+      path2d.quadraticCurveTo(
+        points[(last - 1) * 2],
+        points[(last - 1) * 2 + 1],
+        points[last * 2],
+        points[last * 2 + 1]
+      );
     }
     object._cachedPath2D = path2d;
   }
@@ -87,7 +92,7 @@ function drawPath(context, object) {
 function drawRectangle(context, object) {
   context.strokeStyle = object.strokeColor;
   context.lineWidth = object.strokeWidth;
-  context.lineJoin = 'miter';
+  context.lineJoin = "miter";
   if (object.isFilled) {
     context.fillStyle = object.fillColor;
     context.fillRect(object.x, object.y, object.width, object.height);
@@ -115,14 +120,14 @@ function drawEllipse(context, object) {
 function drawText(context, object) {
   context.save();
   context.fillStyle = object.color;
-  context.textBaseline = 'top';
+  context.textBaseline = "top";
 
-  const lines = object.text.split('\n');
+  const lines = object.text.split("\n");
   const { fontSize: baseFontSize, fontFamily } = parseFont(object.font);
 
   let currentY = object.y;
 
-  lines.forEach((line) => {
+  lines.forEach(line => {
     let lineFontSize = baseFontSize;
     let indent = 0;
     let cleanText = line;
@@ -130,13 +135,13 @@ function drawText(context, object) {
     let isNumbered = false;
     let numStr = "";
 
-    if (line.startsWith('# ')) {
+    if (line.startsWith("# ")) {
       lineFontSize = baseFontSize * 1.8;
       cleanText = line.substring(2);
-    } else if (line.startsWith('## ')) {
+    } else if (line.startsWith("## ")) {
       lineFontSize = baseFontSize * 1.4;
       cleanText = line.substring(3);
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
       indent = baseFontSize * 1.2;
       cleanText = line.substring(2);
       isBullet = true;
@@ -179,7 +184,7 @@ const drawingFunctions = {
   image: drawImage,
   video: drawVideo,
   capture: drawCapture,
-  'live-embed': drawLiveEmbedPlaceholder,
+  "live-embed": drawLiveEmbedPlaceholder,
 };
 
 function drawImage(context, object) {
@@ -188,14 +193,24 @@ function drawImage(context, object) {
   const isDragging = isSelected && isDraggingObject;
 
   context.save();
-  if (isDragging) context.globalAlpha = 0.5;
+  if (isDragging) {
+    context.globalAlpha = 0.5;
+  }
 
-  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
+  context.clip(
+    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
+  );
 
   if (object.image && object.image.complete) {
-    context.drawImage(object.image, object.x, object.y, object.width, object.height);
+    context.drawImage(
+      object.image,
+      object.x,
+      object.y,
+      object.width,
+      object.height
+    );
   } else {
-    context.fillStyle = '#f0f0f0';
+    context.fillStyle = "#f0f0f0";
     context.fillRect(object.x, object.y, object.width, object.height);
   }
   context.restore();
@@ -207,14 +222,24 @@ function drawCapture(context, object) {
   const isDragging = isSelected && isDraggingObject;
 
   context.save();
-  if (isDragging) context.globalAlpha = 0.5;
+  if (isDragging) {
+    context.globalAlpha = 0.5;
+  }
 
-  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
+  context.clip(
+    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
+  );
 
   if (object.image && object.image.complete) {
-    context.drawImage(object.image, object.x, object.y, object.width, object.height);
+    context.drawImage(
+      object.image,
+      object.x,
+      object.y,
+      object.width,
+      object.height
+    );
   } else {
-    context.fillStyle = '#1a1a2e';
+    context.fillStyle = "#1a1a2e";
     context.fillRect(object.x, object.y, object.width, object.height);
   }
   context.restore();
@@ -223,13 +248,27 @@ function drawCapture(context, object) {
 function drawLiveEmbedPlaceholder(context, object) {
   context.save();
 
-  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
+  context.clip(
+    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
+  );
 
-  if (object._placeholderImage && object._placeholderImage.complete && object._placeholderImage.naturalWidth > 0) {
-    context.drawImage(object._placeholderImage, object.x, object.y, object.width, object.height);
+  if (
+    object._placeholderImage &&
+    object._placeholderImage.complete &&
+    object._placeholderImage.naturalWidth > 0
+  ) {
+    context.drawImage(
+      object._placeholderImage,
+      object.x,
+      object.y,
+      object.width,
+      object.height
+    );
   } else {
-    context.fillStyle = '#1a1a2e';
-    context.fill(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
+    context.fillStyle = "#1a1a2e";
+    context.fill(
+      getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
+    );
   }
 
   context.restore();
@@ -241,14 +280,23 @@ function drawVideo(context, object) {
   const isDragging = isSelected && isDraggingObject;
 
   context.save();
-  if (isDragging) context.globalAlpha = 0.5;
+  if (isDragging) {
+    context.globalAlpha = 0.5;
+  }
 
-  context.clip(getRoundedRectPath(object.x, object.y, object.width, object.height, 8));
+  context.clip(
+    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
+  );
 
-  context.drawImage(object.video, object.x, object.y, object.width, object.height);
+  context.drawImage(
+    object.video,
+    object.x,
+    object.y,
+    object.width,
+    object.height
+  );
   context.restore();
 }
-
 
 export function drawScene(context, scene) {
   const { scale, offsetX, offsetY } = getState();
@@ -259,7 +307,7 @@ export function drawScene(context, scene) {
 
   for (const object of scene) {
     if (object.visible) {
-      if (object.type !== 'text') {
+      if (object.type !== "text") {
         const box = object.getBoundingBox(context);
         if (
           box.x + box.width < viewportMinX ||

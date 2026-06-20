@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-import { deleteBoard } from "./modules/db.mjs";
-
 // ── Native filesystem asset storage ──────────────────────────────────────────
 // Captures (and any other blobs) are stored as files in the user's profile
 // directory instead of as blobs in IndexedDB.
@@ -14,7 +9,6 @@ import { deleteBoard } from "./modules/db.mjs";
 // keeps IndexedDB tiny, and enables direct file:// streaming.
 
 const ASSETS_FOLDER_NAME = "zen-board-assets";
-const DB_NAME = "zen-board-db";
 let _nativeAssetsFolder = null;
 
 async function getNativeAssetsFolder() {
@@ -55,49 +49,15 @@ async function saveAssetToFilesystem(blob) {
   return filename;
 }
 
-function openDB(win) {
-  return new Promise((resolve, reject) => {
-    const req = win.indexedDB.open(DB_NAME, 2);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function listBoards(db) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readonly");
-    const req = tx.objectStore("boards").getAll();
-    req.onsuccess = () => {
-      const boards = req.result.map(({ id, title, lastEdited }) => ({
-        id,
-        title,
-        lastEdited,
-      }));
-      boards.sort((a, b) => b.lastEdited - a.lastEdited);
-      resolve(boards);
-    };
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function createBoard(db, title) {
-  const id = crypto.randomUUID();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readwrite");
-    const store = tx.objectStore("boards");
-    const board = {
-      id,
-      title,
-      isTransparent: true,
-      lastEdited: Date.now(),
-      scene: [],
-    };
-    const req = store.put(board);
-    req.onsuccess = () => resolve(id);
-    req.onerror = () => reject(req.error);
-  });
-}
-
+/**
+ * Append a capture record to a board's scene array directly in IndexedDB.
+ * Uses the chrome-window's own indexedDB so it works before the board tab
+ * exists (the capture picker runs in the chrome process).
+ *
+ * @param {IDBDatabase} db An open connection to the board database.
+ * @param {string} boardId The board to append to.
+ * @param {object} captureData The capture scene object to push.
+ */
 function appendCaptureToBoard(db, boardId, captureData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
@@ -120,6 +80,141 @@ function appendCaptureToBoard(db, boardId, captureData) {
   });
 }
 
+/**
+ * Open the board IndexedDB using the chrome window's own indexedDB instance.
+ * We cannot use db.mjs here because that module uses the content-process
+ * indexedDB global; this chrome-side code needs to go through the chrome
+ * window's own indexedDB for the appendCaptureToBoard helper.
+ */
+function openChromeDB(win) {
+  return new Promise((resolve, reject) => {
+    const req = win.indexedDB.open("zen-board-db", 2);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * List all boards from a chrome-side DB connection, sorted newest-first.
+ *
+ * @param {IDBDatabase} db An open connection to the board database.
+ */
+function listBoardsFromDB(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("boards", "readonly");
+    const req = tx.objectStore("boards").getAll();
+    req.onsuccess = () => {
+      const boards = req.result.map(({ id, title, lastEdited }) => ({
+        id,
+        title,
+        lastEdited,
+      }));
+      boards.sort((a, b) => b.lastEdited - a.lastEdited);
+      resolve(boards);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Create a new blank board via a chrome-side DB connection.
+ * Returns the new board's UUID.
+ *
+ * @param {IDBDatabase} db An open connection to the board database.
+ * @param {string} title The initial board title.
+ */
+function createBoardInDB(db, title) {
+  const id = crypto.randomUUID();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("boards", "readwrite");
+    const store = tx.objectStore("boards");
+    const board = {
+      id,
+      title,
+      isTransparent: true,
+      lastEdited: Date.now(),
+      scene: [],
+    };
+    const req = store.put(board);
+    req.onsuccess = () => resolve(id);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Delete a board record and its asset files using a chrome-side DB opened
+ * against the CONTENT window's IndexedDB. This is necessary because the board
+ * data lives in the content page's IDB (chrome://browser/content/zen-board/)
+ * and the chrome process cannot reach it via its own global indexedDB.
+ *
+ * @param {IDBDatabase} db A DB opened via contentWindow.indexedDB.
+ * @param {string} id The board UUID to delete.
+ */
+async function deleteBoardFromDB(db, id) {
+  // Load the board to gather its asset file references
+  const board = await new Promise((resolve, reject) => {
+    const tx = db.transaction("boards", "readonly");
+    const req = tx.objectStore("boards").get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!board) {
+    return; // Already gone
+  }
+
+  // Collect filesystem asset filenames referenced by this board's scene
+  const boardAssetFiles = new Set();
+  for (const obj of board.scene || []) {
+    if (obj._assetFile) {
+      boardAssetFiles.add(obj._assetFile);
+    }
+  }
+
+  // Delete the board record
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction("boards", "readwrite");
+    const req = tx.objectStore("boards").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+
+  if (boardAssetFiles.size === 0) {
+    return;
+  }
+
+  // Check remaining boards to avoid deleting shared assets
+  const remaining = await new Promise((resolve, reject) => {
+    const tx = db.transaction("boards", "readonly");
+    const req = tx.objectStore("boards").getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  const usedFiles = new Set();
+  for (const b of remaining) {
+    for (const obj of b.scene || []) {
+      if (obj._assetFile) {
+        usedFiles.add(obj._assetFile);
+      }
+    }
+  }
+
+  // Delete orphaned filesystem assets
+  const assetsFolder = PathUtils.join(PathUtils.profileDir, "zen-board-assets");
+  for (const filename of boardAssetFiles) {
+    if (!usedFiles.has(filename)) {
+      try {
+        await IOUtils.remove(PathUtils.join(assetsFolder, filename), {
+          ignoreAbsent: true,
+        });
+      } catch (e) {
+        console.warn("ZenBoard: Failed to delete orphaned asset", filename, e);
+      }
+    }
+  }
+}
+
 async function doAddToBoard(
   chromeWindow,
   boardId,
@@ -129,7 +224,7 @@ async function doAddToBoard(
   region
 ) {
   try {
-    const db = await openDB(chromeWindow);
+    const db = await openChromeDB(chromeWindow);
     // Save the capture PNG to the native filesystem (no hashing, no IDB blob storage)
     const assetFilename = await saveAssetToFilesystem(blob);
 
@@ -256,48 +351,7 @@ const ZenBoardXFOObserver = {
         return;
       }
 
-      // ── BROAD DEBUG ────────────────────────────────────────────────────────
       const uriSpec = channel.URI?.spec ?? "";
-      if (
-        (uriSpec.startsWith("https://") || uriSpec.startsWith("http://")) &&
-        zenBoardLiveEmbedBCIds.size > 0
-      ) {
-        const _dbgBcId = Number(loadInfo.browsingContextID);
-        // Log REQUESTS (http-on-modify-request) separately from responses
-        if (topic === "http-on-modify-request") {
-          console.error(
-            "[ZenBoard REQUEST]",
-            uriSpec.slice(0, 70),
-            "type:",
-            policyType,
-            "bcId:",
-            _dbgBcId,
-            "registered:",
-            zenBoardLiveEmbedBCIds.has(_dbgBcId)
-          );
-        } else {
-          console.error(
-            "[ZenBoard XFO probe]",
-            uriSpec.slice(0, 70),
-            "topic:",
-            topic,
-            "type:",
-            policyType,
-            "(SUBDOC=",
-            nsICP.TYPE_SUBDOCUMENT,
-            "DOC=",
-            nsICP.TYPE_DOCUMENT,
-            ")",
-            "bcId:",
-            _dbgBcId,
-            "registered:",
-            zenBoardLiveEmbedBCIds.has(_dbgBcId),
-            "setIds:",
-            [...zenBoardLiveEmbedBCIds]
-          );
-        }
-      }
-      // ── END DEBUG ────────────────────────────────────────────────────────
 
       // Skip the rest for requests (we only strip headers on responses)
       if (topic === "http-on-modify-request") {
@@ -423,10 +477,7 @@ export class ZenBoard {
       if (!blob) {
         return;
       }
-      console.error("ZenBoard: Captured event received!", {
-        sourceUrl,
-        region,
-      });
+      console.log("ZenBoard: Capture event received", { sourceUrl, region });
 
       const doc = chromeWindow.document;
       let popupSet = doc.getElementById("mainPopupSet");
@@ -444,14 +495,15 @@ export class ZenBoard {
       menupopup.setAttribute("id", "zen-board-capture-menupopup");
       menupopup.setAttribute("style", "max-height: 400px; overflow-y: auto;");
 
-      // Fetch boards directly
-      let db = await openDB(chromeWindow);
-      let boards = await listBoards(db);
+      // Fetch boards (using chrome-side DB so this works before any board tab
+      // is open — the capture picker runs entirely in the chrome process).
+      let db = await openChromeDB(chromeWindow);
+      let boards = await listBoardsFromDB(db);
 
       let untitledLabel = "Untitled Board";
       let createLabel = "Create New Board...";
       try {
-        const translated = chromeWindow.document.l10n.formatValuesSync([
+        const translated = await chromeWindow.document.l10n.formatValues([
           { id: "zen-board-untitled-board" },
           { id: "zen-board-create-new-board" },
         ]);
@@ -505,7 +557,7 @@ export class ZenBoard {
       );
       createItem.addEventListener("command", async () => {
         try {
-          const id = await createBoard(db, "Untitled Board");
+          const id = await createBoardInDB(db, "Untitled Board");
           doAddToBoard(
             chromeWindow,
             id,
@@ -536,97 +588,120 @@ export class ZenBoard {
       const tab = event.target;
       const linkedBrowser = tab.linkedBrowser;
       const urlSpec = linkedBrowser?.currentURI?.spec;
+
+      // Retrieve the board ID using multiple fallbacks.
+      // We check:
+      // 1. The tab element's "zen-board-id" attribute
+      // 2. The linkedBrowser element's "zen-board-id" attribute (updated by board.mjs in e10s content process)
+      // 3. The query parameters of the tab's current URI
+      let boardId = tab.getAttribute("zen-board-id") ||
+                    linkedBrowser?.getAttribute("zen-board-id");
+      
+      if (!boardId && urlSpec) {
+        try {
+          const url = new URL(urlSpec);
+          boardId = url.searchParams.get("id");
+        } catch (e) {
+          const match = urlSpec.match(/[?&]id=([^&#]+)/);
+          if (match) {
+            boardId = decodeURIComponent(match[1]);
+          }
+        }
+      }
+
       const isBoardTab =
         tab.hasAttribute("zen-board-tab") ||
-        (urlSpec && urlSpec.startsWith("chrome://browser/content/zen-board/board.html"));
+        linkedBrowser?.hasAttribute("zen-board-tab") ||
+        (urlSpec &&
+          urlSpec.startsWith(
+            "chrome://browser/content/zen-board/board.html"
+          ));
 
-      if (isBoardTab) {
-        if (chromeWindow.closed || chromeWindow.gBrowser.closing) {
-          return;
-        }
+      if (!isBoardTab || !boardId) {
+        return;
+      }
 
-        const url = urlSpec ? new URL(urlSpec) : null;
-        const boardId = tab.getAttribute("zen-board-id") || url?.searchParams.get("id");
-        if (boardId) {
-          let isStillOpen = false;
-          const windows = Services.wm.getEnumerator("navigator:browser");
-          while (windows.hasMoreElements()) {
-            const win = windows.getNext();
-            const gb = win.gBrowser;
-            if (gb) {
-              for (const otherTab of gb.tabs) {
-                if (otherTab !== tab) {
-                  const otherUrl = otherTab.linkedBrowser?.currentURI?.spec;
-                  const otherBoardId =
-                    otherTab.getAttribute("zen-board-id") ||
-                    (otherUrl && otherUrl.startsWith("chrome://browser/content/zen-board/board.html")
-                      ? new URL(otherUrl).searchParams.get("id")
-                      : null);
-                  if (otherBoardId === boardId) {
-                    isStillOpen = true;
-                    break;
-                  }
+      if (chromeWindow.closed || chromeWindow.gBrowser.closing) {
+        return;
+      }
+
+      // Check if this board is still open in another tab or window
+      let isStillOpen = false;
+      const windows = Services.wm.getEnumerator("navigator:browser");
+      while (windows.hasMoreElements()) {
+        const win = windows.getNext();
+        const gb = win.gBrowser;
+        if (gb) {
+          for (const otherTab of gb.tabs) {
+            if (otherTab === tab) {
+              continue;
+            }
+            const otherUrl = otherTab.linkedBrowser?.currentURI?.spec;
+            let otherBoardId = otherTab.getAttribute("zen-board-id") ||
+                               otherTab.linkedBrowser?.getAttribute("zen-board-id");
+            if (!otherBoardId && otherUrl) {
+              try {
+                const url = new URL(otherUrl);
+                otherBoardId = url.searchParams.get("id");
+              } catch (e) {
+                const match = otherUrl.match(/[?&]id=([^&#]+)/);
+                if (match) {
+                  otherBoardId = decodeURIComponent(match[1]);
                 }
               }
             }
-            if (isStillOpen) {
+            if (otherBoardId === boardId) {
+              isStillOpen = true;
               break;
             }
           }
-
-          if (isStillOpen) {
-            return;
-          }
-
-          // Safety Check: Check if the board is bookmarked!
-          try {
-            const placesUtils = ChromeUtils.importESModule(
-              "resource://gre/modules/PlacesUtils.sys.mjs"
-            ).PlacesUtils;
-            const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
-            const isBookmarked = await placesUtils.bookmarks
-              .fetch({ url: boardUrl })
-              .then(bm => !!bm);
-            if (isBookmarked) {
-              console.error(
-                `ZenBoard: Board ${boardId} is bookmarked, skipping deletion.`
-              );
-              return;
-            }
-          } catch (bookmarkErr) {
-            console.error("ZenBoard: Failed to check bookmarks", bookmarkErr);
-          }
-
-          // Delete the board and clean up assets!
-          try {
-            await deleteBoard(boardId);
-            console.error(`ZenBoard: Deleted closed board ${boardId}`);
-          } catch (e) {
-            console.error("ZenBoard: Failed to delete board on tab close", e);
-          }
         }
+        if (isStillOpen) {
+          break;
+        }
+      }
+
+      if (isStillOpen) {
+        return;
+      }
+
+      // Safety check: don't delete bookmarked boards
+      try {
+        const placesUtils = ChromeUtils.importESModule(
+          "resource://gre/modules/PlacesUtils.sys.mjs"
+        ).PlacesUtils;
+        const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
+        const isBookmarked = await placesUtils.bookmarks
+          .fetch({ url: boardUrl })
+          .then(bm => !!bm)
+          .catch(() => false);
+        
+        if (isBookmarked) {
+          return;
+        }
+      } catch (bookmarkErr) {
+        console.error("[ZenBoard] Failed to check bookmarks", bookmarkErr);
+      }
+
+      // Delete the board using the chrome window's indexedDB.
+      try {
+        const db = await openChromeDB(chromeWindow);
+        await deleteBoardFromDB(db, boardId);
+        db.close();
+      } catch (e) {
+        console.error("[ZenBoard] Failed to delete board on tab close", e);
       }
     };
 
     chromeWindow.addEventListener("ZenBoard:CaptureReady", handler);
-    if (chromeWindow.gBrowser && chromeWindow.gBrowser.tabContainer) {
-      chromeWindow.gBrowser.tabContainer.addEventListener(
-        "TabClose",
-        tabCloseHandler
-      );
-    }
+    chromeWindow.addEventListener("TabClose", tabCloseHandler);
 
     // Clean up when the window is closed
     chromeWindow.addEventListener(
       "unload",
       () => {
         chromeWindow.removeEventListener("ZenBoard:CaptureReady", handler);
-        if (chromeWindow.gBrowser && chromeWindow.gBrowser.tabContainer) {
-          chromeWindow.gBrowser.tabContainer.removeEventListener(
-            "TabClose",
-            tabCloseHandler
-          );
-        }
+        chromeWindow.removeEventListener("TabClose", tabCloseHandler);
         delete chromeWindow._zenBoardCaptureListenerAdded;
       },
       { once: true }

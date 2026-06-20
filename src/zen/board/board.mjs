@@ -111,16 +111,18 @@ export async function triggerSaveImmediate() {
 }
 
 // Transparency Handling
+// Uses a CSS class instead of an inline style to avoid forcing a compositor
+// layer update on the body element while it is still at opacity:0.
+// An inline style mutation triggers a paint even at opacity:0, causing the
+// "flash then fade" double-repaint on second-open.
 function applyTransparency(isTransparent) {
   const canvasEl = document.getElementById("canvas");
-  // We use a slight opacity instead of fully transparent for readability,
-  // or a solid color if transparency is turned off.
   if (isTransparent) {
     canvasEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
-    document.body.style.backgroundColor = "transparent";
+    document.body.classList.remove("board-solid-bg");
   } else {
-    canvasEl.style.backgroundColor = "#ffffff"; // White solid background
-    document.body.style.backgroundColor = "#ffffff";
+    canvasEl.style.backgroundColor = "#ffffff";
+    document.body.classList.add("board-solid-bg");
   }
 }
 
@@ -518,6 +520,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const browserEl = window.docShell?.chromeEventHandler;
+      if (browserEl) {
+        browserEl.setAttribute("zen-board-id", boardId);
+        browserEl.setAttribute("zen-board-tab", "true");
+      }
       const tab =
         browserEl?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browserEl);
       if (tab) {
@@ -590,24 +596,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   initTitleInput();
-
-  // Update title input to reflect loaded title
-  if (boardTitleInput) {
-    const { boardTitle } = getState();
-    let displayTitle = boardTitle;
-    if (boardTitle === "Untitled Board") {
-      try {
-        const translated = document.l10n.formatValuesSync([
-          { id: "zen-board-untitled-board" },
-        ]);
-        if (translated && translated[0]) {
-          displayTitle = translated[0];
-        }
-      } catch (e) {}
-    }
-    boardTitleInput.value = displayTitle;
-    adjustTitleInputWidth();
-  }
 
   // ── Set up event listeners ───────────────────────────────────
   let resizeTicking = false;
@@ -875,7 +863,16 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Preload all custom fonts when the page loads so canvas text displays correctly
+  // Mark the board as ready to trigger smooth fade-in transition.
+  // This MUST happen synchronously at the end of init before any async
+  // continuation (like the font preload below) so the CSS transition fires
+  // immediately and the page is never visible at opacity:1 before ready.
+  document.body.style.opacity = "";
+  document.body.classList.add("ready");
+
+  // Preload all custom fonts when the page loads so canvas text displays correctly.
+  // This is intentionally AFTER ready — the canvas redraws cleanly when fonts
+  // resolve, and the body is already fading in at this point.
   const fontsToPreload = [
     "24px 'Roboto'",
     "24px 'Archivo Black'",
@@ -890,7 +887,4 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.warn("ZenBoard: Some fonts failed to preload", e);
       redrawCanvas();
     });
-
-  // Mark the board as ready to trigger smooth fade-in transition
-  document.body.classList.add("ready");
 });

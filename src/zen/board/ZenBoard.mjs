@@ -491,7 +491,6 @@ export class ZenBoard {
       if (!blob) {
         return;
       }
-      console.log("ZenBoard: Capture event received", { sourceUrl, region });
 
       const doc = chromeWindow.document;
       let popupSet = doc.getElementById("mainPopupSet");

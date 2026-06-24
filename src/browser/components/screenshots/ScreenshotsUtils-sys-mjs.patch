@@ -1,13 +1,12 @@
 diff --git a/browser/components/screenshots/ScreenshotsUtils.sys.mjs b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
-index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0dc3fbfdeb 100644
+index 042f795c9cff61074d1b34a94608868a11362058..20388e436a858d0061672f553a4362ef703090b9 100644
 --- a/browser/components/screenshots/ScreenshotsUtils.sys.mjs
 +++ b/browser/components/screenshots/ScreenshotsUtils.sys.mjs
-@@ -126,6 +126,13 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
+@@ -126,6 +126,12 @@ export class ScreenshotsComponentParent extends JSWindowActorParent {
          await ScreenshotsUtils.copyScreenshotFromRegion(region, browser);
          ScreenshotsUtils.exit(browser);
          break;
 +      case "Screenshots:ZenAddToBoard": {
-+        Services.console.logStringMessage("ZenBoard: Received Screenshots:ZenAddToBoard message!");
 +        const { region, anchor } = message.data;
 +        await ScreenshotsUtils.zenSendCaptureToBoard(region, anchor, browser);
 +        ScreenshotsUtils.exit(browser);
@@ -16,7 +15,7 @@ index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0d
        case "Screenshots:DownloadScreenshot":
          ScreenshotsUtils.closePanel(browser);
          ({ title, region } = message.data);
-@@ -604,7 +611,7 @@ export var ScreenshotsUtils = {
+@@ -639,7 +645,7 @@ export var ScreenshotsUtils = {
    },
  
    maybeLockFocus(event) {
@@ -25,7 +24,7 @@ index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0d
  
      if (!Services.focus.focusedElement) {
        event.preventDefault();
-@@ -955,6 +962,9 @@ export var ScreenshotsUtils = {
+@@ -1002,6 +1008,9 @@ export var ScreenshotsUtils = {
     */
    closeDialogBox(browser) {
      let perBrowserState = this.browserToScreenshotsState.get(browser);
@@ -35,7 +34,7 @@ index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0d
      if (perBrowserState?.previewDialog) {
        perBrowserState.previewDialog.close();
        return true;
-@@ -962,6 +972,45 @@ export var ScreenshotsUtils = {
+@@ -1009,6 +1018,41 @@ export var ScreenshotsUtils = {
      return false;
    },
  
@@ -45,12 +44,9 @@ index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0d
 +   */
 +  async zenSendCaptureToBoard(region, anchor, browser) {
 +    try {
-+      Services.console.logStringMessage("ZenBoard: zenSendCaptureToBoard called! Region: " + JSON.stringify(region));
 +      const canvas = await this.createCanvas(region, browser);
-+      Services.console.logStringMessage("ZenBoard: Canvas created. Converting to blob...");
 +      const blob = await canvas.convertToBlob({ type: "image/png" });
 +      const sourceUrl = browser.currentURI?.spec ?? "";
-+      Services.console.logStringMessage("ZenBoard: Blob created. URI: " + sourceUrl);
 +
 +      const chromeWin = browser.ownerDocument.defaultView;
 +      const event = new chromeWin.CustomEvent("ZenBoard:CaptureReady", {
@@ -71,10 +67,9 @@ index 6cb2d60b858becb89ae103a2bb9b84c55dd8081a..04003cfb811137665703214d23dcbf0d
 +          anchor,
 +        },
 +      });
-+      Services.console.logStringMessage("ZenBoard: Dispatching ZenBoard:CaptureReady event to window...");
 +      chromeWin.dispatchEvent(event);
 +    } catch (e) {
-+      Services.console.logStringMessage("ZenBoard: Failed to capture screenshot for board: " + e);
++      console.error("ZenBoard: Failed to capture screenshot for board: ", e);
 +    }
 +  },
 +

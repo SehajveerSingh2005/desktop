@@ -279,7 +279,7 @@ async function convertToStaticCapture(liveEmbedObj) {
           left,
           top: topOffset,
           right: left + width,
-          bottom: top + height,
+          bottom: topOffset + height,
           width,
           height,
           devicePixelRatio:
@@ -295,7 +295,7 @@ async function convertToStaticCapture(liveEmbedObj) {
             liveEmbedObj.sourceRegion?.viewportHeight || 800
           ),
         };
-        const canvas = await ScreenshotsUtils.createCanvas(
+        const canvas = await screenshotsUtils.createCanvas(
           region,
           liveEmbedObj._iframeEl
         );

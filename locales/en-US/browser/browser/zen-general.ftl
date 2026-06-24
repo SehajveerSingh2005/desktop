@@ -190,5 +190,6 @@ zen-board-font-decrease =
 zen-board-create-new-board = Create New Board...
 zen-board-untitled-board = Untitled Board
 zen-add-to-board = Add to Board
+zen-board-urlbar-label = Board
 
 

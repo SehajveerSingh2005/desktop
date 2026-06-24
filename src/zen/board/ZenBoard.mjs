@@ -719,6 +719,17 @@ export class ZenBoard {
 
     // Wrap urlbar trim function to handle board URLs
     let currentTrim = null;
+    let boardLabel = "Board";
+    if (chromeWindow.document.l10n) {
+      chromeWindow.document.l10n.formatValues([{ id: "zen-board-urlbar-label" }])
+        .then(translated => {
+          if (translated?.[0]) {
+            boardLabel = translated[0];
+          }
+        })
+        .catch(e => console.error("Failed to translate zen-board-urlbar-label:", e));
+    }
+
     if (chromeWindow.gURLBar && !chromeWindow.gURLBar._zenBoardTrimWrapped) {
       chromeWindow.gURLBar._zenBoardTrimWrapped = true;
       currentTrim = chromeWindow.gURLBar._zenTrimURL;
@@ -726,12 +737,7 @@ export class ZenBoard {
         get() {
           return function(aURL) {
             if (aURL?.startsWith("chrome://browser/content/zen-board/board.html")) {
-              try {
-                return chromeWindow.document.l10n.formatValuesSync([{ id: "zen-board-urlbar-label" }])?.[0] || "Board";
-              } catch (e) {
-                console.error("Failed to translate zen-board-urlbar-label:", e);
-                return "Board";
-              }
+              return boardLabel;
             }
             return currentTrim ? currentTrim.call(this, aURL) : aURL;
           };

@@ -311,6 +311,7 @@ async function doAddToBoard(
       tab.removeAttribute("zen-empty-tab");
       tab.setAttribute("zen-board-tab", "true");
       tab.setAttribute("zen-board-id", boardId);
+      gb.pinTab(tab);
       gb.selectedTab = tab;
     }
   } catch (e) {
@@ -421,13 +422,24 @@ function registerObserver(services) {
 }
 
 export class ZenBoard {
-  openZenBoard(win) {
+  async openZenBoard(win) {
     if (!win || !win.gBrowser) {
       console.error("ZenBoard: Invalid window provided");
       return;
     }
     registerObserver(win.Services);
-    const url = "chrome://browser/content/zen-board/board.html";
+
+    let boardId;
+    try {
+      const db = await openChromeDB(win);
+      boardId = await createBoardInDB(db, "Untitled Board");
+      db.close();
+    } catch (e) {
+      console.error("[ZenBoard] Failed to create new board in openZenBoard", e);
+      boardId = crypto.randomUUID(); // Fallback UUID
+    }
+
+    const url = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
     const tab = win.gBrowser.addTrustedTab(url, {
       triggeringPrincipal:
         win.Services.scriptSecurityManager.getSystemPrincipal(),
@@ -435,6 +447,8 @@ export class ZenBoard {
     });
     tab.removeAttribute("zen-empty-tab");
     tab.setAttribute("zen-board-tab", "true");
+    tab.setAttribute("zen-board-id", boardId);
+    win.gBrowser.pinTab(tab);
     win.gBrowser.selectedTab = tab;
   }
 

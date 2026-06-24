@@ -110,20 +110,13 @@ export async function triggerSaveImmediate() {
   }
 }
 
-// Transparency Handling
-// Uses a CSS class instead of an inline style to avoid forcing a compositor
-// layer update on the body element while it is still at opacity:0.
-// An inline style mutation triggers a paint even at opacity:0, causing the
-// "flash then fade" double-repaint on second-open.
 function applyTransparency(isTransparent) {
-  const canvasEl = document.getElementById("canvas");
-  if (isTransparent) {
-    canvasEl.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
-    document.body.classList.remove("board-solid-bg");
-  } else {
-    canvasEl.style.backgroundColor = "#ffffff";
-    document.body.classList.add("board-solid-bg");
-  }
+  const chromeWindow = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
+  const opacity = isTransparent
+    ? (chromeWindow?.Services?.prefs?.getDoublePref("zen.board.background-opacity") ?? 0.5)
+    : 1.0;
+
+  document.documentElement.style.setProperty("--board-bg-opacity", opacity);
 }
 
 // Wheel Panning and Zooming Animation Logic

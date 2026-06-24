@@ -8,3 +8,6 @@
 - name: zen.board.live-embeds.capture-on-pause
   value: true
 
+- name: zen.board.background-opacity
+  value: 0.5
+

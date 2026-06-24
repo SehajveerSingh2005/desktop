@@ -112,9 +112,20 @@ export async function triggerSaveImmediate() {
 
 function applyTransparency(isTransparent) {
   const chromeWindow = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
-  const opacity = isTransparent
-    ? (chromeWindow?.Services?.prefs?.getDoublePref("zen.board.background-opacity") ?? 0.5)
-    : 1.0;
+  let opacity = 0.5;
+  if (isTransparent) {
+    try {
+      const prefVal = chromeWindow?.Services?.prefs?.getStringPref("zen.board.background-opacity");
+      opacity = parseFloat(prefVal ?? "0.5");
+      if (isNaN(opacity)) {
+        opacity = 0.5;
+      }
+    } catch (e) {
+      opacity = 0.5;
+    }
+  } else {
+    opacity = 1.0;
+  }
 
   document.documentElement.style.setProperty("--board-bg-opacity", opacity);
 }

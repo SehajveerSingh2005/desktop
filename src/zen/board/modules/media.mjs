@@ -5,6 +5,36 @@
 import { DrawingObject } from "./scene.mjs";
 import { getState } from "./state.mjs";
 
+// ── Shared video playback event wiring ─────────────────────────────────────
+// Used by both board.mjs (file drops) and storage.mjs (deserialization) to
+// avoid duplicating the play/pause/seek/frame-loop setup.
+
+export function wireVideoPlaybackEvents(videoEl, redrawFn, checkVisible) {
+  videoEl.onloadeddata = redrawFn;
+  videoEl.onseeked = redrawFn;
+  videoEl.oncanplay = redrawFn;
+
+  let frameRequest = null;
+  videoEl.onplay = () => {
+    const update = () => {
+      if (!videoEl.paused && !videoEl.ended && (!checkVisible || checkVisible())) {
+        redrawFn();
+        frameRequest = requestAnimationFrame(update);
+      }
+    };
+    if (frameRequest) {
+      cancelAnimationFrame(frameRequest);
+    }
+    update();
+  };
+  videoEl.onpause = () => {
+    if (frameRequest) {
+      cancelAnimationFrame(frameRequest);
+      frameRequest = null;
+    }
+  };
+}
+
 export class ImageObject extends DrawingObject {
   constructor(id, x, y, width, height, imageElement) {
     super(id, "image", x, y);

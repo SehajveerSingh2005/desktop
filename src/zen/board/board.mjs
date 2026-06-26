@@ -14,6 +14,13 @@ import {
 import { toolHandlers } from "./modules/tools.mjs";
 import { getState, setState, bumpSceneGeneration, getSceneGeneration, triggerSave, triggerSaveImmediate } from "./modules/state.mjs";
 import {
+  ZOOM_STEP, ZOOM_MIN, ZOOM_MAX, ZOOM_LERP_FACTOR,
+  ZOOM_CONVERGENCE_SCALE, ZOOM_CONVERGENCE_OFFSET,
+  WHEEL_LINE_TO_PX, WHEEL_PAGE_TO_PX,
+  ZOOM_SENSITIVITY_PIXEL, ZOOM_SENSITIVITY_LINE, ZOOM_SENSITIVITY_PAGE,
+  MAX_MEDIA_WIDTH,
+} from "./modules/constants.mjs";
+import {
   initTools,
   selectTool,
   updateZoomDisplay,
@@ -40,6 +47,7 @@ import {
   VideoObject,
   CaptureObject,
   LiveEmbedObject,
+  wireVideoPlaybackEvents,
 } from "./modules/media.mjs";
 import {
   ensureBoardId,
@@ -134,15 +142,15 @@ function startWheelAnimation() {
     const lerp = (start, end, amt) => start + (end - start) * amt;
 
     // Smooth lerp updates
-    currentScale = lerp(currentScale, targetScale, 0.15);
-    currentOffsetX = lerp(currentOffsetX, targetOffsetX, 0.15);
-    currentOffsetY = lerp(currentOffsetY, targetOffsetY, 0.15);
+    currentScale = lerp(currentScale, targetScale, ZOOM_LERP_FACTOR);
+    currentOffsetX = lerp(currentOffsetX, targetOffsetX, ZOOM_LERP_FACTOR);
+    currentOffsetY = lerp(currentOffsetY, targetOffsetY, ZOOM_LERP_FACTOR);
 
     const scaleDiff = Math.abs(currentScale - targetScale);
     const offsetXDiff = Math.abs(currentOffsetX - targetOffsetX);
     const offsetYDiff = Math.abs(currentOffsetY - targetOffsetY);
 
-    if (scaleDiff < 0.001 && offsetXDiff < 0.05 && offsetYDiff < 0.05) {
+    if (scaleDiff < ZOOM_CONVERGENCE_SCALE && offsetXDiff < ZOOM_CONVERGENCE_OFFSET && offsetYDiff < ZOOM_CONVERGENCE_OFFSET) {
       // Snap to target at the end of interpolation
       setTransform(targetScale, targetOffsetX, targetOffsetY);
       // We are already inside a RAF callback — call the draw function directly.
@@ -184,11 +192,10 @@ function stopWheelAnimation() {
 function zoom(direction) {
   stopWheelAnimation();
   const { scale, offsetX, offsetY } = getState();
-  const zoomFactor = 1.1;
   const oldScale = scale;
-  let newScale = direction > 0 ? oldScale * zoomFactor : oldScale / zoomFactor;
+  let newScale = direction > 0 ? oldScale * ZOOM_STEP : oldScale / ZOOM_STEP;
   // Clamp zoom level
-  newScale = Math.max(0.1, Math.min(newScale, 10));
+  newScale = Math.max(ZOOM_MIN, Math.min(newScale, ZOOM_MAX));
 
   const centerX = window.innerWidth / 2;
   const centerY = window.innerHeight / 2;
@@ -257,12 +264,11 @@ function handleFile(file, x, y) {
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(objectURL);
-      const maxWidth = 400;
       let w = img.width;
       let h = img.height;
-      if (w > maxWidth) {
-        h = (maxWidth / w) * h;
-        w = maxWidth;
+      if (w > MAX_MEDIA_WIDTH) {
+        h = (MAX_MEDIA_WIDTH / w) * h;
+        w = MAX_MEDIA_WIDTH;
       }
       const obj = new ImageObject(id, x - w / 2, y - h / 2, w, h, img);
       obj._blob = file;
@@ -283,12 +289,11 @@ function handleFile(file, x, y) {
     const video = document.createElement("video");
     video.preload = "metadata";
     video.onloadedmetadata = () => {
-      const maxWidth = 400;
       let w = video.videoWidth;
       let h = video.videoHeight;
-      if (w > maxWidth) {
-        h = (maxWidth / w) * h;
-        w = maxWidth;
+      if (w > MAX_MEDIA_WIDTH) {
+        h = (MAX_MEDIA_WIDTH / w) * h;
+        w = MAX_MEDIA_WIDTH;
       }
       const obj = new VideoObject(id, x - w / 2, y - h / 2, w, h, video);
       // Keep the original blob on the object for serialization
@@ -300,29 +305,7 @@ function handleFile(file, x, y) {
       // Animation start: set offset to out state immediately
       obj.controlsYOffset = 10;
 
-      video.onloadeddata = redrawCanvas;
-      video.onseeked = redrawCanvas;
-      video.oncanplay = redrawCanvas;
-
-      let frameRequest = null;
-      video.onplay = () => {
-        const update = () => {
-          if (!video.paused && !video.ended) {
-            redrawCanvas();
-            frameRequest = requestAnimationFrame(update);
-          }
-        };
-        if (frameRequest) {
-          cancelAnimationFrame(frameRequest);
-        }
-        update();
-      };
-      video.onpause = () => {
-        if (frameRequest) {
-          cancelAnimationFrame(frameRequest);
-          frameRequest = null;
-        }
-      };
+      wireVideoPlaybackEvents(video, redrawCanvas);
 
       // Force a first-frame capture
       video.currentTime = 0;
@@ -378,7 +361,9 @@ function initTitleInput() {
       if (translated && translated[0]) {
         displayTitle = translated[0];
       }
-    } catch (e) {}
+    } catch (e) {
+      // l10n not ready yet — use raw English fallback
+    }
   }
   boardTitleInput.value = displayTitle;
   document.title = displayTitle;
@@ -480,7 +465,9 @@ async function initTheme() {
 window.addEventListener("DOMContentLoaded", async () => {
   try {
     await document.l10n.ready;
-  } catch (e) {}
+  } catch (e) {
+    // l10n subsystem unavailable — continue with English fallbacks
+  }
   await initTheme();
   initTools();
   resizeCanvas();
@@ -627,12 +614,12 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       if (e.deltaMode === 1) {
         // DOM_DELTA_LINE
-        dx *= 20; // 20px per line
-        dy *= 20;
+        dx *= WHEEL_LINE_TO_PX;
+        dy *= WHEEL_LINE_TO_PX;
       } else if (e.deltaMode === 2) {
         // DOM_DELTA_PAGE
-        dx *= 400; // 400px per page
-        dy *= 400;
+        dx *= WHEEL_PAGE_TO_PX;
+        dy *= WHEEL_PAGE_TO_PX;
       }
 
       if (e.ctrlKey) {
@@ -641,18 +628,18 @@ window.addEventListener("DOMContentLoaded", async () => {
         const mouseY = e.clientY;
 
         // Determine zoom factor: trackpads (deltaMode 0) send small pixel deltas; mouse wheels send raw/line deltas
-        let zoomFactor = 0.003;
+        let zoomFactor = ZOOM_SENSITIVITY_PIXEL;
         if (e.deltaMode === 1) {
           // Lines
-          zoomFactor = 0.015;
+          zoomFactor = ZOOM_SENSITIVITY_LINE;
         } else if (e.deltaMode === 2) {
           // Pages
-          zoomFactor = 0.1;
+          zoomFactor = ZOOM_SENSITIVITY_PAGE;
         }
 
         const oldTargetScale = targetScale;
         let newTargetScale = oldTargetScale * Math.exp(-e.deltaY * zoomFactor);
-        newTargetScale = Math.max(0.1, Math.min(newTargetScale, 10));
+        newTargetScale = Math.max(ZOOM_MIN, Math.min(newTargetScale, ZOOM_MAX));
 
         // Calculate where the offset needs to go to keep mouseX, mouseY fixed under the new scale
         targetOffsetX =

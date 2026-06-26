@@ -24,6 +24,7 @@ import {
 } from "./db.mjs";
 import { saveAsset, getAssetURL } from "./assets.mjs";
 import { smoothPoints } from "./smoothing.mjs";
+import { wireVideoPlaybackEvents } from "./media.mjs";
 
 // The URL param key used to link a tab to a board ID
 const BOARD_ID_PARAM = "id";
@@ -437,29 +438,7 @@ async function deserializeObject(data, classes) {
 
       const forceRedraw = () =>
         window.dispatchEvent(new CustomEvent("ZenBoardVideoFrame"));
-      videoEl.onloadeddata = forceRedraw;
-      videoEl.onseeked = forceRedraw;
-      videoEl.oncanplay = forceRedraw;
-
-      let frameRequest = null;
-      videoEl.onplay = () => {
-        const update = () => {
-          if (!videoEl.paused && !videoEl.ended && result.visible) {
-            forceRedraw();
-            frameRequest = requestAnimationFrame(update);
-          }
-        };
-        if (frameRequest) {
-          cancelAnimationFrame(frameRequest);
-        }
-        update();
-      };
-      videoEl.onpause = () => {
-        if (frameRequest) {
-          cancelAnimationFrame(frameRequest);
-          frameRequest = null;
-        }
-      };
+      wireVideoPlaybackEvents(videoEl, forceRedraw, () => result.visible);
 
       return result;
     }

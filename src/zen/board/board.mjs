@@ -337,14 +337,24 @@ function handleFile(file, x, y) {
       video.onseeked = forceRedraw;
       video.oncanplay = forceRedraw;
 
+      let frameRequest = null;
       video.onplay = () => {
         const update = () => {
           if (!video.paused && !video.ended) {
             redrawCanvas();
-            requestAnimationFrame(update);
+            frameRequest = requestAnimationFrame(update);
           }
         };
+        if (frameRequest) {
+          cancelAnimationFrame(frameRequest);
+        }
         update();
+      };
+      video.onpause = () => {
+        if (frameRequest) {
+          cancelAnimationFrame(frameRequest);
+          frameRequest = null;
+        }
       };
 
       // Force a first-frame capture

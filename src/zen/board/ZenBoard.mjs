@@ -89,6 +89,15 @@ function appendCaptureToBoard(db, boardId, captureData) {
 function openChromeDB(win) {
   return new Promise((resolve, reject) => {
     const req = win.indexedDB.open("zen-board-db", 2);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("boards")) {
+        db.createObjectStore("boards", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("assets")) {
+        db.createObjectStore("assets", { keyPath: "hash" });
+      }
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
@@ -374,10 +383,8 @@ const ZenBoardXFOObserver = {
       // Path D — embedder element's owner document URL:
       const embedderDocURL =
         loadInfo.browsingContext?.embedderElement?.ownerDocument?.URL;
-      // Path E — loading principal is system principal (→ the parent is a
-      //   privileged chrome:// document that intentionally embedded this iframe):
-      const isSystemPrincipalParent =
-        !!loadInfo.loadingPrincipal?.isSystemPrincipal;
+      // Path E is intentionally omitted: stripping XFO/CSP for any
+      // system-principal parent would be an overly broad security bypass.
 
       const BOARD_URL = "chrome://browser/content/zen-board/board.html";
       const isZenBoard =
@@ -386,7 +393,7 @@ const ZenBoardXFOObserver = {
         (loadingSpec && loadingSpec.startsWith(BOARD_URL)) ||
         (embedderDocURL && embedderDocURL.startsWith(BOARD_URL));
 
-      if (isZenBoard || isSystemPrincipalParent) {
+      if (isZenBoard) {
         try {
           channel.setResponseHeader("X-Frame-Options", "", false);
         } catch (e) {}
@@ -510,8 +517,9 @@ export class ZenBoard {
 
       // Fetch boards (using chrome-side DB so this works before any board tab
       // is open — the capture picker runs entirely in the chrome process).
-      let db = await openChromeDB(chromeWindow);
-      let boards = await listBoardsFromDB(db);
+      const db = await openChromeDB(chromeWindow);
+      const boards = await listBoardsFromDB(db);
+      db.close();
 
       let untitledLabel = "Untitled Board";
       let createLabel = "Create New Board...";
@@ -570,7 +578,9 @@ export class ZenBoard {
       );
       createItem.addEventListener("command", async () => {
         try {
-          const id = await createBoardInDB(db, "Untitled Board");
+          const newDb = await openChromeDB(chromeWindow);
+          const id = await createBoardInDB(newDb, "Untitled Board");
+          newDb.close();
           doAddToBoard(
             chromeWindow,
             id,

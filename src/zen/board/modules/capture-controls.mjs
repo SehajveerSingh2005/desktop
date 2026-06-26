@@ -471,16 +471,15 @@ export function ensureIframeInjected(liveEmbedObj) {
     const bcId = iframe.browsingContext?.id;
     if (bcId != null && chromeWin?.gZenBoard?.registerLiveEmbedBC) {
       chromeWin.gZenBoard.registerLiveEmbedBC(bcId);
-      console.error("[ZenBoard] BC registered OK, id:", bcId); // TEMP DEBUG F12
     } else {
-      console.error(
-        "[ZenBoard] BC reg FAILED — id:",
+      console.warn(
+        "[ZenBoard] Live-embed BC registration failed — id:",
         bcId,
         "gZenBoard:",
         !!chromeWin?.gZenBoard,
         "chromeWin:",
         !!chromeWin
-      ); // TEMP DEBUG F12
+      );
     }
   } catch (e) {
     console.error("[ZenBoard] BC reg error:", e);
@@ -515,9 +514,6 @@ export function ensureIframeInjected(liveEmbedObj) {
           triggeringPrincipal: nullPrincipal,
           loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_NONE,
         });
-        console.error(
-          "[ZenBoard] loadURI executed with Null Principal and nsIURI"
-        ); // TEMP
       } else {
         console.error("[ZenBoard] Fatal: iframe.loadURI is not a function");
       }

@@ -5,30 +5,50 @@
 import { getState } from "./state.mjs";
 import { parseFont } from "./scene.mjs";
 
-// Cache rounded rect clip paths keyed by "x,y,w,h,r" to avoid rebuilding per-frame
+// Cache rounded rect clip paths to avoid rebuilding a Path2D on every frame.
+//
+// Key insight: the Path2D shape depends only on (w, h, r) — NOT on (x, y),
+// because the canvas transform already positions the object via translate/scale.
+// The old key included x,y which are world-space floats that change on every
+// pan/zoom event, causing constant misses and FIFO churn against the 500-entry cap.
+//
+// We draw the path at (0,0) and shift it to (x,y) via ctx.save/translate/restore
+// at the call site, so the cached Path2D is reused for every object of the same
+// size regardless of its position or the current zoom level.
 const _roundedRectCache = new Map();
-function getRoundedRectPath(x, y, w, h, r) {
-  const key = `${x},${y},${w},${h},${r}`;
+const _ROUNDED_RECT_CACHE_MAX = 32; // small: distinct sizes per board are few
+
+function getRoundedRectPath(w, h, r) {
+  // Round to 1 decimal place so subpixel jitter from resize doesn't fragment the cache
+  const key = `${Math.round(w * 10)},${Math.round(h * 10)},${Math.round(r * 10)}`;
   let path = _roundedRectCache.get(key);
   if (!path) {
     path = new Path2D();
-    path.moveTo(x + r, y);
-    path.lineTo(x + w - r, y);
-    path.quadraticCurveTo(x + w, y, x + w, y + r);
-    path.lineTo(x + w, y + h - r);
-    path.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    path.lineTo(x + r, y + h);
-    path.quadraticCurveTo(x, y + h, x, y + h - r);
-    path.lineTo(x, y + r);
-    path.quadraticCurveTo(x, y, x + r, y);
+    path.moveTo(r, 0);
+    path.lineTo(w - r, 0);
+    path.quadraticCurveTo(w, 0, w, r);
+    path.lineTo(w, h - r);
+    path.quadraticCurveTo(w, h, w - r, h);
+    path.lineTo(r, h);
+    path.quadraticCurveTo(0, h, 0, h - r);
+    path.lineTo(0, r);
+    path.quadraticCurveTo(0, 0, r, 0);
     path.closePath();
-    // Limit cache size to avoid unbounded memory growth
-    if (_roundedRectCache.size > 500) {
+    if (_roundedRectCache.size >= _ROUNDED_RECT_CACHE_MAX) {
       _roundedRectCache.delete(_roundedRectCache.keys().next().value);
     }
     _roundedRectCache.set(key, path);
   }
   return path;
+}
+
+// Apply a cached rounded-rect clip translated to (x, y).
+// Must be called inside a ctx.save()/ctx.restore() pair — the clip is
+// active for the lifetime of that save, then discarded automatically.
+function clipRoundedRect(context, x, y, w, h, r) {
+  context.translate(x, y);
+  context.clip(getRoundedRectPath(w, h, r));
+  context.translate(-x, -y);
 }
 
 function drawPath(context, object) {
@@ -197,9 +217,7 @@ function drawImage(context, object) {
     context.globalAlpha = 0.5;
   }
 
-  context.clip(
-    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
-  );
+  clipRoundedRect(context, object.x, object.y, object.width, object.height, 8);
 
   if (object.image && object.image.complete) {
     context.drawImage(
@@ -226,9 +244,7 @@ function drawCapture(context, object) {
     context.globalAlpha = 0.5;
   }
 
-  context.clip(
-    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
-  );
+  clipRoundedRect(context, object.x, object.y, object.width, object.height, 8);
 
   if (object.image && object.image.complete) {
     context.drawImage(
@@ -248,9 +264,7 @@ function drawCapture(context, object) {
 function drawLiveEmbedPlaceholder(context, object) {
   context.save();
 
-  context.clip(
-    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
-  );
+  clipRoundedRect(context, object.x, object.y, object.width, object.height, 8);
 
   if (
     object._placeholderImage &&
@@ -265,10 +279,9 @@ function drawLiveEmbedPlaceholder(context, object) {
       object.height
     );
   } else {
+    // Clip is already applied — fillRect respects it
     context.fillStyle = "#1a1a2e";
-    context.fill(
-      getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
-    );
+    context.fillRect(object.x, object.y, object.width, object.height);
   }
 
   context.restore();
@@ -284,9 +297,7 @@ function drawVideo(context, object) {
     context.globalAlpha = 0.5;
   }
 
-  context.clip(
-    getRoundedRectPath(object.x, object.y, object.width, object.height, 8)
-  );
+  clipRoundedRect(context, object.x, object.y, object.width, object.height, 8);
 
   context.drawImage(
     object.video,

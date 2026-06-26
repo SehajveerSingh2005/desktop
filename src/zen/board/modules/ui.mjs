@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { canvas, redrawCanvas } from "./canvas.mjs";
-import { getState, setState } from "./state.mjs";
+import { getState, setState, bumpSceneGeneration } from "./state.mjs";
 import {
   TEXT_BORDER_SIZE,
   FONT_SIZE_STEP,
@@ -516,13 +516,24 @@ export function deactivateTextEditor() {
         removeFromScene(editingTextObject.id);
       }
     } else {
+      // Check if any properties actually changed
+      const currentFontSpec = textEditor.style.font;
+      const currentColorSpec = textEditor.style.color;
+      const hasChanged = editingTextObject.text !== newText ||
+                         editingTextObject.font !== currentFontSpec ||
+                         editingTextObject.color !== currentColorSpec;
+
       // The object has text, so we update its properties.
       editingTextObject.text = newText;
-      editingTextObject.font = textEditor.style.font;
-      editingTextObject.color = textEditor.style.color;
+      editingTextObject.font = currentFontSpec;
+      editingTextObject.color = currentColorSpec;
       editingTextObject.visible = true;
-      editingTextObject._serializedCache = null;
-      editingTextObject._cachedBoundingBox = null;
+
+      if (hasChanged) {
+        editingTextObject._serializedCache = null;
+        editingTextObject._cachedBoundingBox = null;
+        bumpSceneGeneration();
+      }
 
       // If it was a new, temporary object, add it to the main scene now.
       if (!isInScene) {

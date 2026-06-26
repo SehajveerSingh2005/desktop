@@ -10,7 +10,7 @@ import {
   setTransform,
   redrawCanvas,
 } from "../canvas.mjs";
-import { getState, setState } from "../state.mjs";
+import { getState, setState, bumpSceneGeneration } from "../state.mjs";
 import { HANDLE_HIT_SIZE } from "../constants.mjs";
 import {
   deactivateTextEditor,
@@ -246,6 +246,10 @@ export const select = {
   },
 
   onMouseUp() {
+    const { isDraggingObject, isResizingObject } = getState();
+    if (isDraggingObject || isResizingObject) {
+      bumpSceneGeneration();
+    }
     setState({
       isPanning: false,
       isDraggingObject: false,

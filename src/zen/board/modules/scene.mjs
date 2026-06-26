@@ -35,6 +35,19 @@ export function clearScene() {
   bumpSceneGeneration();
 }
 
+export function replaceScene(objects) {
+  for (const obj of scene) {
+    if (typeof obj.destroy === "function") {
+      obj.destroy();
+    }
+  }
+  scene.length = 0;
+  for (const obj of objects) {
+    scene.push(obj);
+  }
+  bumpSceneGeneration();
+}
+
 export function generateId() {
   return crypto.randomUUID();
 }

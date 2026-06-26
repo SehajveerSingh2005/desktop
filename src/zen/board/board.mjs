@@ -12,7 +12,7 @@ import {
   invalidateAccentColorCache,
 } from "./modules/canvas.mjs";
 import { toolHandlers } from "./modules/tools.mjs";
-import { getState, setState, bumpSceneGeneration } from "./modules/state.mjs";
+import { getState, setState, bumpSceneGeneration, getSceneGeneration, triggerSave, triggerSaveImmediate } from "./modules/state.mjs";
 import {
   initTools,
   selectTool,
@@ -28,6 +28,7 @@ import {
   addToScene,
   removeFromScene,
   generateId,
+  replaceScene,
   Text,
   Path,
   Rectangle,
@@ -74,44 +75,8 @@ const zoomInBtn = document.getElementById("zoom-in-btn");
 const zoomOutBtn = document.getElementById("zoom-out-btn");
 const boardTitleInput = document.getElementById("board-title");
 
-// Autosave Logic
-let _saveTimer = null;
-
-export function triggerSave() {
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(async () => {
-    const { isDrawing, isPanning, isDraggingObject, isResizingObject } =
-      getState();
-    if (isDrawing || isPanning || isDraggingObject || isResizingObject) {
-      // Postpone saving because user is actively interacting
-      triggerSave();
-      return;
-    }
-    triggerSaveImmediate();
-  }, 1000); // 1-second debounce
-}
-
-export async function triggerSaveImmediate() {
-  clearTimeout(_saveTimer);
-  const { boardId, boardTitle, isTransparent, scale, offsetX, offsetY } =
-    getState();
-  if (!boardId) {
-    return;
-  }
-  try {
-    await saveBoard(
-      boardId,
-      boardTitle,
-      isTransparent,
-      scale,
-      offsetX,
-      offsetY,
-      [...scene]
-    );
-  } catch (e) {
-    console.error("ZenBoard: Immediate save failed", e);
-  }
-}
+// Track scene generation at last mouseup to detect actual scene modifications
+let _lastMouseUpGeneration = -1;
 
 function applyTransparency(isTransparent) {
   const chromeWindow = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
@@ -258,19 +223,20 @@ function onMouseMove(e) {
 }
 
 function onMouseUp(e) {
-  // Read modification flags BEFORE the handler resets them to false.
-  const { currentTool, isDraggingObject, isResizingObject } = getState();
+  const { currentTool } = getState();
   toolHandlers[currentTool].onMouseUp(e);
   triggerSave();
 
-  // For the select tool, only commit history when something was actually
-  // moved or resized. Clicks, panning, and deselects don't change the scene.
+  // For the select tool, only commit history when the scene was actually
+  // modified (object moved/resized). We detect this by checking if the
+  // scene generation counter was bumped by the handler.
   const sceneModified =
-    currentTool !== "select" || isDraggingObject || isResizingObject;
+    currentTool !== "select" || getSceneGeneration() !== _lastMouseUpGeneration;
   if (sceneModified) {
     bumpSceneGeneration();
     pushHistory();
   }
+  _lastMouseUpGeneration = getSceneGeneration();
 }
 
 function onDoubleClick(e) {
@@ -554,13 +520,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     const saved = await loadBoard(boardId, classes);
     if (saved) {
       // Populate scene with hydrated objects
-      scene.length = 0;
-      saved.scene.forEach(obj => {
-        scene.push(obj);
-        if (obj.type === "live-embed") {
-          ensureIframeInjected(obj);
-        }
-      });
+      const liveEmbeds = saved.scene.filter(obj => obj.type === "live-embed");
+      replaceScene(saved.scene);
+      liveEmbeds.forEach(obj => ensureIframeInjected(obj));
       setState({ boardTitle: saved.title, isTransparent: saved.isTransparent });
       document.title = saved.title;
 
@@ -730,14 +692,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       const saved = await loadBoard(getState().boardId, classes);
       if (saved) {
-        scene.length = 0;
-        saved.scene.forEach(obj => {
-          scene.push(obj);
-          if (obj.type === "live-embed") {
-            ensureIframeInjected(obj);
-          }
-        });
-        bumpSceneGeneration();
+        const liveEmbeds = saved.scene.filter(obj => obj.type === "live-embed");
+        replaceScene(saved.scene);
+        liveEmbeds.forEach(obj => ensureIframeInjected(obj));
         pushHistory();
         redrawCanvas();
       }
@@ -834,7 +791,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     });
     // Flush any pending save immediately
-    clearTimeout(_saveTimer);
     const {
       boardId: id,
       boardTitle,
@@ -846,9 +802,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (id) {
       // Best-effort synchronous-ish save (sendBeacon not suitable for IDB,
       // but browser gives ~handful of seconds for pagehide handlers)
-      saveBoard(id, boardTitle, isTransparent, scale, offsetX, offsetY, [
-        ...scene,
-      ]).catch(() => {});
+      triggerSaveImmediate();
     }
   });
 

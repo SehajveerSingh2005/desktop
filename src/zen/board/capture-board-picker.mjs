@@ -12,33 +12,29 @@ import {
   appendCaptureToBoard,
 } from "./chrome-db.mjs";
 
-// ── IDB helpers (legacy blob storage, used by picker) ──────────────────
-function hashBlob(blob) {
-  return blob.arrayBuffer()
-    .then(buf => crypto.subtle.digest("SHA-256", buf))
-    .then(hashBuf => Array.from(new Uint8Array(hashBuf))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join(""));
+// ── Filesystem helpers (write directly to profile/zen-board-assets) ─────
+function mimeToExt(mimeType) {
+  const map = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/avif": "avif",
+    "image/svg+xml": "svg",
+  };
+  return map[mimeType] || "bin";
 }
 
-function storeAsset(db, blob) {
-  return hashBlob(blob).then(hash =>
-    new Promise((resolve, reject) => {
-      const tx = db.transaction("assets", "readwrite");
-      const store = tx.objectStore("assets");
-      const get = store.get(hash);
-      get.onsuccess = () => {
-        if (!get.result) {
-          const put = store.put({ hash, blob });
-          put.onsuccess = () => resolve(hash);
-          put.onerror = () => reject(put.error);
-        } else {
-          resolve(hash);
-        }
-      };
-      get.onerror = () => reject(get.error);
-    })
-  );
+async function saveAssetToFilesystem(blob) {
+  const ASSETS_FOLDER_NAME = "zen-board-assets";
+  const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
+  await IOUtils.makeDirectory(folder, { ignoreExisting: true });
+  const ext = mimeToExt(blob.type);
+  const filename = `${crypto.randomUUID()}.${ext}`;
+  const destPath = PathUtils.join(folder, filename);
+  await IOUtils.write(destPath, new Uint8Array(await blob.arrayBuffer()));
+  return filename;
 }
 
 // ── UI helpers ──────────────────────────────────────────────────────────
@@ -155,7 +151,7 @@ window.zenPickerInit = async function init() {
 
 async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chromeWindow) {
   try {
-    const hash = await storeAsset(db, blob);
+    const assetFilename = await saveAssetToFilesystem(blob);
 
     const captureObj = {
       type: "capture",
@@ -166,7 +162,7 @@ async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chro
       height: region?.height || 600,
       sourceUrl,
       sourceRegion: region,
-      _assetHash: hash,
+      _assetFile: assetFilename,
     };
 
     await appendCaptureToBoard(db, boardId, captureObj);

@@ -4,6 +4,14 @@
 
 import { canvas, redrawCanvas } from "./canvas.mjs";
 import { getState, setState } from "./state.mjs";
+import {
+  TEXT_BORDER_SIZE,
+  FONT_SIZE_STEP,
+  FONT_SIZE_MIN,
+  DEFAULT_FONT_SIZE,
+  AUTORESIZE_BUFFER,
+  FONT_OPTIONS_OFFSET_X,
+} from "./constants.mjs";
 /* eslint-disable no-shadow */
 import {
   scene,
@@ -83,7 +91,7 @@ function onDragMouseUp() {
 function onTextareaMouseDown(e) {
   // This function implements "drag-from-border".
   // A drag is only initiated if the mousedown occurs near the edge of the textarea.
-  const borderSize = 5; // A 5px area to make it easier to grab
+  const borderSize = TEXT_BORDER_SIZE;
   const isOnBorder =
     e.offsetX < borderSize ||
     e.offsetY < borderSize ||
@@ -109,7 +117,7 @@ function onTextareaMouseDown(e) {
 // This handler provides cursor feedback, showing 'move' on the draggable
 // border and 'text' inside, so the user knows which part to drag.
 function onTextareaMouseMove(e) {
-  const borderSize = 5;
+  const borderSize = TEXT_BORDER_SIZE;
   const isOnBorder =
     e.offsetX < borderSize ||
     e.offsetY < borderSize ||
@@ -299,9 +307,9 @@ export function initTools() {
   const handleFontButtonMouseDown = e => e.preventDefault();
   fontCycleBtn.addEventListener("click", cycleFont);
   fontCycleBtn.addEventListener("mousedown", handleFontButtonMouseDown);
-  fontSizeIncreaseBtn.addEventListener("click", () => changeFontSize(4));
+  fontSizeIncreaseBtn.addEventListener("click", () => changeFontSize(FONT_SIZE_STEP));
   fontSizeIncreaseBtn.addEventListener("mousedown", handleFontButtonMouseDown);
-  fontSizeDecreaseBtn.addEventListener("click", () => changeFontSize(-4));
+  fontSizeDecreaseBtn.addEventListener("click", () => changeFontSize(-FONT_SIZE_STEP));
   fontSizeDecreaseBtn.addEventListener("mousedown", handleFontButtonMouseDown);
 
   shapeRectangleBtn.addEventListener("click", () => selectShape("rectangle"));
@@ -407,7 +415,7 @@ function cycleFont() {
 
 function changeFontSize(delta) {
   let { currentFontSize } = getState();
-  currentFontSize = Math.max(8, currentFontSize + delta);
+  currentFontSize = Math.max(FONT_SIZE_MIN, currentFontSize + delta);
   setState({ currentFontSize });
   updateTextareaFont();
 }
@@ -425,7 +433,7 @@ export function updateTextEditorPosition() {
   textEditor.style.top = `${sY}px`;
   textEditor.style.transform = `scale(${scale})`;
 
-  fontOptionsPanel.style.left = `${sX - 60}px`;
+  fontOptionsPanel.style.left = `${sX - FONT_OPTIONS_OFFSET_X}px`;
   fontOptionsPanel.style.top = `${sY}px`;
   fontOptionsPanel.style.transform = `scale(${scale})`;
 
@@ -469,7 +477,7 @@ export function activateTextEditor(x, y, existingObject = null) {
     textEditor.style.color = existingObject.color;
     selectColor(existingObject.color); // Sync palette
   } else {
-    setState({ currentFontSize: 24, currentFontIndex: 0 });
+    setState({ currentFontSize: DEFAULT_FONT_SIZE, currentFontIndex: 0 });
     textEditor.value = "";
     textEditor.style.color = "#000";
   }
@@ -614,8 +622,8 @@ function autoResizeTextEditor() {
   textEditor.style.width = "1px";
 
   // Add a buffer to prevent clipping (especially for italic/bold or custom fonts)
-  textEditor.style.height = `${textEditor.scrollHeight + 4}px`;
-  textEditor.style.width = `${textEditor.scrollWidth + 4}px`;
+  textEditor.style.height = `${textEditor.scrollHeight + AUTORESIZE_BUFFER}px`;
+  textEditor.style.width = `${textEditor.scrollWidth + AUTORESIZE_BUFFER}px`;
 
   if (slashMenu && slashMenu.style.display !== "none") {
     updateSlashMenuPosition();

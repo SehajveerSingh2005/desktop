@@ -5,6 +5,12 @@
 import { getState, setState } from "./state.mjs";
 import { scene } from "./scene.mjs";
 import { drawScene } from "./renderer.mjs";
+import {
+  SELECTION_STROKE_WIDTH,
+  SELECTION_CORNER_RADIUS,
+  HANDLE_VISUAL_RADIUS,
+  TEXT_SELECTION_PADDING,
+} from "./constants.mjs";
 
 export const canvas = document.getElementById("canvas");
 export const ctx = canvas.getContext("2d", { alpha: true });
@@ -109,10 +115,10 @@ export function redrawCanvasImmediate() {
       // Add a small buffer for text objects to match the textarea's padding
       if (selectedObject.type === "text") {
         box = {
-          x: box.x - 2,
-          y: box.y - 2,
-          width: box.width + 4,
-          height: box.height + 4,
+          x: box.x - TEXT_SELECTION_PADDING,
+          y: box.y - TEXT_SELECTION_PADDING,
+          width: box.width + TEXT_SELECTION_PADDING * 2,
+          height: box.height + TEXT_SELECTION_PADDING * 2,
         };
       } else if (selectedObject.type === "video") {
         // Strict visual bounds for video (excluding controls)
@@ -131,8 +137,8 @@ export function redrawCanvasImmediate() {
       // Only draw the main selection box if we're not currently editing it in the DOM (to avoid double border)
       if (!isEditingThis) {
         ctx.strokeStyle = accentColor || "#007bff";
-        ctx.lineWidth = 2 / scale;
-        const cornerRadius = 8 / scale;
+        ctx.lineWidth = SELECTION_STROKE_WIDTH / scale;
+        const cornerRadius = SELECTION_CORNER_RADIUS / scale;
         drawRoundedRect(ctx, box.x, box.y, box.width, box.height, cornerRadius);
       }
 
@@ -141,7 +147,7 @@ export function redrawCanvasImmediate() {
         ctx.fillStyle = accentColor || "#007bff";
         ctx.strokeStyle = "white";
         ctx.lineWidth = 1.5 / scale;
-        const handleRadius = 6 / scale;
+        const handleRadius = HANDLE_VISUAL_RADIUS / scale;
 
         ctx.beginPath();
         ctx.arc(box.x, box.y, handleRadius, 0, Math.PI * 2);

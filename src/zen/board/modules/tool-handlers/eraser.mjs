@@ -5,6 +5,7 @@
 import { getTransformedPoint, ctx, redrawCanvas } from "../canvas.mjs";
 import { scene, removeFromScene, Path } from "../scene.mjs";
 import { getState, setState } from "../state.mjs";
+import { ERASER_RADIUS } from "../constants.mjs";
 import { deactivateTextEditor } from "../ui.mjs";
 import { hideVideoControls } from "../video-controls.mjs";
 import { hideCaptureControls } from "../capture-controls.mjs";
@@ -28,7 +29,7 @@ export const eraser = {
   erase(e) {
     const { scale } = getState();
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
-    const eraserRadius = 10 / scale;
+    const eraserRadius = ERASER_RADIUS / scale;
     let needsRedraw = false;
     for (let i = scene.length - 1; i >= 0; i--) {
       const object = scene[i];

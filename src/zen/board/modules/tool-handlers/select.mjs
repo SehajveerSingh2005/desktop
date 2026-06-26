@@ -12,6 +12,7 @@ import {
   redrawCanvas,
 } from "../canvas.mjs";
 import { getState, setState } from "../state.mjs";
+import { HANDLE_HIT_SIZE } from "../constants.mjs";
 import {
   deactivateTextEditor,
   activateTextEditor,
@@ -46,7 +47,7 @@ export const select = {
       const obj = scene.find(o => o.id === selectedObjectId);
       if (obj && obj.type !== "text") {
         const box = obj.getBoundingBox(ctx);
-        const handleSize = 12 / scale; // Slightly larger hit area than visual size
+        const handleSize = HANDLE_HIT_SIZE / scale;
         const corners = {
           nw: { x: box.x, y: box.y },
           ne: { x: box.x + box.width, y: box.y },
@@ -211,7 +212,7 @@ export const select = {
         const obj = scene.find(o => o.id === selectedObjectId);
         if (obj && obj.type !== "text") {
           const box = obj.getBoundingBox(ctx);
-          const handleSize = 12 / scale;
+          const handleSize = HANDLE_HIT_SIZE / scale;
           const corners = {
             nw: { x: box.x, y: box.y, cursor: "nwse-resize" },
             ne: { x: box.x + box.width, y: box.y, cursor: "nesw-resize" },

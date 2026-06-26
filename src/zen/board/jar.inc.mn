@@ -14,6 +14,7 @@
         content/browser/zen-board/modules/smoothing.mjs                          (../../zen/board/modules/smoothing.mjs)
         content/browser/zen-board/modules/renderer.mjs                           (../../zen/board/modules/renderer.mjs)
         content/browser/zen-board/modules/state.mjs                              (../../zen/board/modules/state.mjs)
+        content/browser/zen-board/modules/constants.mjs                          (../../zen/board/modules/constants.mjs)
         content/browser/zen-board/modules/interactions.mjs                       (../../zen/board/modules/interactions.mjs)
         content/browser/zen-board/modules/media.mjs                              (../../zen/board/modules/media.mjs)
         content/browser/zen-board/modules/video-controls.mjs                     (../../zen/board/modules/video-controls.mjs)

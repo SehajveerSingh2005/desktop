@@ -188,6 +188,30 @@ export class VideoObject extends DrawingObject {
     this._serializedCache = null;
   }
 
+  toggleLoop() {
+    this.isLooping = !this.isLooping;
+    this.video.loop = this.isLooping;
+    this._serializedCache = null;
+    return this.isLooping;
+  }
+
+  destroy() {
+    if (this.video) {
+      this.video.pause();
+      this.video.onplay = null;
+      this.video.onpause = null;
+      this.video.onloadeddata = null;
+      this.video.onseeked = null;
+      this.video.oncanplay = null;
+      this.video.src = "";
+      try {
+        this.video.load();
+      } catch (e) {
+        // ignore load errors on empty src
+      }
+    }
+  }
+
   clone() {
     const cloned = new VideoObject(
       this.id,
@@ -442,6 +466,15 @@ export class LiveEmbedObject extends DrawingObject {
 
   destroy() {
     if (this._iframeEl) {
+      try {
+        const bcId = this._iframeEl.browsingContext?.id;
+        const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
+        if (bcId != null && chromeWin?.gZenBoard?.unregisterLiveEmbedBC) {
+          chromeWin.gZenBoard.unregisterLiveEmbedBC(bcId);
+        }
+      } catch (e) {
+        console.warn("ZenBoard: Failed to unregister BC ID on destroy", e);
+      }
       this._iframeEl.remove();
       this._iframeEl = null;
     }
@@ -449,6 +482,7 @@ export class LiveEmbedObject extends DrawingObject {
       this._wrapperEl.remove();
       this._wrapperEl = null;
     }
+    window.dispatchEvent(new CustomEvent("ZenBoardLiveEmbedDestroyed", { detail: this }));
   }
 
   clone() {

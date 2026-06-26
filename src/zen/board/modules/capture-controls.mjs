@@ -27,6 +27,10 @@ let animationFrameId = null;
 let _globalSyncId = null;
 export const activeLiveEmbeds = new Set();
 
+window.addEventListener("ZenBoardLiveEmbedDestroyed", e => {
+  activeLiveEmbeds.delete(e.detail);
+});
+
 export function notifyTransformChanged() {
   // clean up any stale live embeds that are no longer in the scene
   for (const obj of activeLiveEmbeds) {

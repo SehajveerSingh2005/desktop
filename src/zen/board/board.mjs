@@ -205,7 +205,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   zoomInBtn.addEventListener("click", () => zoom(1));
   zoomOutBtn.addEventListener("click", () => zoom(-1));
 
-  window.addEventListener("ZenBoardVideoFrame", () => redrawCanvas());
 
   window.addEventListener("ZenBoardCaptureAdded", async e => {
     if (e.detail?.boardId !== getState().boardId) {

@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { getState } from "./state.mjs";
+import { getState, bumpSceneGeneration, triggerSave } from "./state.mjs";
 import { redrawCanvas } from "./canvas.mjs";
+import { pushHistory } from "./history.mjs";
 
 let overlayContainer = null;
 let currentVideoObject = null;
@@ -141,8 +142,11 @@ function initDOM() {
       e.stopPropagation();
       const obj = getVideoObject();
       if (obj) {
-        obj.video.loop = !obj.video.loop;
+        obj.toggleLoop();
         loopBtn.classList.toggle("active", obj.video.loop);
+        bumpSceneGeneration();
+        triggerSave();
+        pushHistory();
       }
     };
     loopBtn.onmousedown = e => e.stopPropagation();
@@ -159,6 +163,9 @@ function initDOM() {
       if (obj) {
         obj.toggleMute();
         updateVolumeUI(obj);
+        bumpSceneGeneration();
+        triggerSave();
+        pushHistory();
       }
     };
 
@@ -245,6 +252,9 @@ function initDOM() {
       window.addEventListener("mouseup", e => {
         if (isDraggingVolume) {
           isDraggingVolume = false;
+          bumpSceneGeneration();
+          triggerSave();
+          pushHistory();
           // Hide slider if mouse is already outside
           const rect = overlayContainer.getBoundingClientRect();
           const isInside =

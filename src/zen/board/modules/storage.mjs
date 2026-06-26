@@ -25,6 +25,7 @@ import {
 import { saveAsset, getAssetURL } from "./assets.mjs";
 import { smoothPoints } from "./smoothing.mjs";
 import { wireVideoPlaybackEvents } from "./media.mjs";
+import { redrawCanvas } from "./canvas.mjs";
 
 // The URL param key used to link a tab to a board ID
 const BOARD_ID_PARAM = "id";
@@ -431,9 +432,7 @@ const {
       result.video.volume = result.volume;
       result.video.loop = result.isLooping;
 
-      const forceRedraw = () =>
-        window.dispatchEvent(new CustomEvent("ZenBoardVideoFrame"));
-      wireVideoPlaybackEvents(videoEl, forceRedraw, () => result.visible);
+      wireVideoPlaybackEvents(videoEl, redrawCanvas, () => result.visible);
 
       return result;
     }

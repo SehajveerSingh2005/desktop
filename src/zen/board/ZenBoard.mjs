@@ -409,6 +409,12 @@ export class ZenBoard {
     }
   }
 
+  unregisterLiveEmbedBC(bcId) {
+    if (bcId != null) {
+      zenBoardLiveEmbedBCIds.delete(Number(bcId));
+    }
+  }
+
   listenForCapture(chromeWindow) {
     if (!chromeWindow) {
       return;

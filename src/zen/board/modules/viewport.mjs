@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { canvas, redrawCanvas, redrawCanvasImmediate, setTransform } from "./canvas.mjs";
+import { redrawCanvas, redrawCanvasImmediate, setTransform } from "./canvas.mjs";
 import { getState } from "./state.mjs";
 import {
   ZOOM_LERP_FACTOR, ZOOM_CONVERGENCE_SCALE, ZOOM_CONVERGENCE_OFFSET,
@@ -89,10 +89,6 @@ export function startWheelAnimation() {
 
 export function stopWheelAnimation() {
   isAnimating = false;
-}
-
-export function isWheelAnimating() {
-  return isAnimating;
 }
 
 // ── Button zoom ─────────────────────────────────────────────────────────────

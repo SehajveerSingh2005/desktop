@@ -2,14 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { redrawCanvas } from "./canvas.mjs";
+import { redrawCanvas, getTransformedPoint } from "./canvas.mjs";
 import { getState, setState, triggerSaveImmediate } from "./state.mjs";
 import { MAX_MEDIA_WIDTH } from "./constants.mjs";
 import { addToScene, generateId } from "./scene.mjs";
 import { ImageObject, VideoObject, wireVideoPlaybackEvents } from "./media.mjs";
 import { selectTool } from "./ui.mjs";
 import { pushHistory } from "./history.mjs";
-import { getTransformedPoint } from "./canvas.mjs";
 
 function clampToMaxWidth(w, h) {
   if (w > MAX_MEDIA_WIDTH) {

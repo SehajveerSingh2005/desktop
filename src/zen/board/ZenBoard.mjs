@@ -9,13 +9,9 @@ import {
   appendCaptureToBoard,
 } from "./chrome-db.mjs";
 
-// ── Native filesystem asset storage ──────────────────────────────────────────
-// Captures (and any other blobs) are stored as files in the user's profile
-// directory instead of as blobs in IndexedDB.
-// This avoids SHA-256 hashing in JavaScript (no ArrayBuffer allocation),
-// keeps IndexedDB tiny, and enables direct file:// streaming.
-
 const ASSETS_FOLDER_NAME = "zen-board-assets";
+const BOARD_URL = "chrome://browser/content/zen-board/board.html";
+
 let _nativeAssetsFolder = null;
 
 async function getNativeAssetsFolder() {
@@ -28,48 +24,28 @@ async function getNativeAssetsFolder() {
   return folder;
 }
 
-// NOTE: This function is duplicated in modules/assets.mjs.
-// Since ZenBoard.mjs runs in the parent browser chrome process and assets.mjs
-// runs in the content process, they cannot easily share modules. Keep maps in sync.
+// Duplicated in modules/assets.mjs — cross-process boundary prevents sharing.
 function mimeToExt(mimeType) {
-  const map = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/gif": "gif",
-    "image/webp": "webp",
-    "image/avif": "avif",
-    "image/svg+xml": "svg",
-    "video/mp4": "mp4",
-    "video/webm": "webm",
-    "video/ogg": "ogv",
-    "video/quicktime": "mov",
+  const MIME_MAP = {
+    "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
+    "image/gif": "gif", "image/webp": "webp", "image/avif": "avif",
+    "image/svg+xml": "svg", "video/mp4": "mp4", "video/webm": "webm",
+    "video/ogg": "ogv", "video/quicktime": "mov",
   };
-  return map[mimeType] || "bin";
+  return MIME_MAP[mimeType] || "bin";
 }
 
-/**
- * Write a Blob to the zen-board-assets folder. Returns the filename.
- *
- * @param {Blob} blob The blob to save.
- */
 async function saveAssetToFilesystem(blob) {
   const folder = await getNativeAssetsFolder();
   const ext = mimeToExt(blob.type);
   const filename = `${crypto.randomUUID()}.${ext}`;
   const destPath = PathUtils.join(folder, filename);
-  const buffer = await blob.arrayBuffer();
-  await IOUtils.write(destPath, new Uint8Array(buffer));
+  await IOUtils.write(destPath, new Uint8Array(await blob.arrayBuffer()));
   return filename;
 }
 
-/**
- * Delete a board record and its asset files using a chrome-side DB.
- * Also cleans up orphaned filesystem assets.
- *
- * @param {IDBDatabase} db An open DB connection.
- * @param {string} id The board UUID to delete.
- */
+// ── Board deletion with orphaned asset cleanup ─────────────────────────────
+
 async function deleteBoardFromDB(db, id) {
   const board = await new Promise((resolve, reject) => {
     const tx = db.transaction("boards", "readonly");
@@ -130,84 +106,91 @@ async function deleteBoardFromDB(db, id) {
   }
 }
 
-async function doAddToBoard(
-  chromeWindow,
-  boardId,
-  boardTitle,
-  blob,
-  sourceUrl,
-  region
-) {
+// ── Add capture to board ────────────────────────────────────────────────────
+
+function findBoardTab(gb, boardId) {
+  if (!gb) {
+    return null;
+  }
+  return Array.from(gb.tabs).find(t => {
+    try {
+      return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`);
+    } catch {
+      return false;
+    }
+  }) || null;
+}
+
+function getSpawnPosition(chromeWindow, existingTab) {
+  if (existingTab?.linkedBrowser?.contentWindow) {
+    const win = existingTab.linkedBrowser.contentWindow;
+    try {
+      if (win.getTransformedPoint && win.getState) {
+        const { x, y } = win.getTransformedPoint(win.innerWidth / 2, win.innerHeight / 2);
+        return { x, y };
+      }
+      return { x: win.innerWidth / 2, y: win.innerHeight / 2 };
+    } catch {
+      return { x: (win.innerWidth || 1280) / 2, y: (win.innerHeight || 800) / 2 };
+    }
+  }
+  return {
+    x: (chromeWindow.innerWidth || 1280) / 2,
+    y: (chromeWindow.innerHeight || 800) / 2,
+  };
+}
+
+function buildCaptureObj(spawnX, spawnY, region, sourceUrl, assetFilename) {
+  return {
+    type: "capture",
+    id: crypto.randomUUID(),
+    x: spawnX - (region?.width || 800) / 2,
+    y: spawnY - (region?.height || 600) / 2,
+    width: region?.width || 800,
+    height: region?.height || 600,
+    sourceUrl,
+    sourceRegion: region ? {
+      left: region.left || 0,
+      top: region.top || 0,
+      width: region.width,
+      height: region.height,
+      devicePixelRatio: region.devicePixelRatio || 1,
+      viewportWidth: region.viewportWidth || 0,
+      viewportHeight: region.viewportHeight || 0,
+    } : null,
+    _assetFile: assetFilename,
+  };
+}
+
+function pinNewBoardTab(gb, chromeWindow, boardUrl, boardId) {
+  const tab = gb.addTrustedTab(boardUrl, {
+    triggeringPrincipal: chromeWindow.Services.scriptSecurityManager.getSystemPrincipal(),
+    _forZenEmptyTab: true,
+  });
+  tab.removeAttribute("zen-empty-tab");
+  tab.setAttribute("zen-board-tab", "true");
+  tab.setAttribute("zen-board-id", boardId);
+  gb.pinTab(tab);
+  gb.selectedTab = tab;
+}
+
+async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, region) {
   try {
     const db = await openChromeDB(chromeWindow);
-    // Save the capture PNG to the native filesystem (no hashing, no IDB blob storage)
     const assetFilename = await saveAssetToFilesystem(blob);
 
     const gb = chromeWindow.gBrowser;
-    const existingTab = gb
-      ? Array.from(gb.tabs).find(t => {
-          try {
-            return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`);
-          } catch {
-            return false;
-          }
-        })
-      : null;
+    const existingTab = findBoardTab(gb, boardId);
+    const { x: spawnX, y: spawnY } = getSpawnPosition(chromeWindow, existingTab);
 
-    let spawnX = 0;
-    let spawnY = 0;
-    if (existingTab && existingTab.linkedBrowser?.contentWindow) {
-      const win = existingTab.linkedBrowser.contentWindow;
-      try {
-        if (win.getTransformedPoint && win.getState) {
-          const { x, y } = win.getTransformedPoint(
-            win.innerWidth / 2,
-            win.innerHeight / 2
-          );
-          spawnX = x;
-          spawnY = y;
-        } else {
-          spawnX = win.innerWidth / 2;
-          spawnY = win.innerHeight / 2;
-        }
-      } catch (e) {
-        spawnX = (win.innerWidth || 1280) / 2;
-        spawnY = (win.innerHeight || 800) / 2;
-      }
-    } else {
-      spawnX = (chromeWindow.innerWidth || 1280) / 2;
-      spawnY = (chromeWindow.innerHeight || 800) / 2;
-    }
-
-    const captureObj = {
-      type: "capture",
-      id: crypto.randomUUID(),
-      x: spawnX - (region?.width || 800) / 2,
-      y: spawnY - (region?.height || 600) / 2,
-      width: region?.width || 800,
-      height: region?.height || 600,
-      sourceUrl,
-      sourceRegion: region
-        ? {
-            left: region.left || 0,
-            top: region.top || 0,
-            width: region.width,
-            height: region.height,
-            devicePixelRatio: region.devicePixelRatio || 1,
-            viewportWidth: region.viewportWidth || 0,
-            viewportHeight: region.viewportHeight || 0,
-          }
-        : null,
-      _assetFile: assetFilename, // filesystem reference (new)
-    };
+    const captureObj = buildCaptureObj(spawnX, spawnY, region, sourceUrl, assetFilename);
     await appendCaptureToBoard(db, boardId, captureObj);
 
-    // Open or notify the tab
-    const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
     if (!gb) {
       return;
     }
 
+    const boardUrl = `${BOARD_URL}?id=${boardId}`;
     if (existingTab) {
       gb.selectedTab = existingTab;
       existingTab.linkedBrowser.contentWindow?.dispatchEvent(
@@ -217,30 +200,54 @@ async function doAddToBoard(
         )
       );
     } else {
-      const tab = gb.addTrustedTab(boardUrl, {
-        triggeringPrincipal:
-          chromeWindow.Services.scriptSecurityManager.getSystemPrincipal(),
-        _forZenEmptyTab: true,
-      });
-      tab.removeAttribute("zen-empty-tab");
-      tab.setAttribute("zen-board-tab", "true");
-      tab.setAttribute("zen-board-id", boardId);
-      gb.pinTab(tab);
-      gb.selectedTab = tab;
+      pinNewBoardTab(gb, chromeWindow, boardUrl, boardId);
     }
   } catch (e) {
     console.error("ZenBoard: Add to Board failed", e);
   }
 }
 
-// BC IDs of <xul:browser> elements created inside Zen Board pages for live embeds.
-// The board page registers IDs here immediately after appendChild so the observer
-// can positively identify the HTTP load without relying on embedderElement access
-// (which may be null/inaccessible across process boundaries at observer-fire time).
+// ── XFO/CSP observer for live embeds ────────────────────────────────────────
+
 const zenBoardLiveEmbedBCIds = new Set();
 
+function isZenBoardLoad(loadInfo) {
+  if (!loadInfo) {
+    return false;
+  }
+
+  const policyType = loadInfo.externalContentPolicyType;
+  if (
+    policyType !== Ci.nsIContentPolicy.TYPE_SUBDOCUMENT &&
+    policyType !== Ci.nsIContentPolicy.TYPE_DOCUMENT
+  ) {
+    return false;
+  }
+
+  const loadBCId = Number(loadInfo.browsingContextID);
+  if (zenBoardLiveEmbedBCIds.has(loadBCId)) {
+    return true;
+  }
+
+  const topDocURI = loadInfo.browsingContext?.top?.currentWindowGlobal?.documentURI?.spec;
+  if (topDocURI?.startsWith(BOARD_URL)) {
+    return true;
+  }
+
+  const loadingSpec = loadInfo.loadingPrincipal?.URI?.spec;
+  if (loadingSpec?.startsWith(BOARD_URL)) {
+    return true;
+  }
+
+  const embedderDocURL = loadInfo.browsingContext?.embedderElement?.ownerDocument?.URL;
+  if (embedderDocURL?.startsWith(BOARD_URL)) {
+    return true;
+  }
+
+  return false;
+}
+
 const ZenBoardXFOObserver = {
-  // eslint-disable-next-line complexity
   observe(subject, topic, _data) {
     if (
       topic !== "http-on-examine-response" &&
@@ -250,68 +257,30 @@ const ZenBoardXFOObserver = {
     ) {
       return;
     }
+
+    if (topic === "http-on-modify-request") {
+      return;
+    }
+
     try {
       const channel = subject.QueryInterface(Ci.nsIHttpChannel);
-      const loadInfo = channel.loadInfo;
-      if (!loadInfo) {
-        return;
-      }
-
-      const policyType = loadInfo.externalContentPolicyType;
-      const nsICP = Ci.nsIContentPolicy;
-      if (
-        policyType !== nsICP.TYPE_SUBDOCUMENT &&
-        policyType !== nsICP.TYPE_DOCUMENT
-      ) {
+      if (!isZenBoardLoad(channel.loadInfo)) {
         return;
       }
 
       const uriSpec = channel.URI?.spec ?? "";
-
-      // Skip the rest for requests (we only strip headers on responses)
-      if (topic === "http-on-modify-request") {
-        return;
+      try {
+        channel.setResponseHeader("X-Frame-Options", "", false);
+      } catch (e) {
+        console.warn("ZenBoard: Failed to strip X-Frame-Options", uriSpec, e);
       }
-
-      // ── Identify whether the load belongs to the Zen Board ──────────
-      // Path A — BC ID registration:
-      //   Convert to Number on BOTH sides — browsingContextID can be a
-      //   64-bit uint that JS may represent as a different numeric type.
-      const loadBCId = Number(loadInfo.browsingContextID);
-      const isRegisteredEmbed = zenBoardLiveEmbedBCIds.has(loadBCId);
-
-      // Path B — topmost BC document is board.html (regular iframe in board):
-      const topDocURI =
-        loadInfo.browsingContext?.top?.currentWindowGlobal?.documentURI?.spec;
-      // Path C — loading principal URI matches board page:
-      const loadingSpec = loadInfo.loadingPrincipal?.URI?.spec;
-      // Path D — embedder element's owner document URL:
-      const embedderDocURL =
-        loadInfo.browsingContext?.embedderElement?.ownerDocument?.URL;
-      // Path E is intentionally omitted: stripping XFO/CSP for any
-      // system-principal parent would be an overly broad security bypass.
-
-      const BOARD_URL = "chrome://browser/content/zen-board/board.html";
-      const isZenBoard =
-        isRegisteredEmbed ||
-        (topDocURI && topDocURI.startsWith(BOARD_URL)) ||
-        (loadingSpec && loadingSpec.startsWith(BOARD_URL)) ||
-        (embedderDocURL && embedderDocURL.startsWith(BOARD_URL));
-
-      if (isZenBoard) {
-        try {
-          channel.setResponseHeader("X-Frame-Options", "", false);
-        } catch (e) {
-          console.warn("ZenBoard: Failed to strip X-Frame-Options", uriSpec, e);
+      try {
+        const csp = channel.getResponseHeader("Content-Security-Policy");
+        if (csp) {
+          channel.setResponseHeader("Content-Security-Policy", "", false);
         }
-        try {
-          const csp = channel.getResponseHeader("Content-Security-Policy");
-          if (csp) {
-            channel.setResponseHeader("Content-Security-Policy", "", false);
-          }
-        } catch (e) {
-          console.warn("ZenBoard: Failed to strip Content-Security-Policy", uriSpec, e);
-        }
+      } catch (e) {
+        console.warn("ZenBoard: Failed to strip Content-Security-Policy", uriSpec, e);
       }
     } catch (e) {
       console.warn("ZenBoard: XFO observer error", topic, e);
@@ -326,20 +295,83 @@ function registerObserver(services) {
   }
   try {
     services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-response");
-    services.obs.addObserver(
-      ZenBoardXFOObserver,
-      "http-on-examine-merged-response"
-    );
-    services.obs.addObserver(
-      ZenBoardXFOObserver,
-      "http-on-examine-cached-response"
-    );
+    services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-merged-response");
+    services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-cached-response");
     services.obs.addObserver(ZenBoardXFOObserver, "http-on-modify-request");
     xfoObserverRegistered = true;
   } catch (e) {
     console.warn("ZenBoard: Failed to register XFO observer", e);
   }
 }
+
+// ── Tab helpers ─────────────────────────────────────────────────────────────
+
+function getBoardIdFromTab(tab) {
+  const linkedBrowser = tab.linkedBrowser;
+  let boardId = tab.getAttribute("zen-board-id") ||
+                linkedBrowser?.getAttribute("zen-board-id");
+
+  if (!boardId) {
+    const urlSpec = linkedBrowser?.currentURI?.spec;
+    if (urlSpec) {
+      try {
+        boardId = new URL(urlSpec).searchParams.get("id");
+      } catch {
+        const match = urlSpec.match(/[?&]id=([^&#]+)/);
+        if (match) {
+          boardId = decodeURIComponent(match[1]);
+        }
+      }
+    }
+  }
+  return boardId;
+}
+
+function isBoardTab(tab) {
+  const linkedBrowser = tab.linkedBrowser;
+  if (tab.hasAttribute("zen-board-tab") || linkedBrowser?.hasAttribute("zen-board-tab")) {
+    return true;
+  }
+  const urlSpec = linkedBrowser?.currentURI?.spec;
+  return urlSpec?.startsWith(BOARD_URL) || false;
+}
+
+function isBoardOpenElsewhere(chromeWindow, closedTab, boardId) {
+  const windows = Services.wm.getEnumerator("navigator:browser");
+  while (windows.hasMoreElements()) {
+    const win = windows.getNext();
+    const gb = win.gBrowser;
+    if (!gb) {
+      continue;
+    }
+    for (const otherTab of gb.tabs) {
+      if (otherTab === closedTab) {
+        continue;
+      }
+      if (getBoardIdFromTab(otherTab) === boardId) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function isBoardBookmarked(boardId) {
+  try {
+    const placesUtils = ChromeUtils.importESModule(
+      "resource://gre/modules/PlacesUtils.sys.mjs"
+    ).PlacesUtils;
+    const boardUrl = `${BOARD_URL}?id=${boardId}`;
+    return await placesUtils.bookmarks
+      .fetch({ url: boardUrl })
+      .then(bm => !!bm)
+      .catch(() => false);
+  } catch {
+    return false;
+  }
+}
+
+// ── ZenBoard class ──────────────────────────────────────────────────────────
 
 export class ZenBoard {
   async openZenBoard(win) {
@@ -356,13 +388,12 @@ export class ZenBoard {
       db.close();
     } catch (e) {
       console.error("[ZenBoard] Failed to create new board in openZenBoard", e);
-      return; // Don't open a tab for a board that can't be persisted
+      return;
     }
 
-    const url = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
+    const url = `${BOARD_URL}?id=${boardId}`;
     const tab = win.gBrowser.addTrustedTab(url, {
-      triggeringPrincipal:
-        win.Services.scriptSecurityManager.getSystemPrincipal(),
+      triggeringPrincipal: win.Services.scriptSecurityManager.getSystemPrincipal(),
       _forZenEmptyTab: true,
     });
     tab.removeAttribute("zen-empty-tab");
@@ -372,35 +403,19 @@ export class ZenBoard {
     win.gBrowser.selectedTab = tab;
   }
 
-  /**
-   * Called by the board page (capture-controls.js) when a live-embed <xul:browser>
-   * is created. Stores the browsing context ID so the HTTP observer can strip
-   * X-Frame-Options / CSP headers for that specific load.
-   *
-   * @param {number} bcId  The browsingContext.id of the injected browser element.
-   */
   registerLiveEmbedBC(bcId) {
     if (bcId != null) {
       zenBoardLiveEmbedBCIds.add(Number(bcId));
     }
   }
 
-  /**
-   * Register a listener on the given chrome window for the ZenBoard:CaptureReady
-   * event dispatched by ScreenshotsUtils when the user clicks "Add to Board".
-   * Opens the board picker popup as a dialog.
-   *
-   * @param {Window} chromeWindow The browser chrome window to attach to.
-   */
   listenForCapture(chromeWindow) {
     if (!chromeWindow) {
       return;
     }
 
-    // Register observer safely using the guaranteed chromeWindow.Services object
     registerObserver(chromeWindow.Services);
 
-    // Avoid double registration
     if (chromeWindow._zenBoardCaptureListenerAdded) {
       return;
     }
@@ -413,12 +428,11 @@ export class ZenBoard {
       }
 
       const doc = chromeWindow.document;
-      let popupSet = doc.getElementById("mainPopupSet");
+      const popupSet = doc.getElementById("mainPopupSet");
       if (!popupSet) {
         return;
       }
 
-      // Re-use or create the menupopup
       let menupopup = doc.getElementById("zen-board-capture-menupopup");
       if (menupopup) {
         menupopup.remove();
@@ -428,8 +442,6 @@ export class ZenBoard {
       menupopup.setAttribute("id", "zen-board-capture-menupopup");
       menupopup.setAttribute("style", "max-height: 400px; overflow-y: auto;");
 
-      // Fetch boards (using chrome-side DB so this works before any board tab
-      // is open — the capture picker runs entirely in the chrome process).
       const db = await openChromeDB(chromeWindow);
       const boards = await listBoardsFromDB(db);
       db.close();
@@ -441,13 +453,11 @@ export class ZenBoard {
           { id: "zen-board-untitled-board" },
           { id: "zen-board-create-new-board" },
         ]);
-        if (translated) {
-          if (translated[0]) {
-            untitledLabel = translated[0];
-          }
-          if (translated[1]) {
-            createLabel = translated[1];
-          }
+        if (translated?.[0]) {
+          untitledLabel = translated[0];
+        }
+        if (translated?.[1]) {
+          createLabel = translated[1];
         }
       } catch (e) {
         console.error("ZenBoard: Failed to translate popup labels", e);
@@ -455,53 +465,31 @@ export class ZenBoard {
 
       if (boards.length) {
         for (const board of boards) {
-          let item = doc.createXULElement("menuitem");
+          const item = doc.createXULElement("menuitem");
           item.setAttribute("class", "menuitem-iconic");
-          let boardTitle = board.title || "Untitled Board";
-          if (boardTitle === "Untitled Board") {
-            boardTitle = untitledLabel;
-          }
+          const boardTitle = board.title === "Untitled Board"
+            ? untitledLabel
+            : board.title || untitledLabel;
           item.setAttribute("label", boardTitle);
-          // Use a generic icon, like the page icon
-          item.setAttribute(
-            "image",
-            "chrome://browser/skin/zen-icons/canvas.svg"
-          );
+          item.setAttribute("image", "chrome://browser/skin/zen-icons/canvas.svg");
           item.addEventListener("command", () => {
-            doAddToBoard(
-              chromeWindow,
-              board.id,
-              board.title,
-              blob,
-              sourceUrl,
-              region
-            );
+            doAddToBoard(chromeWindow, board.id, board.title, blob, sourceUrl, region);
           });
           menupopup.appendChild(item);
         }
         menupopup.appendChild(doc.createXULElement("menuseparator"));
       }
 
-      let createItem = doc.createXULElement("menuitem");
+      const createItem = doc.createXULElement("menuitem");
       createItem.setAttribute("label", createLabel);
       createItem.setAttribute("class", "menuitem-iconic");
-      createItem.setAttribute(
-        "image",
-        "chrome://browser/skin/zen-icons/plus.svg"
-      );
+      createItem.setAttribute("image", "chrome://browser/skin/zen-icons/plus.svg");
       createItem.addEventListener("command", async () => {
         try {
           const newDb = await openChromeDB(chromeWindow);
           const id = await createBoardInDB(newDb, "Untitled Board");
           newDb.close();
-          doAddToBoard(
-            chromeWindow,
-            id,
-            "Untitled Board",
-            blob,
-            sourceUrl,
-            region
-          );
+          doAddToBoard(chromeWindow, id, "Untitled Board", blob, sourceUrl, region);
         } catch (e) {
           console.error(e);
         }
@@ -510,50 +498,19 @@ export class ZenBoard {
 
       popupSet.appendChild(menupopup);
 
-      // Open near the anchor point!
-      const x = anchor
-        ? anchor.x
-        : chromeWindow.screenX + chromeWindow.outerWidth / 2;
-      const y = anchor
-        ? anchor.y
-        : chromeWindow.screenY + chromeWindow.outerHeight / 2;
+      const x = anchor?.x ?? chromeWindow.screenX + chromeWindow.outerWidth / 2;
+      const y = anchor?.y ?? chromeWindow.screenY + chromeWindow.outerHeight / 2;
       menupopup.openPopupAtScreen(x, y, true);
     };
 
     const tabCloseHandler = async event => {
       const tab = event.target;
-      const linkedBrowser = tab.linkedBrowser;
-      const urlSpec = linkedBrowser?.currentURI?.spec;
-
-      // Retrieve the board ID using multiple fallbacks.
-      // We check:
-      // 1. The tab element's "zen-board-id" attribute
-      // 2. The linkedBrowser element's "zen-board-id" attribute (updated by board.mjs in e10s content process)
-      // 3. The query parameters of the tab's current URI
-      let boardId = tab.getAttribute("zen-board-id") ||
-                    linkedBrowser?.getAttribute("zen-board-id");
-      
-      if (!boardId && urlSpec) {
-        try {
-          const url = new URL(urlSpec);
-          boardId = url.searchParams.get("id");
-        } catch (e) {
-          const match = urlSpec.match(/[?&]id=([^&#]+)/);
-          if (match) {
-            boardId = decodeURIComponent(match[1]);
-          }
-        }
+      if (!isBoardTab(tab)) {
+        return;
       }
 
-      const isBoardTab =
-        tab.hasAttribute("zen-board-tab") ||
-        linkedBrowser?.hasAttribute("zen-board-tab") ||
-        (urlSpec &&
-          urlSpec.startsWith(
-            "chrome://browser/content/zen-board/board.html"
-          ));
-
-      if (!isBoardTab || !boardId) {
+      const boardId = getBoardIdFromTab(tab);
+      if (!boardId) {
         return;
       }
 
@@ -561,65 +518,14 @@ export class ZenBoard {
         return;
       }
 
-      // Check if this board is still open in another tab or window
-      let isStillOpen = false;
-      const windows = Services.wm.getEnumerator("navigator:browser");
-      while (windows.hasMoreElements()) {
-        const win = windows.getNext();
-        const gb = win.gBrowser;
-        if (gb) {
-          for (const otherTab of gb.tabs) {
-            if (otherTab === tab) {
-              continue;
-            }
-            const otherUrl = otherTab.linkedBrowser?.currentURI?.spec;
-            let otherBoardId = otherTab.getAttribute("zen-board-id") ||
-                               otherTab.linkedBrowser?.getAttribute("zen-board-id");
-            if (!otherBoardId && otherUrl) {
-              try {
-                const url = new URL(otherUrl);
-                otherBoardId = url.searchParams.get("id");
-              } catch (e) {
-                const match = otherUrl.match(/[?&]id=([^&#]+)/);
-                if (match) {
-                  otherBoardId = decodeURIComponent(match[1]);
-                }
-              }
-            }
-            if (otherBoardId === boardId) {
-              isStillOpen = true;
-              break;
-            }
-          }
-        }
-        if (isStillOpen) {
-          break;
-        }
-      }
-
-      if (isStillOpen) {
+      if (isBoardOpenElsewhere(chromeWindow, tab, boardId)) {
         return;
       }
 
-      // Safety check: don't delete bookmarked boards
-      try {
-        const placesUtils = ChromeUtils.importESModule(
-          "resource://gre/modules/PlacesUtils.sys.mjs"
-        ).PlacesUtils;
-        const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
-        const isBookmarked = await placesUtils.bookmarks
-          .fetch({ url: boardUrl })
-          .then(bm => !!bm)
-          .catch(() => false);
-        
-        if (isBookmarked) {
-          return;
-        }
-      } catch (bookmarkErr) {
-        console.error("[ZenBoard] Failed to check bookmarks", bookmarkErr);
+      if (await isBoardBookmarked(boardId)) {
+        return;
       }
 
-      // Delete the board using the chrome window's indexedDB.
       try {
         const db = await openChromeDB(chromeWindow);
         await deleteBoardFromDB(db, boardId);
@@ -634,12 +540,8 @@ export class ZenBoard {
       if (!tab || tab !== selectedTab) {
         return;
       }
-      const urlSpec = tab.linkedBrowser?.currentURI?.spec;
-      const isBoardTab = tab.hasAttribute("zen-board-tab") ||
-                         tab.linkedBrowser?.hasAttribute("zen-board-tab") ||
-                         urlSpec?.startsWith("chrome://browser/content/zen-board/board.html");
-
-      chromeWindow.document.getElementById("urlbar")?.toggleAttribute("zen-board-active", !!isBoardTab);
+      const isBoard = isBoardTab(tab);
+      chromeWindow.document.getElementById("urlbar")?.toggleAttribute("zen-board-active", isBoard);
     };
 
     const tabSelectHandler = event => updateUrlbarAttribute(event.target);
@@ -653,7 +555,7 @@ export class ZenBoard {
       },
     };
 
-    // Wrap urlbar trim function to handle board URLs
+    // Wrap urlbar trim to hide chrome:// board URLs
     let currentTrim = null;
     let boardLabel = "Board";
     if (chromeWindow.document.l10n) {
@@ -671,8 +573,8 @@ export class ZenBoard {
       currentTrim = chromeWindow.gURLBar._zenTrimURL;
       Object.defineProperty(chromeWindow.gURLBar, "_zenTrimURL", {
         get() {
-          return function(aURL) {
-            if (aURL?.startsWith("chrome://browser/content/zen-board/board.html")) {
+          return function (aURL) {
+            if (aURL?.startsWith(BOARD_URL)) {
               return boardLabel;
             }
             return currentTrim ? currentTrim.call(this, aURL) : aURL;
@@ -685,7 +587,7 @@ export class ZenBoard {
       });
     }
 
-    // Wrap copy actions to protect board URLs from leakage
+    // Wrap copy actions to prevent leaking chrome:// board URLs
     let originalCopy = null;
     let originalCopyMarkdown = null;
     if (chromeWindow.gZenCommonActions && !chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
@@ -693,17 +595,17 @@ export class ZenBoard {
       originalCopy = chromeWindow.gZenCommonActions.copyCurrentURLToClipboard;
       originalCopyMarkdown = chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard;
 
-      chromeWindow.gZenCommonActions.copyCurrentURLToClipboard = function() {
+      chromeWindow.gZenCommonActions.copyCurrentURLToClipboard = function () {
         const [currentUrl] = chromeWindow.gURLBar.zenStrippedURI;
-        if (currentUrl?.displaySpec?.startsWith("chrome://browser/content/zen-board/board.html")) {
+        if (currentUrl?.displaySpec?.startsWith(BOARD_URL)) {
           return;
         }
         originalCopy.apply(this);
       };
 
-      chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard = function() {
+      chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard = function () {
         const [currentUrl] = chromeWindow.gURLBar.zenStrippedURI;
-        if (currentUrl?.displaySpec?.startsWith("chrome://browser/content/zen-board/board.html")) {
+        if (currentUrl?.displaySpec?.startsWith(BOARD_URL)) {
           return;
         }
         originalCopyMarkdown.apply(this);
@@ -725,39 +627,32 @@ export class ZenBoard {
     chromeWindow.gBrowser?.addTabsProgressListener(progressListener);
     chromeWindow.gURLBar?.inputField?.addEventListener("focus", focusHandler);
 
-    // Initial check
     if (chromeWindow.gBrowser?.selectedTab) {
       updateUrlbarAttribute(chromeWindow.gBrowser.selectedTab);
     }
 
-    // Clean up when the window is closed
-    chromeWindow.addEventListener(
-      "unload",
-      () => {
-        chromeWindow.removeEventListener("ZenBoard:CaptureReady", handler);
-        chromeWindow.removeEventListener("TabClose", tabCloseHandler);
-        chromeWindow.removeEventListener("TabSelect", tabSelectHandler);
-        chromeWindow.removeEventListener("TabAttrModified", tabAttrModifiedHandler);
-        chromeWindow.gBrowser?.removeTabsProgressListener(progressListener);
-        chromeWindow.gURLBar?.inputField?.removeEventListener("focus", focusHandler);
-        if (chromeWindow.gURLBar && chromeWindow.gURLBar._zenBoardTrimWrapped) {
-          delete chromeWindow.gURLBar._zenTrimURL;
-          chromeWindow.gURLBar._zenTrimURL = currentTrim;
-          delete chromeWindow.gURLBar._zenBoardTrimWrapped;
-        }
-        if (chromeWindow.gZenCommonActions && chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
-          chromeWindow.gZenCommonActions.copyCurrentURLToClipboard = originalCopy;
-          chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard = originalCopyMarkdown;
-          delete chromeWindow.gZenCommonActions._zenBoardCopyWrapped;
-        }
-        delete chromeWindow._zenBoardCaptureListenerAdded;
-      },
-      { once: true }
-    );
+    chromeWindow.addEventListener("unload", () => {
+      chromeWindow.removeEventListener("ZenBoard:CaptureReady", handler);
+      chromeWindow.removeEventListener("TabClose", tabCloseHandler);
+      chromeWindow.removeEventListener("TabSelect", tabSelectHandler);
+      chromeWindow.removeEventListener("TabAttrModified", tabAttrModifiedHandler);
+      chromeWindow.gBrowser?.removeTabsProgressListener(progressListener);
+      chromeWindow.gURLBar?.inputField?.removeEventListener("focus", focusHandler);
+      if (chromeWindow.gURLBar?._zenBoardTrimWrapped) {
+        delete chromeWindow.gURLBar._zenTrimURL;
+        chromeWindow.gURLBar._zenTrimURL = currentTrim;
+        delete chromeWindow.gURLBar._zenBoardTrimWrapped;
+      }
+      if (chromeWindow.gZenCommonActions?._zenBoardCopyWrapped) {
+        chromeWindow.gZenCommonActions.copyCurrentURLToClipboard = originalCopy;
+        chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard = originalCopyMarkdown;
+        delete chromeWindow.gZenCommonActions._zenBoardCopyWrapped;
+      }
+      delete chromeWindow._zenBoardCaptureListenerAdded;
+    }, { once: true });
   }
 }
 
-// Ensure the global instance is available if this script is loaded as a script
 if (typeof window !== "undefined") {
   window.gZenBoard = new ZenBoard();
 }

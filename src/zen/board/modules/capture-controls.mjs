@@ -12,13 +12,12 @@
 //   - Position is updated via updateCaptureControlsPosition()
 //   - show/hide are exported for use in select.js hit-testing
 
-import { getState, bumpSceneGeneration } from "./state.mjs";
+import { getState, bumpSceneGeneration, triggerSave, triggerSaveImmediate } from "./state.mjs";
 import { scene } from "./scene.mjs";
 import { redrawCanvas } from "./canvas.mjs";
 import { CaptureObject, LiveEmbedObject } from "./media.mjs";
 import { getAsset } from "./db.mjs";
 import { saveAsset, deleteAsset, ASSETS_FOLDER_NAME } from "./assets.mjs";
-import { triggerSave, triggerSaveImmediate } from "../board.mjs";
 import { pushHistory } from "./history.mjs";
 
 let overlayContainer = null;
@@ -222,160 +221,24 @@ function convertToLiveEmbed(captureObj) {
  */
 // eslint-disable-next-line complexity
 async function convertToStaticCapture(liveEmbedObj) {
-  // Hide the live controls immediately to signal the transition is happening
   if (playPauseBtn) {
     playPauseBtn.disabled = true;
     playPauseBtn.title = "Converting…";
   }
 
   try {
-    let blob = null;
-
-    const chromeWin =
-      window.docShell?.chromeEventHandler?.ownerDocument?.defaultView || window.top;
-    const captureOnPause =
-      chromeWin?.Services?.prefs?.getBoolPref(
-        "zen.board.live-embeds.capture-on-pause",
-        true
-      ) ?? true;
-
-    // 1. Try to take a screenshot of the live iframe via ScreenshotsUtils
-    if (liveEmbedObj._iframeEl && captureOnPause) {
-      try {
-        let screenshotsUtils = chromeWin?.ScreenshotsUtils;
-        if (!screenshotsUtils && chromeWin?.ChromeUtils) {
-          try {
-            const modules = chromeWin.ChromeUtils.importESModule(
-              "resource:///modules/ScreenshotsUtils.sys.mjs"
-            );
-            screenshotsUtils = modules.ScreenshotsUtils;
-          } catch (e1) {
-            const modules = chromeWin.ChromeUtils.importESModule(
-              "resource://app/modules/ScreenshotsUtils.sys.mjs"
-            );
-            screenshotsUtils = modules.ScreenshotsUtils;
-          }
-        }
-        if (!screenshotsUtils) {
-          throw new Error(
-            "ScreenshotsUtils not found in parent window or parent ChromeUtils"
-          );
-        }
-
-        const left = Math.round(liveEmbedObj.sourceRegion?.left || 0);
-        const topOffset = Math.round(liveEmbedObj.sourceRegion?.top || 0);
-        const width = Math.max(
-          1,
-          Math.round(liveEmbedObj.sourceRegion?.width || liveEmbedObj.width)
-        );
-        const height = Math.max(
-          1,
-          Math.round(liveEmbedObj.sourceRegion?.height || liveEmbedObj.height)
-        );
-        const region = {
-          left,
-          top: topOffset,
-          right: left + width,
-          bottom: topOffset + height,
-          width,
-          height,
-          devicePixelRatio:
-            liveEmbedObj.sourceRegion?.devicePixelRatio ||
-            window.devicePixelRatio ||
-            1,
-          viewportWidth: Math.max(
-            800,
-            liveEmbedObj.sourceRegion?.viewportWidth || 1280
-          ),
-          viewportHeight: Math.max(
-            600,
-            liveEmbedObj.sourceRegion?.viewportHeight || 800
-          ),
-        };
-        const canvas = await screenshotsUtils.createCanvas(
-          region,
-          liveEmbedObj._iframeEl
-        );
-        if (canvas) {
-          blob = await canvas.convertToBlob({ type: "image/png" });
-        }
-      } catch (e) {
-        console.warn(
-          "ZenBoard: Could not capture live iframe via ScreenshotsUtils",
-          e
-        );
-      }
-    }
-
-    // 2. Fall back to reading the existing filesystem file
-    if (!blob && liveEmbedObj._assetFile) {
-      try {
-        const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
-        const filePath = PathUtils.join(folder, liveEmbedObj._assetFile);
-        const data = await IOUtils.read(filePath);
-        blob = new Blob([data], { type: "image/png" });
-      } catch (e) {
-        console.warn(
-          "ZenBoard: Could not load capture asset from filesystem",
-          e
-        );
-      }
-    }
-
-    // 3. Fall back to legacy IDB asset
-    if (!blob && liveEmbedObj._assetHash) {
-      try {
-        blob = await getAsset(liveEmbedObj._assetHash);
-      } catch (e) {
-        console.warn(
-          "ZenBoard: Could not load legacy capture asset from DB",
-          e
-        );
-      }
-    }
-
-    // 4. Fall back to offscreen canvas filled with placeholder color
-    if (!blob) {
-      try {
-        const offscreen = new OffscreenCanvas(
-          Math.max(1, Math.round(liveEmbedObj.width)),
-          Math.max(1, Math.round(liveEmbedObj.height))
-        );
-        const ctx = offscreen.getContext("2d");
-        ctx.fillStyle = "#1a1a2e";
-        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-        blob = await offscreen.convertToBlob({ type: "image/png" });
-      } catch (e) {
-        console.error("ZenBoard: OffscreenCanvas fallback failed", e);
-      }
-    }
+    const blob = await captureFallbackChain(liveEmbedObj);
 
     let filename = liveEmbedObj._assetFile;
     if (blob) {
-      // Save the fresh blob to a new asset file
       const newFilename = await saveAsset(blob);
-      // Delete the old asset file if it's different and exists
       if (liveEmbedObj._assetFile && liveEmbedObj._assetFile !== newFilename) {
         await deleteAsset(liveEmbedObj._assetFile);
       }
       filename = newFilename;
     }
 
-    let img = new Image();
-    if (blob) {
-      const objUrl = URL.createObjectURL(blob);
-      await new Promise(res => {
-        img.onload = () => {
-          URL.revokeObjectURL(objUrl);
-          res();
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(objUrl);
-          res();
-        };
-        img.src = objUrl;
-      });
-    }
+    const img = await loadImageFromBlob(blob);
 
     const captureObj = new CaptureObject(
       liveEmbedObj.id,
@@ -390,7 +253,6 @@ async function convertToStaticCapture(liveEmbedObj) {
     captureObj._assetHash = null;
     captureObj.sourceRegion = liveEmbedObj.sourceRegion;
 
-    // Destroy iframe and replace in scene
     if (liveEmbedObj.destroy) {
       liveEmbedObj.destroy();
     }
@@ -400,7 +262,6 @@ async function convertToStaticCapture(liveEmbedObj) {
     }
 
     bumpSceneGeneration();
-
     showCaptureControls(captureObj);
     redrawCanvas();
     await triggerSaveImmediate();
@@ -416,6 +277,130 @@ async function convertToStaticCapture(liveEmbedObj) {
       playPauseBtn.title = "Go live";
     }
   }
+}
+
+async function captureFallbackChain(liveEmbedObj) {
+  const chromeWin =
+    window.docShell?.chromeEventHandler?.ownerDocument?.defaultView || window.top;
+  const captureOnPause =
+    chromeWin?.Services?.prefs?.getBoolPref(
+      "zen.board.live-embeds.capture-on-pause",
+      true
+    ) ?? true;
+
+  if (liveEmbedObj._iframeEl && captureOnPause) {
+    const blob = await captureViaScreenshotsUtils(chromeWin, liveEmbedObj);
+    if (blob) return blob;
+  }
+
+  if (liveEmbedObj._assetFile) {
+    const blob = await readFromFilesystem(liveEmbedObj._assetFile);
+    if (blob) return blob;
+  }
+
+  if (liveEmbedObj._assetHash) {
+    const blob = await readFromLegacyIDB(liveEmbedObj._assetHash);
+    if (blob) return blob;
+  }
+
+  return createPlaceholderBlob(liveEmbedObj.width, liveEmbedObj.height);
+}
+
+async function captureViaScreenshotsUtils(chromeWin, liveEmbedObj) {
+  try {
+    let screenshotsUtils = chromeWin?.ScreenshotsUtils;
+    if (!screenshotsUtils && chromeWin?.ChromeUtils) {
+      try {
+        const modules = chromeWin.ChromeUtils.importESModule(
+          "resource:///modules/ScreenshotsUtils.sys.mjs"
+        );
+        screenshotsUtils = modules.ScreenshotsUtils;
+      } catch {
+        const modules = chromeWin.ChromeUtils.importESModule(
+          "resource://app/modules/ScreenshotsUtils.sys.mjs"
+        );
+        screenshotsUtils = modules.ScreenshotsUtils;
+      }
+    }
+    if (!screenshotsUtils) {
+      throw new Error("ScreenshotsUtils not found");
+    }
+
+    const sr = liveEmbedObj.sourceRegion || {};
+    const left = Math.round(sr.left || 0);
+    const topOffset = Math.round(sr.top || 0);
+    const width = Math.max(1, Math.round(sr.width || liveEmbedObj.width));
+    const height = Math.max(1, Math.round(sr.height || liveEmbedObj.height));
+    const region = {
+      left,
+      top: topOffset,
+      right: left + width,
+      bottom: topOffset + height,
+      width,
+      height,
+      devicePixelRatio: sr.devicePixelRatio || window.devicePixelRatio || 1,
+      viewportWidth: Math.max(800, sr.viewportWidth || 1280),
+      viewportHeight: Math.max(600, sr.viewportHeight || 800),
+    };
+    const canvas = await screenshotsUtils.createCanvas(
+      region,
+      liveEmbedObj._iframeEl
+    );
+    return canvas ? await canvas.convertToBlob({ type: "image/png" }) : null;
+  } catch (e) {
+    console.warn("ZenBoard: ScreenshotsUtils capture failed", e);
+    return null;
+  }
+}
+
+async function readFromFilesystem(assetFile) {
+  try {
+    const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
+    const filePath = PathUtils.join(folder, assetFile);
+    const data = await IOUtils.read(filePath);
+    return new Blob([data], { type: "image/png" });
+  } catch (e) {
+    console.warn("ZenBoard: Filesystem asset read failed", assetFile, e);
+    return null;
+  }
+}
+
+async function readFromLegacyIDB(assetHash) {
+  try {
+    return await getAsset(assetHash);
+  } catch (e) {
+    console.warn("ZenBoard: Legacy IDB asset read failed", e);
+    return null;
+  }
+}
+
+async function createPlaceholderBlob(width, height) {
+  try {
+    const offscreen = new OffscreenCanvas(
+      Math.max(1, Math.round(width)),
+      Math.max(1, Math.round(height))
+    );
+    const ctx = offscreen.getContext("2d");
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    return await offscreen.convertToBlob({ type: "image/png" });
+  } catch (e) {
+    console.error("ZenBoard: OffscreenCanvas fallback failed", e);
+    return null;
+  }
+}
+
+async function loadImageFromBlob(blob) {
+  const img = new Image();
+  if (blob) {
+    const objUrl = URL.createObjectURL(blob);
+    await new Promise(res => {
+      img.onload = () => { URL.revokeObjectURL(objUrl); res(); };
+      img.onerror = () => { URL.revokeObjectURL(objUrl); res(); };
+      img.src = objUrl;
+    });
+  }
+  return img;
 }
 
 /**

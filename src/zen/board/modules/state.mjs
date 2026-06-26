@@ -54,3 +54,46 @@ export function bumpSceneGeneration() {
 export function getSceneGeneration() {
   return _sceneGeneration;
 }
+
+// ── Autosave ─────────────────────────────────────────────────────────────────
+// Moved here from board.mjs to break the circular dependency:
+//   history.mjs → board.mjs → history.mjs
+// These are imported by history.mjs, capture-controls.mjs, ui.mjs, and board.mjs.
+let _saveTimer = null;
+
+export function triggerSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    const { isDrawing, isPanning, isDraggingObject, isResizingObject } =
+      getState();
+    if (isDrawing || isPanning || isDraggingObject || isResizingObject) {
+      triggerSave();
+      return;
+    }
+    triggerSaveImmediate();
+  }, 1000);
+}
+
+export async function triggerSaveImmediate() {
+  clearTimeout(_saveTimer);
+  const { boardId, boardTitle, isTransparent, scale, offsetX, offsetY } =
+    getState();
+  if (!boardId) {
+    return;
+  }
+  try {
+    const { saveBoard } = await import("./storage.mjs");
+    const { scene } = await import("./scene.mjs");
+    await saveBoard(
+      boardId,
+      boardTitle,
+      isTransparent,
+      scale,
+      offsetX,
+      offsetY,
+      [...scene]
+    );
+  } catch (e) {
+    console.error("ZenBoard: Immediate save failed", e);
+  }
+}

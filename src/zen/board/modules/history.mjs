@@ -4,9 +4,8 @@
 
 import { scene, clearScene, addToScene } from "./scene.mjs";
 import { redrawCanvas } from "./canvas.mjs";
-import { triggerSave } from "../board.mjs";
 import { hideVideoControls } from "./video-controls.mjs";
-import { bumpSceneGeneration, getSceneGeneration, setState } from "./state.mjs";
+import { bumpSceneGeneration, getSceneGeneration, setState, triggerSave } from "./state.mjs";
 
 const MAX_HISTORY = 50;
 let undoStack = [];

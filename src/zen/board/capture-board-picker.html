@@ -8,6 +8,7 @@
     <meta charset="utf-8" />
     <title>Add to Board</title>
     <link rel="stylesheet" href="capture-board-picker.css" />
+    <link rel="localization" href="browser/zen-general.ftl" />
   </head>
   <body>
     <div id="picker-root">
@@ -56,28 +57,29 @@
             stroke-width="1.8"
           />
         </svg>
-        Add to Board
+        <span data-l10n-id="zen-board-picker-title">Add to Board</span>
       </h2>
 
       <div id="new-board-section">
-        <p class="section-label">Create new board</p>
+        <p class="section-label" data-l10n-id="zen-board-picker-create-label">Create new board</p>
         <div class="input-row">
           <input
             id="new-board-name"
             type="text"
+            data-l10n-id="zen-board-picker-name-placeholder"
             placeholder="Board name…"
             maxlength="80"
             autocomplete="off"
             spellcheck="false"
           />
-          <button id="create-board-btn" class="btn btn-primary">Create</button>
+          <button id="create-board-btn" class="btn btn-primary" data-l10n-id="zen-board-picker-create-btn">Create</button>
         </div>
       </div>
 
       <div id="existing-section">
-        <p class="section-label">Add to existing board</p>
+        <p class="section-label" data-l10n-id="zen-board-picker-existing-label">Add to existing board</p>
         <div id="boards-list">
-          <p id="boards-empty" class="empty-msg" hidden>No boards yet.</p>
+          <p id="boards-empty" class="empty-msg" hidden data-l10n-id="zen-board-picker-empty">No boards yet.</p>
         </div>
       </div>
     </div>

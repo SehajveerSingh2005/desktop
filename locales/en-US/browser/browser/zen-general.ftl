@@ -192,4 +192,11 @@ zen-board-untitled-board = Untitled Board
 zen-add-to-board = Add to Board
 zen-board-urlbar-label = Board
 
+zen-board-picker-title = Add to Board
+zen-board-picker-create-label = Create new board
+zen-board-picker-name-placeholder = Board name…
+zen-board-picker-create-btn = Create
+zen-board-picker-existing-label = Add to existing board
+zen-board-picker-empty = No boards yet.
+
 

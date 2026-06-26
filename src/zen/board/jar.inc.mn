@@ -29,6 +29,10 @@
         content/browser/zen-board/modules/storage.mjs                             (../../zen/board/modules/storage.mjs)
         content/browser/zen-board/modules/capture-controls.mjs                   (../../zen/board/modules/capture-controls.mjs)
         content/browser/zen-board/modules/history.mjs                             (../../zen/board/modules/history.mjs)
+        content/browser/zen-board/modules/viewport.mjs                            (../../zen/board/modules/viewport.mjs)
+        content/browser/zen-board/modules/file-handling.mjs                       (../../zen/board/modules/file-handling.mjs)
+        content/browser/zen-board/modules/title.mjs                               (../../zen/board/modules/title.mjs)
+        content/browser/zen-board/modules/theme.mjs                               (../../zen/board/modules/theme.mjs)
 
         content/browser/zen-board/capture-board-picker.html                      (../../zen/board/capture-board-picker.html)
         content/browser/zen-board/capture-board-picker.css                       (../../zen/board/capture-board-picker.css)

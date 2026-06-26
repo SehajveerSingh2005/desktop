@@ -2,6 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import {
+  openChromeDB,
+  createBoardInDB,
+  listBoardsFromDB,
+  appendCaptureToBoard,
+} from "./chrome-db.mjs";
+
 // ── Native filesystem asset storage ──────────────────────────────────────────
 // Captures (and any other blobs) are stored as files in the user's profile
 // directory instead of as blobs in IndexedDB.
@@ -57,117 +64,13 @@ async function saveAssetToFilesystem(blob) {
 }
 
 /**
- * Append a capture record to a board's scene array directly in IndexedDB.
- * Uses the chrome-window's own indexedDB so it works before the board tab
- * exists (the capture picker runs in the chrome process).
+ * Delete a board record and its asset files using a chrome-side DB.
+ * Also cleans up orphaned filesystem assets.
  *
- * @param {IDBDatabase} db An open connection to the board database.
- * @param {string} boardId The board to append to.
- * @param {object} captureData The capture scene object to push.
- */
-function appendCaptureToBoard(db, boardId, captureData) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readwrite");
-    const store = tx.objectStore("boards");
-    const getReq = store.get(boardId);
-    getReq.onsuccess = () => {
-      const board = getReq.result;
-      if (!board) {
-        reject(new Error("Board not found"));
-        return;
-      }
-      board.lastEdited = Date.now();
-      board.scene = board.scene || [];
-      board.scene.push(captureData);
-      const putReq = store.put(board);
-      putReq.onsuccess = () => resolve();
-      putReq.onerror = () => reject(putReq.error);
-    };
-    getReq.onerror = () => reject(getReq.error);
-  });
-}
-
-/**
- * Open the board IndexedDB using the chrome window's own indexedDB instance.
- * We cannot use db.mjs here because that module uses the content-process
- * indexedDB global; this chrome-side code needs to go through the chrome
- * window's own indexedDB for the appendCaptureToBoard helper.
- */
-function openChromeDB(win) {
-  return new Promise((resolve, reject) => {
-    const req = win.indexedDB.open("zen-board-db", 2);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains("boards")) {
-        db.createObjectStore("boards", { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains("assets")) {
-        db.createObjectStore("assets", { keyPath: "hash" });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-/**
- * List all boards from a chrome-side DB connection, sorted newest-first.
- *
- * @param {IDBDatabase} db An open connection to the board database.
- */
-function listBoardsFromDB(db) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readonly");
-    const req = tx.objectStore("boards").getAll();
-    req.onsuccess = () => {
-      const boards = req.result.map(({ id, title, lastEdited }) => ({
-        id,
-        title,
-        lastEdited,
-      }));
-      boards.sort((a, b) => b.lastEdited - a.lastEdited);
-      resolve(boards);
-    };
-    req.onerror = () => reject(req.error);
-  });
-}
-
-/**
- * Create a new blank board via a chrome-side DB connection.
- * Returns the new board's UUID.
- *
- * @param {IDBDatabase} db An open connection to the board database.
- * @param {string} title The initial board title.
- */
-function createBoardInDB(db, title) {
-  const id = crypto.randomUUID();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readwrite");
-    const store = tx.objectStore("boards");
-    const board = {
-      id,
-      title,
-      isTransparent: true,
-      lastEdited: Date.now(),
-      scene: [],
-    };
-    const req = store.put(board);
-    req.onsuccess = () => resolve(id);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-/**
- * Delete a board record and its asset files using a chrome-side DB opened
- * against the CONTENT window's IndexedDB. This is necessary because the board
- * data lives in the content page's IDB (chrome://browser/content/zen-board/)
- * and the chrome process cannot reach it via its own global indexedDB.
- *
- * @param {IDBDatabase} db A DB opened via contentWindow.indexedDB.
+ * @param {IDBDatabase} db An open DB connection.
  * @param {string} id The board UUID to delete.
  */
 async function deleteBoardFromDB(db, id) {
-  // Load the board to gather its asset file references
   const board = await new Promise((resolve, reject) => {
     const tx = db.transaction("boards", "readonly");
     const req = tx.objectStore("boards").get(id);
@@ -176,10 +79,9 @@ async function deleteBoardFromDB(db, id) {
   });
 
   if (!board) {
-    return; // Already gone
+    return;
   }
 
-  // Collect filesystem asset filenames referenced by this board's scene
   const boardAssetFiles = new Set();
   for (const obj of board.scene || []) {
     if (obj._assetFile) {
@@ -187,7 +89,6 @@ async function deleteBoardFromDB(db, id) {
     }
   }
 
-  // Delete the board record
   await new Promise((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
     const req = tx.objectStore("boards").delete(id);
@@ -199,7 +100,6 @@ async function deleteBoardFromDB(db, id) {
     return;
   }
 
-  // Check remaining boards to avoid deleting shared assets
   const remaining = await new Promise((resolve, reject) => {
     const tx = db.transaction("boards", "readonly");
     const req = tx.objectStore("boards").getAll();
@@ -216,8 +116,7 @@ async function deleteBoardFromDB(db, id) {
     }
   }
 
-  // Delete orphaned filesystem assets
-  const assetsFolder = PathUtils.join(PathUtils.profileDir, "zen-board-assets");
+  const assetsFolder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
   for (const filename of boardAssetFiles) {
     if (!usedFiles.has(filename)) {
       try {
@@ -402,15 +301,21 @@ const ZenBoardXFOObserver = {
       if (isZenBoard) {
         try {
           channel.setResponseHeader("X-Frame-Options", "", false);
-        } catch (e) {}
+        } catch (e) {
+          console.warn("ZenBoard: Failed to strip X-Frame-Options", uriSpec, e);
+        }
         try {
           const csp = channel.getResponseHeader("Content-Security-Policy");
           if (csp) {
             channel.setResponseHeader("Content-Security-Policy", "", false);
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("ZenBoard: Failed to strip Content-Security-Policy", uriSpec, e);
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("ZenBoard: XFO observer error", topic, e);
+    }
   },
 };
 
@@ -431,7 +336,9 @@ function registerObserver(services) {
     );
     services.obs.addObserver(ZenBoardXFOObserver, "http-on-modify-request");
     xfoObserverRegistered = true;
-  } catch (e) {}
+  } catch (e) {
+    console.warn("ZenBoard: Failed to register XFO observer", e);
+  }
 }
 
 export class ZenBoard {
@@ -449,7 +356,7 @@ export class ZenBoard {
       db.close();
     } catch (e) {
       console.error("[ZenBoard] Failed to create new board in openZenBoard", e);
-      boardId = crypto.randomUUID(); // Fallback UUID
+      return; // Don't open a tab for a board that can't be persisted
     }
 
     const url = `chrome://browser/content/zen-board/board.html?id=${boardId}`;

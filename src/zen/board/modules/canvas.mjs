@@ -9,6 +9,7 @@ import {
   SELECTION_STROKE_WIDTH,
   SELECTION_CORNER_RADIUS,
   HANDLE_VISUAL_RADIUS,
+  HANDLE_STROKE_WIDTH,
   TEXT_SELECTION_PADDING,
 } from "./constants.mjs";
 
@@ -146,7 +147,7 @@ export function redrawCanvasImmediate() {
       if (selectedObject.type !== "text") {
         ctx.fillStyle = accentColor || "#007bff";
         ctx.strokeStyle = "white";
-        ctx.lineWidth = 1.5 / scale;
+        ctx.lineWidth = HANDLE_STROKE_WIDTH / scale;
         const handleRadius = HANDLE_VISUAL_RADIUS / scale;
 
         ctx.beginPath();

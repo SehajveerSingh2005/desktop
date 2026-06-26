@@ -27,6 +27,7 @@ export const HANDLE_HIT_SIZE = 12;
 export const SELECTION_STROKE_WIDTH = 2;
 export const SELECTION_CORNER_RADIUS = 8;
 export const HANDLE_VISUAL_RADIUS = 6;
+export const HANDLE_STROKE_WIDTH = 1.5;
 export const TEXT_SELECTION_PADDING = 2;
 
 // ── Eraser ──────────────────────────────────────────────────────────────────

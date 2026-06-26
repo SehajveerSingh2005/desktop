@@ -491,7 +491,7 @@ export class ZenBoard {
           newDb.close();
           doAddToBoard(chromeWindow, id, "Untitled Board", blob, sourceUrl, region);
         } catch (e) {
-          console.error(e);
+          console.error("ZenBoard: Failed to create board from popup", e);
         }
       });
       menupopup.appendChild(createItem);

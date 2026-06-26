@@ -5,6 +5,14 @@
 import { smoothPoints } from "./smoothing.mjs";
 import { bumpSceneGeneration } from "./state.mjs";
 
+export const MIN_SHAPE_SIZE = 5;
+
+// ── Text formatting ratios (shared with renderer.mjs) ───────────────────────
+export const HEADING1_SCALE = 1.8;
+export const HEADING2_SCALE = 1.4;
+export const INDENT_SCALE = 1.2;
+export const LINE_HEIGHT_RATIO = 1.3;
+
 export const scene = [];
 
 export function addToScene(object) {
@@ -169,11 +177,11 @@ class Shape extends DrawingObject {
     this.height = Math.abs(mouseY - anchorY);
 
     // Minimum size to keep handles visible
-    if (this.width < 5) {
-      this.width = 5;
+    if (this.width < MIN_SHAPE_SIZE) {
+      this.width = MIN_SHAPE_SIZE;
     }
-    if (this.height < 5) {
-      this.height = 5;
+    if (this.height < MIN_SHAPE_SIZE) {
+      this.height = MIN_SHAPE_SIZE;
     }
   }
 }
@@ -396,18 +404,18 @@ export class Text extends DrawingObject {
         let cleanText = line;
 
         if (line.startsWith("# ")) {
-          lineFontSize = baseFontSize * 1.8;
+          lineFontSize = baseFontSize * HEADING1_SCALE;
           cleanText = line.substring(2);
         } else if (line.startsWith("## ")) {
-          lineFontSize = baseFontSize * 1.4;
+          lineFontSize = baseFontSize * HEADING2_SCALE;
           cleanText = line.substring(3);
         } else if (line.startsWith("- ") || line.startsWith("* ")) {
-          indent = baseFontSize * 1.2;
+          indent = baseFontSize * INDENT_SCALE;
           cleanText = line.substring(2);
         } else {
           const numberedMatch = line.match(/^(\d+)\.\s/);
           if (numberedMatch) {
-            indent = baseFontSize * 1.2;
+            indent = baseFontSize * INDENT_SCALE;
             cleanText = line.substring(numberedMatch[0].length);
           }
         }
@@ -415,7 +423,7 @@ export class Text extends DrawingObject {
         ctx.font = `${lineFontSize}px '${fontFamily}'`;
         const lineWidth = ctx.measureText(cleanText).width + indent;
         maxWidth = Math.max(maxWidth, lineWidth);
-        totalHeight += lineFontSize * 1.3;
+        totalHeight += lineFontSize * LINE_HEIGHT_RATIO;
       });
 
       if (totalHeight === 0) {

@@ -170,7 +170,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       browserEl.setAttribute("transparent", "true");
     }
   } catch (e) {
-    // Non-critical
+    // Tab browser element not accessible in duplicated tab context
   }
 
   initTitleInput();

@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { getState } from "./state.mjs";
-import { parseFont } from "./scene.mjs";
+import {
+  parseFont, HEADING1_SCALE, HEADING2_SCALE, INDENT_SCALE, LINE_HEIGHT_RATIO,
+} from "./scene.mjs";
 
 // Cache rounded rect clip paths to avoid rebuilding a Path2D on every frame.
 //
@@ -156,19 +158,19 @@ function drawText(context, object) {
     let numStr = "";
 
     if (line.startsWith("# ")) {
-      lineFontSize = baseFontSize * 1.8;
+      lineFontSize = baseFontSize * HEADING1_SCALE;
       cleanText = line.substring(2);
     } else if (line.startsWith("## ")) {
-      lineFontSize = baseFontSize * 1.4;
+      lineFontSize = baseFontSize * HEADING2_SCALE;
       cleanText = line.substring(3);
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
-      indent = baseFontSize * 1.2;
+      indent = baseFontSize * INDENT_SCALE;
       cleanText = line.substring(2);
       isBullet = true;
     } else {
       const numberedMatch = line.match(/^(\d+)\.\s/);
       if (numberedMatch) {
-        indent = baseFontSize * 1.2;
+        indent = baseFontSize * INDENT_SCALE;
         cleanText = line.substring(numberedMatch[0].length);
         isNumbered = true;
         numStr = numberedMatch[1] + ".";
@@ -190,7 +192,7 @@ function drawText(context, object) {
     }
 
     context.fillText(cleanText, object.x + indent + 2, currentY + 2);
-    currentY += lineFontSize * 1.3;
+    currentY += lineFontSize * LINE_HEIGHT_RATIO;
   });
 
   context.restore();

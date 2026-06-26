@@ -195,7 +195,7 @@ async function serializeObject(obj) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
         } catch {
-          /* ignore */
+          // Placeholder image fetch failed — live-embed will render without a preview
         }
       }
       serialized = {
@@ -259,18 +259,13 @@ async function resolveAssetURL(data, legacyFetcher) {
  */
 // eslint-disable-next-line complexity
 async function deserializeObject(data, classes) {
-  /* eslint-disable no-shadow */
-  const {
-    Path,
-    Rectangle,
-    Ellipse,
-    Text,
-    ImageObject,
-    VideoObject,
-    CaptureObject,
-    LiveEmbedObject,
-  } = classes;
-  /* eslint-enable no-shadow */
+// Class names shadow globals — kept as-is since renaming would touch every file.
+/* eslint-disable no-shadow */
+const {
+  Path, Rectangle, Ellipse, Text,
+  ImageObject, VideoObject, CaptureObject, LiveEmbedObject,
+} = classes;
+/* eslint-enable no-shadow */
 
   switch (data.type) {
     case "path": {

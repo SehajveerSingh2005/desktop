@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// eslint-disable-next-line no-shadow
-import { scene, Text } from "../scene.mjs";
+import { scene, Text as TextObject } from "../scene.mjs";
 import {
   canvas,
   ctx,
@@ -76,7 +75,7 @@ export const select = {
             }
 
             let initialFontSize = 0;
-            if (obj instanceof Text) {
+            if (obj instanceof TextObject) {
               const fontParts = obj.font.match(/(\d+(?:\.\d+)?)px/);
               if (fontParts) {
                 initialFontSize = parseFloat(fontParts[1]);
@@ -110,7 +109,7 @@ export const select = {
 
       // If the clicked object is a text object, re-activate the editor.
       // This preserves the workflow where clicking a text object allows editing.
-      if (hitObject instanceof Text) {
+      if (hitObject instanceof TextObject) {
         activateTextEditor(hitObject.x, hitObject.y, hitObject);
       }
 

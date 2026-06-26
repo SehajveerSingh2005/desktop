@@ -7,6 +7,7 @@ import { toolHandlers } from "./modules/tools.mjs";
 import { getState, setState, bumpSceneGeneration, getSceneGeneration, triggerSave, triggerSaveImmediate } from "./modules/state.mjs";
 import { initTools, selectTool, updateZoomDisplay, activateTextEditor, deactivateTextEditor } from "./modules/ui.mjs";
 import { findObjectAt } from "./modules/interactions.mjs";
+// Text shadows global Text — kept as-is since renaming would touch every file.
 /* eslint-disable no-shadow */
 import { scene, removeFromScene, replaceScene, Text } from "./modules/scene.mjs";
 /* eslint-enable no-shadow */
@@ -80,7 +81,7 @@ async function loadSavedBoard(boardId, classes) {
         tab.zenStaticLabel = saved.title;
       }
     } catch (e) {
-      // Tab not available
+      // Cross-process tab access failed — title still saved to state/IDB
     }
 
     applyTransparency(saved.isTransparent);

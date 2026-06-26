@@ -12,16 +12,14 @@ import {
   AUTORESIZE_BUFFER,
   FONT_OPTIONS_OFFSET_X,
 } from "./constants.mjs";
-/* eslint-disable no-shadow */
 import {
   scene,
   addToScene,
   removeFromScene,
   generateId,
-  Text,
+  Text as TextObject,
   parseFont,
 } from "./scene.mjs";
-/* eslint-enable no-shadow */
 import { pushHistory } from "./history.mjs";
 import { hideVideoControls } from "./video-controls.mjs";
 import { hideCaptureControls } from "./capture-controls.mjs";
@@ -456,7 +454,7 @@ export function activateTextEditor(x, y, existingObject = null) {
     const { currentFontSize, fontFamilies, currentFontIndex, currentColor } =
       getState();
     const font = `${currentFontSize}px '${fontFamilies[currentFontIndex]}'`;
-    objectToEdit = new Text(generateId(), "", x, y, font, currentColor);
+    objectToEdit = new TextObject(generateId(), "", x, y, font, currentColor);
     // Note: This object is NOT added to the main scene yet.
   }
 

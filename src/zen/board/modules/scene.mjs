@@ -372,6 +372,7 @@ export function parseFont(fontStr) {
   return { fontSize: baseFontSize, fontFamily };
 }
 
+// Shadow of global Text — kept as-is since renaming would touch every file.
 // eslint-disable-next-line no-shadow
 export class Text extends DrawingObject {
   constructor(id, text, x, y, font, color) {

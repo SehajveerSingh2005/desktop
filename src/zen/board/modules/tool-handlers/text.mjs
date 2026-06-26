@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// eslint-disable-next-line no-shadow
-import { Text } from "../scene.mjs";
+import { Text as TextObject } from "../scene.mjs";
 import { getTransformedPoint } from "../canvas.mjs";
 import { findObjectAt } from "../interactions.mjs";
 import { activateTextEditor, selectTool } from "../ui.mjs";
@@ -19,7 +18,7 @@ export const text = {
     // on the editor that was just created.
     selectTool("select");
 
-    if (hitObject && hitObject instanceof Text) {
+    if (hitObject && hitObject instanceof TextObject) {
       // Clicked on existing text. Select it and activate the editor.
       setState({ selectedObjectId: hitObject.id });
       activateTextEditor(hitObject.x, hitObject.y, hitObject);

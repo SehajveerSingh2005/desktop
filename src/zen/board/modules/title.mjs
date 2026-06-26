@@ -45,7 +45,7 @@ export function initTitleInput() {
         displayTitle = translated[0];
       }
     } catch (e) {
-      // l10n not ready — use English fallback
+      // formatValuesSync throws before l10n is initialized
     }
   }
   boardTitleInput.value = displayTitle;
@@ -65,7 +65,7 @@ export function initTitleInput() {
         tab.zenStaticLabel = newTitle;
       }
     } catch (e) {
-      // Tab not available
+      // Cross-process tab access failed — title still saved to state/IDB
     }
 
     triggerSaveImmediate();

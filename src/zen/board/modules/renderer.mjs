@@ -60,18 +60,85 @@ function drawPath(context, object) {
   context.lineWidth = object.lineWidth;
   context.lineCap = "round";
   context.lineJoin = "round";
+
+  if (!object.isFinalized) {
+    // 1. Draw the finalized solid path segment
+    if (object._solidPath2D) {
+      context.stroke(object._solidPath2D);
+    }
+
+    // 2. Draw the remaining temporary segment of the curve
+    const points = object.smoothedRelativePoints;
+    const M = points.length / 2;
+    const startIdx = object._numAppendedPoints || 1;
+
+    if (M > 0) {
+      context.beginPath();
+      // Move to the end of the solid path
+      if (startIdx >= 2 && startIdx * 2 < points.length) {
+        context.moveTo(points[startIdx * 2], points[startIdx * 2 + 1]);
+      } else {
+        context.moveTo(points[0], points[1]);
+      }
+
+      if (M < 3) {
+        if (M === 2) {
+          context.lineTo(points[2], points[3]);
+        }
+      } else {
+        // Draw the temporary cubic Bezier segments
+        for (let i = startIdx; i < M - 2; i++) {
+          const p0x = points[(i - 1) * 2];
+          const p0y = points[(i - 1) * 2 + 1];
+          const p1x = points[i * 2];
+          const p1y = points[i * 2 + 1];
+          const p2x = points[(i + 1) * 2];
+          const p2y = points[(i + 1) * 2 + 1];
+          const p3x = points[(i + 2) * 2];
+          const p3y = points[(i + 2) * 2 + 1];
+
+          const cp1x = p1x + (p2x - p0x) / 6;
+          const cp1y = p1y + (p2y - p0y) / 6;
+          const cp2x = p2x - (p3x - p1x) / 6;
+          const cp2y = p2y - (p3y - p1y) / 6;
+          context.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y);
+        }
+        // Draw the final segment to the end point
+        const last = M - 1;
+        context.quadraticCurveTo(
+          points[(last - 1) * 2],
+          points[(last - 1) * 2 + 1],
+          points[last * 2],
+          points[last * 2 + 1]
+        );
+      }
+      context.stroke();
+    }
+    context.restore();
+    return;
+  }
+
+  // Smooth path: draw bezier curves when drawing is completed
   const points = object.smoothedRelativePoints;
   const N = points.length / 2;
+
+  if (N === 1) {
+    if (!object._cachedPath2D) {
+      const path2d = new Path2D();
+      path2d.arc(points[0], points[1], object.lineWidth / 2, 0, 2 * Math.PI);
+      object._cachedPath2D = path2d;
+    }
+    context.fillStyle = object.color;
+    context.fill(object._cachedPath2D);
+    context.restore();
+    return;
+  }
 
   if (!object._cachedPath2D) {
     const path2d = new Path2D();
     if (N < 3) {
-      if (N === 1) {
-        path2d.arc(points[0], points[1], object.lineWidth / 2, 0, 2 * Math.PI);
-      } else if (N === 2) {
-        path2d.moveTo(points[0], points[1]);
-        path2d.lineTo(points[2], points[3]);
-      }
+      path2d.moveTo(points[0], points[1]);
+      path2d.lineTo(points[2], points[3]);
     } else {
       path2d.moveTo(points[0], points[1]);
       for (let i = 1; i < N - 2; i++) {
@@ -101,13 +168,7 @@ function drawPath(context, object) {
     object._cachedPath2D = path2d;
   }
 
-  if (N === 1) {
-    context.fillStyle = object.color;
-    context.fill(object._cachedPath2D);
-  } else {
-    context.stroke(object._cachedPath2D);
-  }
-
+  context.stroke(object._cachedPath2D);
   context.restore();
 }
 

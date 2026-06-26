@@ -195,6 +195,9 @@ export class Path extends DrawingObject {
     this.rawRelativePoints = [0, 0];
     this.smoothedRelativePoints = [0, 0];
     this.boundingBox = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    this.isFinalized = false;
+    this._solidPath2D = null;
+    this._numAppendedPoints = 0;
   }
 
   addPoint(worldX, worldY) {
@@ -208,7 +211,7 @@ export class Path extends DrawingObject {
       const dy = relativeY - lastY;
       if (dx * dx + dy * dy < 2.25) {
         // 1.5 units squared threshold
-        return;
+        return false;
       }
     }
 
@@ -219,14 +222,98 @@ export class Path extends DrawingObject {
     this.boundingBox.maxX = Math.max(this.boundingBox.maxX, relativeX);
     this.boundingBox.maxY = Math.max(this.boundingBox.maxY, relativeY);
 
+    // Incrementally smooth the points
     this.smoothedRelativePoints = smoothPoints(
       this.rawRelativePoints,
       this.smoothedRelativePoints
     );
-    this._cachedPath2D = null; // Invalidate render cache
+
+    const points = this.smoothedRelativePoints;
+    const M = points.length / 2;
+    const windowSize = 4;
+
+    if (!this._solidPath2D && M >= 1) {
+      this._solidPath2D = new Path2D();
+      this._solidPath2D.moveTo(points[0], points[1]);
+      this._numAppendedPoints = 1;
+    }
+
+    if (this._solidPath2D) {
+      // Append newly finalized points (indices i where i + 2 < M - windowSize)
+      const limit = M - windowSize - 2;
+      while (this._numAppendedPoints < limit) {
+        const i = this._numAppendedPoints;
+        if (i + 2 < M) {
+          const p0x = points[(i - 1) * 2];
+          const p0y = points[(i - 1) * 2 + 1];
+          const p1x = points[i * 2];
+          const p1y = points[i * 2 + 1];
+          const p2x = points[(i + 1) * 2];
+          const p2y = points[(i + 1) * 2 + 1];
+          const p3x = points[(i + 2) * 2];
+          const p3y = points[(i + 2) * 2 + 1];
+
+          const cp1x = p1x + (p2x - p0x) / 6;
+          const cp1y = p1y + (p2y - p0y) / 6;
+          const cp2x = p2x - (p3x - p1x) / 6;
+          const cp2y = p2y - (p3y - p1y) / 6;
+          this._solidPath2D.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y);
+          this._numAppendedPoints++;
+        } else {
+          break;
+        }
+      }
+    }
+
     this._serializedCache = null; // Invalidate serialized cache
     this._cachedBoundingBox = null; // Invalidate bbox cache
     bumpSceneGeneration();
+    return true;
+  }
+
+  finalizePath() {
+    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
+    this.isFinalized = true;
+    
+    // Build the final Path2D for rendering
+    const points = this.smoothedRelativePoints;
+    const N = points.length / 2;
+    const path2d = new Path2D();
+    if (N > 0) {
+      if (N < 3) {
+        path2d.moveTo(points[0], points[1]);
+        if (N === 2) {
+          path2d.lineTo(points[2], points[3]);
+        }
+      } else {
+        path2d.moveTo(points[0], points[1]);
+        for (let i = 1; i < N - 2; i++) {
+          const p0x = points[(i - 1) * 2];
+          const p0y = points[(i - 1) * 2 + 1];
+          const p1x = points[i * 2];
+          const p1y = points[i * 2 + 1];
+          const p2x = points[(i + 1) * 2];
+          const p2y = points[(i + 1) * 2 + 1];
+          const p3x = points[(i + 2) * 2];
+          const p3y = points[(i + 2) * 2 + 1];
+
+          const cp1x = p1x + (p2x - p0x) / 6;
+          const cp1y = p1y + (p2y - p0y) / 6;
+          const cp2x = p2x - (p3x - p1x) / 6;
+          const cp2y = p2y - (p3y - p1y) / 6;
+          path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2x, p2y);
+        }
+        const last = N - 1;
+        path2d.quadraticCurveTo(
+          points[(last - 1) * 2],
+          points[(last - 1) * 2 + 1],
+          points[last * 2],
+          points[last * 2 + 1]
+        );
+      }
+    }
+    this._cachedPath2D = path2d;
+    this._solidPath2D = null;
   }
 
   getBoundingBox() {
@@ -288,6 +375,7 @@ export class Path extends DrawingObject {
     cloned.rawRelativePoints = [...this.rawRelativePoints];
     cloned.smoothedRelativePoints = [...this.smoothedRelativePoints];
     cloned.visible = this.visible;
+    cloned.isFinalized = this.isFinalized;
     // Do NOT share the native Path2D object — each clone must build its own
     // when first rendered to avoid keeping stale C++ objects alive in history
     cloned._cachedPath2D = null;

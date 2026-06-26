@@ -290,6 +290,7 @@ const {
       };
       obj.smoothedRelativePoints =
         data.smoothedRelativePoints || smoothPoints(obj.rawRelativePoints);
+      obj.isFinalized = true;
       return obj;
     }
 

@@ -24,7 +24,19 @@
 
 :root {
   --board-accent-color: var(--zen-colors-primary, #007bff);
+  --board-active-text-color: #ffffff;
   color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --board-accent-color: color-mix(
+      in srgb,
+      var(--zen-colors-primary, #007bff) 40%,
+      #ffffff 60%
+    );
+    --board-active-text-color: #121212;
+  }
 }
 
 html,
@@ -269,8 +281,8 @@ body.ready {
 
 .tool-button.active,
 .shape-button.active {
-  background-color: color-mix(in srgb, var(--board-accent-color) 85%, light-dark(#000000, transparent)) !important;
-  color: #ffffff !important;
+  background-color: var(--board-accent-color) !important;
+  color: var(--board-active-text-color) !important;
 }
 
 /* Icon Masking System for Vector Styling and Accent Color Adoption */
@@ -490,7 +502,7 @@ body.ready {
 
 .video-progress-fill {
   height: 100%;
-  background-color: var(--board-accent-color, var(--zen-colors-primary, #007bff));
+  background-color: var(--board-accent-color);
   border-radius: 2px;
   width: 0%;
   transition: width 0.1s linear;
@@ -596,7 +608,7 @@ body.ready {
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: var(--board-accent-color, var(--zen-colors-primary, #007bff));
+  background-color: var(--board-accent-color);
   border-radius: 2px;
 }
 
@@ -746,8 +758,8 @@ body.ready {
 
 .slash-item:hover,
 .slash-item.active {
-  background-color: var(--board-accent-color, #1a73e8);
-  color: white;
+  background-color: var(--board-accent-color);
+  color: var(--board-active-text-color) !important;
 }
 
 .slash-icon {

@@ -29,12 +29,16 @@ export const pen = {
       return;
     }
     const { x, y } = getTransformedPoint(e.offsetX, e.offsetY);
-    currentDrawingObject.addPoint(x, y);
-    redrawCanvas();
+    if (currentDrawingObject.addPoint(x, y)) {
+      redrawCanvas();
+    }
   },
   onMouseUp() {
-    const { isDrawing } = getState();
+    const { isDrawing, currentDrawingObject } = getState();
     if (isDrawing) {
+      if (currentDrawingObject) {
+        currentDrawingObject.finalizePath();
+      }
       redrawCanvas();
       setState({ isDrawing: false, currentDrawingObject: null });
     }

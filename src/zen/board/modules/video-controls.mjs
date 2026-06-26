@@ -12,6 +12,7 @@ let animationFrameId = null;
 
 let isDraggingProgress = false;
 let isDraggingVolume = false;
+let _lastProgressUpdateTime = 0;
 
 // Elements
 let progressBar,
@@ -195,7 +196,7 @@ function initDOM() {
           Math.min(1, (e.clientX - rect.left) / rect.width)
         );
         obj.video.currentTime = obj.video.duration * pct;
-        updateProgress(obj);
+        updateProgress(obj, true);
         if (!obj.isPlaying) {
           redrawCanvas();
         }
@@ -284,10 +285,16 @@ function updatePlayIcon(obj) {
     obj && !obj.video.paused ? getIcon("pause") : getIcon("play");
 }
 
-function updateProgress(obj) {
+function updateProgress(obj, force = false) {
   if (!obj || !obj.video) {
     return;
   }
+  const now = Date.now();
+  if (!force && now - _lastProgressUpdateTime < 250) {
+    return;
+  }
+  _lastProgressUpdateTime = now;
+
   const dur = obj.video.duration || 0;
   const cur = obj.video.currentTime || 0;
   const pct = dur > 0 ? (cur / dur) * 100 : 0;
@@ -361,7 +368,7 @@ export function showVideoControls(videoObj) {
     loopBtn.classList.toggle("active", videoObj.video.loop);
   }
   updateVolumeUI(videoObj);
-  updateProgress(videoObj);
+  updateProgress(videoObj, true);
 
   overlayContainer.style.display = "flex";
   overlayContainer.classList.remove("fade-out");
@@ -388,7 +395,7 @@ function _onVideoPause() {
   // Sync UI to final paused state
   const obj = getVideoObject();
   if (obj) {
-    updateProgress(obj);
+    updateProgress(obj, true);
     updatePlayIcon(obj);
   }
 }
@@ -396,7 +403,7 @@ function _onVideoPause() {
 function _onVideoSeeked() {
   const obj = getVideoObject();
   if (obj) {
-    updateProgress(obj);
+    updateProgress(obj, true);
     updatePlayIcon(obj);
   }
 }

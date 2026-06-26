@@ -63,6 +63,9 @@ import {
   notifyTransformChanged,
 } from "./modules/capture-controls.mjs";
 
+// Exposed on window so that the privileged chrome process (ZenBoard.mjs)
+// can retrieve current canvas/viewport state or transform coordinates via
+// the content tab's contentWindow directly.
 window.getState = getState;
 window.getTransformedPoint = getTransformedPoint;
 
@@ -310,8 +313,7 @@ function handleFile(file, x, y) {
     img.src = objectURL;
   } else if (file.type.startsWith("video/")) {
     // Store a reference to the original Blob so storage.js can put it in IDB
-    const blob = file;
-    const objectURL = URL.createObjectURL(blob);
+    const objectURL = URL.createObjectURL(file);
     const video = document.createElement("video");
     video.preload = "metadata";
     video.onloadedmetadata = () => {
@@ -324,7 +326,7 @@ function handleFile(file, x, y) {
       }
       const obj = new VideoObject(id, x - w / 2, y - h / 2, w, h, video);
       // Keep the original blob on the object for serialization
-      obj._blob = blob;
+      obj._blob = file;
       addToScene(obj);
       setState({ selectedObjectId: id });
       selectTool("select");
@@ -332,10 +334,9 @@ function handleFile(file, x, y) {
       // Animation start: set offset to out state immediately
       obj.controlsYOffset = 10;
 
-      const forceRedraw = () => redrawCanvas();
-      video.onloadeddata = forceRedraw;
-      video.onseeked = forceRedraw;
-      video.oncanplay = forceRedraw;
+      video.onloadeddata = redrawCanvas;
+      video.onseeked = redrawCanvas;
+      video.oncanplay = redrawCanvas;
 
       let frameRequest = null;
       video.onplay = () => {
@@ -378,14 +379,16 @@ function adjustTitleInputWidth() {
   if (!span) {
     span = document.createElement("span");
     span.id = "title-width-tester";
-    span.style.fontFamily = window.getComputedStyle(boardTitleInput).fontFamily;
-    span.style.fontSize = window.getComputedStyle(boardTitleInput).fontSize;
-    span.style.fontWeight = window.getComputedStyle(boardTitleInput).fontWeight;
     span.style.position = "absolute";
     span.style.visibility = "hidden";
     span.style.whiteSpace = "pre";
     document.body.appendChild(span);
   }
+  const styles = window.getComputedStyle(boardTitleInput);
+  span.style.fontFamily = styles.fontFamily;
+  span.style.fontSize = styles.fontSize;
+  span.style.fontWeight = styles.fontWeight;
+  
   span.textContent = boardTitleInput.value || boardTitleInput.placeholder || "";
   const textWidth = span.getBoundingClientRect().width;
   const padding = 24;
@@ -638,10 +641,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.addEventListener(
     "scroll",
     () => {
-      document.documentElement.scrollLeft = 0;
-      document.documentElement.scrollTop = 0;
-      document.body.scrollLeft = 0;
-      document.body.scrollTop = 0;
+      window.scrollTo(0, 0);
     },
     { passive: true }
   );

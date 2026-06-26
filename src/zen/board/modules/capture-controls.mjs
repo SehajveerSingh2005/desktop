@@ -17,7 +17,7 @@ import { scene } from "./scene.mjs";
 import { redrawCanvas } from "./canvas.mjs";
 import { CaptureObject, LiveEmbedObject } from "./media.mjs";
 import { getAsset } from "./db.mjs";
-import { saveAsset, deleteAsset } from "./assets.mjs";
+import { saveAsset, deleteAsset, ASSETS_FOLDER_NAME } from "./assets.mjs";
 import { triggerSave, triggerSaveImmediate } from "../board.mjs";
 import { pushHistory } from "./history.mjs";
 
@@ -40,9 +40,10 @@ export function notifyTransformChanged() {
     return;
   }
 
+  // Already scheduled for this frame
   if (_globalSyncId) {
     return;
-  } // Already scheduled for this frame
+  }
   _globalSyncId = requestAnimationFrame(() => {
     _globalSyncId = null;
     const { scale, offsetX, offsetY } = getState();
@@ -56,11 +57,7 @@ export function notifyTransformChanged() {
   });
 }
 
-// Keep startGlobalSyncLoop as a one-shot call used right after iframe injection
-// so the iframe is positioned immediately without waiting for a transform event.
-function startGlobalSyncLoop() {
-  notifyTransformChanged();
-}
+
 
 // Elements
 let sourceUrlEl = null;
@@ -313,7 +310,7 @@ async function convertToStaticCapture(liveEmbedObj) {
     // 2. Fall back to reading the existing filesystem file
     if (!blob && liveEmbedObj._assetFile) {
       try {
-        const folder = PathUtils.join(PathUtils.profileDir, "zen-board-assets");
+        const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
         const filePath = PathUtils.join(folder, liveEmbedObj._assetFile);
         const data = await IOUtils.read(filePath);
         blob = new Blob([data], { type: "image/png" });
@@ -555,7 +552,7 @@ export function ensureIframeInjected(liveEmbedObj) {
   // Sync position and start the persistent global sync loop.
   const { scale, offsetX, offsetY } = getState();
   liveEmbedObj._syncIframePosition(scale, offsetX, offsetY);
-  startGlobalSyncLoop();
+  notifyTransformChanged();
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────

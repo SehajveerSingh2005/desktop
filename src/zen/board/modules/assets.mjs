@@ -15,7 +15,7 @@
 // The board page runs as a chrome:// URL with system principal, so
 // IOUtils and PathUtils are available as privileged globals.
 
-const ASSETS_FOLDER_NAME = "zen-board-assets";
+export const ASSETS_FOLDER_NAME = "zen-board-assets";
 let _assetsFolderPath = null;
 
 async function getAssetsFolder() {
@@ -58,6 +58,9 @@ function pathToFileURI(nativePath) {
 
 // ── Mime-type → file extension ────────────────────────────────────────────────
 
+// NOTE: This function is duplicated in ZenBoard.mjs.
+// Since ZenBoard.mjs runs in the parent browser chrome process and assets.mjs
+// runs in the content process, they cannot easily share modules. Keep maps in sync.
 function mimeToExt(mimeType) {
   const map = {
     "image/png": "png",

@@ -413,10 +413,6 @@ export function updateVideoControlsPosition() {
 
   const { scale, offsetX, offsetY, isDraggingObject } = getState();
   const obj = currentVideoObject;
-  if (!obj) {
-    hideVideoControls();
-    return;
-  }
 
   // Determine visual position calculation
   const sX = obj.x * scale + offsetX;

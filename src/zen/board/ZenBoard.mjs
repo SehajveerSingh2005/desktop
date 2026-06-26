@@ -21,6 +21,9 @@ async function getNativeAssetsFolder() {
   return folder;
 }
 
+// NOTE: This function is duplicated in modules/assets.mjs.
+// Since ZenBoard.mjs runs in the parent browser chrome process and assets.mjs
+// runs in the content process, they cannot easily share modules. Keep maps in sync.
 function mimeToExt(mimeType) {
   const map = {
     "image/png": "png",
@@ -28,8 +31,12 @@ function mimeToExt(mimeType) {
     "image/jpg": "jpg",
     "image/gif": "gif",
     "image/webp": "webp",
+    "image/avif": "avif",
+    "image/svg+xml": "svg",
     "video/mp4": "mp4",
     "video/webm": "webm",
+    "video/ogg": "ogv",
+    "video/quicktime": "mov",
   };
   return map[mimeType] || "bin";
 }
@@ -293,7 +300,6 @@ async function doAddToBoard(
           }
         : null,
       _assetFile: assetFilename, // filesystem reference (new)
-      _assetHash: null, // IDB reference (legacy, unused)
     };
     await appendCaptureToBoard(db, boardId, captureObj);
 

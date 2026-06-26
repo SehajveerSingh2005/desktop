@@ -36,7 +36,7 @@ export function clearScene() {
 }
 
 export function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return crypto.randomUUID();
 }
 
 // --- Base Classes ---
@@ -97,7 +97,7 @@ export class DrawingObject {
     }
   }
 
-  getBoundingBox() {
+  getBoundingBox(_ctx) {
     if (!this._cachedBoundingBox) {
       this._cachedBoundingBox = {
         x: this.x,

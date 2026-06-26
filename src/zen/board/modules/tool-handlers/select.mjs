@@ -109,7 +109,6 @@ export const select = {
 
       // If the clicked object is a text object, re-activate the editor.
       // This preserves the workflow where clicking a text object allows editing.
-      // If the clicked object is a text object, re-activate the editor.
       if (hitObject instanceof Text) {
         activateTextEditor(hitObject.x, hitObject.y, hitObject);
       }

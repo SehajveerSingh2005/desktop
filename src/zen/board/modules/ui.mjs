@@ -84,13 +84,13 @@ function onTextareaMouseDown(e) {
   // This function implements "drag-from-border".
   // A drag is only initiated if the mousedown occurs near the edge of the textarea.
   const borderSize = 5; // A 5px area to make it easier to grab
-  const isonBorder =
+  const isOnBorder =
     e.offsetX < borderSize ||
     e.offsetY < borderSize ||
     e.offsetX > textEditor.clientWidth - borderSize ||
     e.offsetY > textEditor.clientHeight - borderSize;
 
-  if (isonBorder) {
+  if (isOnBorder) {
     // Prevent the browser's default text-selection behavior.
     e.preventDefault();
     // Record the starting point of the drag.
@@ -110,13 +110,13 @@ function onTextareaMouseDown(e) {
 // border and 'text' inside, so the user knows which part to drag.
 function onTextareaMouseMove(e) {
   const borderSize = 5;
-  const isonBorder =
+  const isOnBorder =
     e.offsetX < borderSize ||
     e.offsetY < borderSize ||
     e.offsetX > textEditor.clientWidth - borderSize ||
     e.offsetY > textEditor.clientHeight - borderSize;
 
-  textEditor.style.cursor = isonBorder ? "move" : "text";
+  textEditor.style.cursor = isOnBorder ? "move" : "text";
 }
 
 // Initialization
@@ -275,7 +275,7 @@ export function initTools() {
     }
   });
 
-  textEditor.addEventListener("keyup", _e => {
+  textEditor.addEventListener("keyup", () => {
     const caretPos = textEditor.selectionStart;
     const textBeforeCaret = textEditor.value.substring(0, caretPos);
     const currentLine = textBeforeCaret.split("\n").pop();
@@ -341,13 +341,13 @@ function selectColor(color) {
   setState({ currentColor: color });
 
   // Update UI swatches
+  const rgbColor = `rgb(${hexToRgb(color)})`;
+  const rgbColorNoSpaces = rgbColor.replace(/\s/g, "");
+  
   document.querySelectorAll(".color-swatch").forEach(swatch => {
-    // Check both potential formats: hex string from property or rgb string from computed style
-    const isActive =
-      swatch.style.backgroundColor === color ||
-      swatch.style.backgroundColor === `rgb(${hexToRgb(color)})` ||
-      swatch.style.backgroundColor.replace(/\s/g, "") ===
-        `rgb(${hexToRgb(color)})`;
+    const bg = swatch.style.backgroundColor;
+    const bgNoSpaces = bg.replace(/\s/g, "");
+    const isActive = bg === color || bgNoSpaces === rgbColorNoSpaces;
 
     swatch.classList.toggle("active", isActive);
   });
@@ -643,17 +643,7 @@ export function selectTool(toolName) {
 
   const isSameTool = toolName === getState().currentTool;
 
-  // If different tool is selected, hide all panels
-  if (!isSameTool) {
-    if (penOptionsPanel) {
-      penOptionsPanel.classList.remove("visible");
-    }
-    if (shapeOptionsPanel) {
-      shapeOptionsPanel.classList.remove("visible");
-    }
-  }
-
-  // Toggle panel for the current tool if the button is clicked again
+  // Hide options panels first, unless toggling panels for the same tool.
   if (isSameTool) {
     if (toolName === "pen") {
       penOptionsPanel.classList.toggle("visible");
@@ -661,7 +651,6 @@ export function selectTool(toolName) {
       shapeOptionsPanel.classList.toggle("visible");
     }
   } else {
-    // Hide all tool-specific panels first
     if (penOptionsPanel) {
       penOptionsPanel.classList.remove("visible");
     }

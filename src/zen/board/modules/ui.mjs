@@ -483,8 +483,11 @@ export function activateTextEditor(x, y, existingObject = null) {
 
   setTimeout(() => textEditor.focus(), 0);
 
-  textEditor.addEventListener("mousedown", onTextareaMouseDown);
-  textEditor.addEventListener("mousemove", onTextareaMouseMove);
+  if (!textEditor._zenBoardListenersAttached) {
+    textEditor.addEventListener("mousedown", onTextareaMouseDown);
+    textEditor.addEventListener("mousemove", onTextareaMouseMove);
+    textEditor._zenBoardListenersAttached = true;
+  }
 }
 
 export function deactivateTextEditor() {
@@ -529,6 +532,7 @@ export function deactivateTextEditor() {
 
   textEditor.removeEventListener("mousedown", onTextareaMouseDown);
   textEditor.removeEventListener("mousemove", onTextareaMouseMove);
+  textEditor._zenBoardListenersAttached = false;
 
   redrawCanvas();
   pushHistory();

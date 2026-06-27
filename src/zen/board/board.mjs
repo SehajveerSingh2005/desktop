@@ -72,13 +72,26 @@ async function loadSavedBoard(boardId, classes) {
     const liveEmbeds = saved.scene.filter(obj => obj.type === "live-embed");
     replaceScene(saved.scene);
     liveEmbeds.forEach(obj => ensureIframeInjected(obj));
+    let displayTitle = saved.title;
+    if (saved.title === "Untitled Board") {
+      try {
+        const translated = document.l10n.formatValuesSync([
+          { id: "zen-board-untitled-board" },
+        ]);
+        if (translated?.[0]) {
+          displayTitle = translated[0];
+        }
+      } catch (e) {
+        // Fallback to saved.title
+      }
+    }
     setState({ boardTitle: saved.title, isTransparent: saved.isTransparent });
-    document.title = saved.title;
+    document.title = displayTitle;
 
     try {
       const tab = getTabForBoard();
       if (tab) {
-        tab.zenStaticLabel = saved.title;
+        tab.zenStaticLabel = displayTitle;
       }
     } catch (e) {
       // Cross-process tab access failed — title still saved to state/IDB

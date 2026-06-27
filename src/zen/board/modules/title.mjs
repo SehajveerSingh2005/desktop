@@ -50,19 +50,40 @@ export function initTitleInput() {
   }
   boardTitleInput.value = displayTitle;
   document.title = displayTitle;
+  try {
+    const browserEl = window.docShell?.chromeEventHandler;
+    const tab = browserEl?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browserEl);
+    if (tab) {
+      tab.zenStaticLabel = displayTitle;
+    }
+  } catch (e) {
+    // Cross-process tab access failed
+  }
   adjustWidth();
 
   boardTitleInput.addEventListener("input", () => {
     adjustWidth();
     const newTitle = boardTitleInput.value.trim() || "Untitled Board";
     setState({ boardTitle: newTitle });
-    document.title = newTitle;
+
+    let displayTitle = newTitle;
+    if (newTitle === "Untitled Board") {
+      try {
+        const translated = document.l10n.formatValuesSync([
+          { id: "zen-board-untitled-board" },
+        ]);
+        if (translated?.[0]) {
+          displayTitle = translated[0];
+        }
+      } catch (e) {}
+    }
+    document.title = displayTitle;
 
     try {
       const browserEl = window.docShell?.chromeEventHandler;
       const tab = browserEl?.ownerDocument?.defaultView?.gBrowser?.getTabForBrowser(browserEl);
       if (tab) {
-        tab.zenStaticLabel = newTitle;
+        tab.zenStaticLabel = displayTitle;
       }
     } catch (e) {
       // Cross-process tab access failed — title still saved to state/IDB

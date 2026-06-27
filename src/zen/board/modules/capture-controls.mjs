@@ -20,6 +20,18 @@ import { getAsset } from "./db.mjs";
 import { saveAsset, deleteAsset, ASSETS_FOLDER_NAME } from "./assets.mjs";
 import { pushHistory } from "./history.mjs";
 
+function getL10nString(id, fallback) {
+  try {
+    const translated = document.l10n.formatValuesSync([{ id }]);
+    if (translated?.[0]) {
+      return translated[0];
+    }
+  } catch (e) {
+    // Ignore and fallback
+  }
+  return fallback;
+}
+
 let overlayContainer = null;
 let currentObject = null;
 let animationFrameId = null;
@@ -107,7 +119,7 @@ function initDOM() {
   playPauseBtn = document.createElement("button");
   playPauseBtn.className = "capture-btn";
   playPauseBtn.id = "cc-playpause";
-  playPauseBtn.title = "Go live";
+  playPauseBtn.title = getL10nString("zen-board-capture-go-live", "Go live");
   // eslint-disable-next-line no-unsanitized/property
   playPauseBtn.innerHTML = iconPlay();
 
@@ -115,7 +127,7 @@ function initDOM() {
   redirectBtn = document.createElement("button");
   redirectBtn.className = "capture-btn";
   redirectBtn.id = "cc-redirect";
-  redirectBtn.title = "Open in new tab";
+  redirectBtn.title = getL10nString("zen-board-capture-open-new-tab", "Open in new tab");
   // eslint-disable-next-line no-unsanitized/property
   redirectBtn.innerHTML = iconRedirect();
 
@@ -227,7 +239,7 @@ function convertToLiveEmbed(captureObj) {
 async function convertToStaticCapture(liveEmbedObj) {
   if (playPauseBtn) {
     playPauseBtn.disabled = true;
-    playPauseBtn.title = "Converting…";
+    playPauseBtn.title = getL10nString("zen-board-capture-converting", "Converting…");
   }
 
   try {
@@ -278,7 +290,7 @@ async function convertToStaticCapture(liveEmbedObj) {
   } finally {
     if (playPauseBtn) {
       playPauseBtn.disabled = false;
-      playPauseBtn.title = "Go live";
+      playPauseBtn.title = getL10nString("zen-board-capture-go-live", "Go live");
     }
   }
 }
@@ -573,11 +585,11 @@ export function showCaptureControls(obj) {
   if (obj.type === "capture") {
     // eslint-disable-next-line no-unsanitized/property
     playPauseBtn.innerHTML = iconPlay();
-    playPauseBtn.title = "Go live";
+    playPauseBtn.title = getL10nString("zen-board-capture-go-live", "Go live");
   } else {
     // eslint-disable-next-line no-unsanitized/property
     playPauseBtn.innerHTML = iconPause();
-    playPauseBtn.title = "Pause (back to static)";
+    playPauseBtn.title = getL10nString("zen-board-capture-pause", "Pause (back to static)");
   }
 
   // If this is a live embed, ensure the iframe is injected and visible

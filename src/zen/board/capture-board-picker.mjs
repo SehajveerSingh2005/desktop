@@ -75,6 +75,12 @@ function escapeHTML(str) {
 
 // ── Main ────────────────────────────────────────────────────────────────
 window.zenPickerInit = async function init() {
+  try {
+    await document.l10n.ready;
+  } catch (e) {
+    // Ignore and fallback
+  }
+
   const args = window.arguments?.[0] || window.zenPickerArgs;
   if (!args?.blob || !args?.sourceUrl) {
     console.error("ZenBoard Picker: No capture data provided");
@@ -102,17 +108,30 @@ window.zenPickerInit = async function init() {
     console.error("ZenBoard Picker: Failed to list boards", e);
   }
 
+  let untitledLabel = "Untitled Board";
+  try {
+    const translated = document.l10n.formatValuesSync([
+      { id: "zen-board-untitled-board" },
+    ]);
+    if (translated?.[0]) {
+      untitledLabel = translated[0];
+    }
+  } catch (e) {}
+
   if (boards.length === 0) {
     emptyMsg.hidden = false;
   } else {
     boards.forEach(board => {
       const item = document.createElement("div");
       item.className = "board-item";
+      const boardTitle = board.title === "Untitled Board"
+        ? untitledLabel
+        : board.title || untitledLabel;
       // eslint-disable-next-line no-unsanitized/property
       item.innerHTML = `
         <div class="board-item-icon">${boardItemIcon()}</div>
         <div class="board-item-info">
-          <div class="board-item-name">${escapeHTML(board.title || "Untitled Board")}</div>
+          <div class="board-item-name">${escapeHTML(boardTitle)}</div>
           <div class="board-item-date">${formatDate(board.lastEdited)}</div>
         </div>
         <div class="board-item-arrow">${arrowIcon()}</div>

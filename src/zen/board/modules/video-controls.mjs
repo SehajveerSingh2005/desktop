@@ -6,6 +6,18 @@ import { getState, bumpSceneGeneration, triggerSave } from "./state.mjs";
 import { redrawCanvas } from "./canvas.mjs";
 import { pushHistory } from "./history.mjs";
 
+function getL10nString(id, fallback) {
+  try {
+    const translated = document.l10n.formatValuesSync([{ id }]);
+    if (translated?.[0]) {
+      return translated[0];
+    }
+  } catch (e) {
+    // Ignore and fallback
+  }
+  return fallback;
+}
+
 let overlayContainer = null;
 let currentVideoObject = null;
 let animationFrameId = null;
@@ -73,7 +85,7 @@ function initDOM() {
   playBtn = document.createElement("button");
   playBtn.className = "video-btn";
   playBtn.id = "vc-play";
-  playBtn.title = "Play/Pause";
+  playBtn.title = getL10nString("zen-board-video-play-pause", "Play/Pause");
   // eslint-disable-next-line no-unsanitized/property
   playBtn.innerHTML = getIcon("play");
 
@@ -94,7 +106,7 @@ function initDOM() {
   volumeBtn = document.createElement("button");
   volumeBtn.className = "video-btn";
   volumeBtn.id = "vc-volume";
-  volumeBtn.title = "Volume";
+  volumeBtn.title = getL10nString("zen-board-video-volume", "Volume");
   // eslint-disable-next-line no-unsanitized/property
   volumeBtn.innerHTML = getIcon("volume-high");
 
@@ -105,7 +117,7 @@ function initDOM() {
   loopBtn = document.createElement("button");
   loopBtn.className = "video-btn";
   loopBtn.id = "vc-loop";
-  loopBtn.title = "Loop";
+  loopBtn.title = getL10nString("zen-board-video-loop", "Loop");
   // eslint-disable-next-line no-unsanitized/property
   loopBtn.innerHTML = getIcon("loop");
 

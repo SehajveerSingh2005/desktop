@@ -209,4 +209,26 @@ zen-board-picker-create-btn = Create
 zen-board-picker-existing-label = Add to existing board
 zen-board-picker-empty = No boards yet.
 
+zen-board-slash-h1 = Header 1
+zen-board-slash-h2 = Header 2
+zen-board-slash-bullet = Bullet List
+zen-board-slash-number = Numbered List
+
+zen-board-video-play-pause =
+    .title = Play/Pause
+zen-board-video-volume =
+    .title = Volume
+zen-board-video-loop =
+    .title = Loop
+
+zen-board-capture-go-live =
+    .title = Go live
+zen-board-capture-converting =
+    .title = Converting…
+zen-board-capture-pause =
+    .title = Pause (back to static)
+zen-board-capture-open-new-tab =
+    .title = Open in new tab
+
+
 

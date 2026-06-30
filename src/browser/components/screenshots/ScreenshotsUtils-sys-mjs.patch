@@ -15,15 +15,6 @@ index 042f795c9cff61074d1b34a94608868a11362058..20388e436a858d0061672f553a4362ef
        case "Screenshots:DownloadScreenshot":
          ScreenshotsUtils.closePanel(browser);
          ({ title, region } = message.data);
-@@ -639,7 +645,7 @@ export var ScreenshotsUtils = {
-   },
- 
-   maybeLockFocus(event) {
--    let browser = event.view.gBrowser.selectedBrowser;
-+    let browser = event.view.gBrowser?.selectedBrowser || event.view.browsingContext?.topChromeWindow?.gBrowser?.selectedBrowser;
- 
-     if (!Services.focus.focusedElement) {
-       event.preventDefault();
 @@ -1002,6 +1008,9 @@ export var ScreenshotsUtils = {
     */
    closeDialogBox(browser) {

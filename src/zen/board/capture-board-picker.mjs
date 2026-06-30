@@ -170,11 +170,47 @@ async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chro
   try {
     const assetFilename = await saveAssetToFilesystem(blob);
 
+    const boardRecord = await new Promise((resolve, reject) => {
+      const tx = db.transaction("boards", "readonly");
+      const req = tx.objectStore("boards").get(boardId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+
+    const gb = chromeWindow?.gBrowser;
+    const existingTab = gb ? Array.from(gb.tabs).find(t =>
+      t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`)
+    ) : null;
+
+    let spawnX, spawnY;
+    if (existingTab?.linkedBrowser?.contentWindow) {
+      const win = existingTab.linkedBrowser.contentWindow;
+      try {
+        if (win.getTransformedPoint && win.getState && win.innerWidth > 0) {
+          ({ x: spawnX, y: spawnY } = win.getTransformedPoint(win.innerWidth / 2, win.innerHeight / 2));
+        } else {
+          spawnX = (chromeWindow.innerWidth || 1280) / 2;
+          spawnY = (chromeWindow.innerHeight || 800) / 2;
+        }
+      } catch {
+        spawnX = (chromeWindow.innerWidth || 1280) / 2;
+        spawnY = (chromeWindow.innerHeight || 800) / 2;
+      }
+    } else {
+      spawnX = (chromeWindow.innerWidth || 1280) / 2;
+      spawnY = (chromeWindow.innerHeight || 800) / 2;
+    }
+
+    if (boardRecord && boardRecord.scale) {
+      spawnX = (spawnX - (boardRecord.offsetX || 0)) / boardRecord.scale;
+      spawnY = (spawnY - (boardRecord.offsetY || 0)) / boardRecord.scale;
+    }
+
     const captureObj = {
       type: "capture",
       id: crypto.randomUUID(),
-      x: -(region?.width || 800) / 2,
-      y: -(region?.height || 600) / 2,
+      x: spawnX - (region?.width || 800) / 2,
+      y: spawnY - (region?.height || 600) / 2,
       width: region?.width || 800,
       height: region?.height || 600,
       sourceUrl,
@@ -186,12 +222,7 @@ async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chro
 
     const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
 
-    if (chromeWindow?.gBrowser) {
-      const gb = chromeWindow.gBrowser;
-      const existingTab = Array.from(gb.tabs).find(t =>
-        t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`)
-      );
-
+    if (gb) {
       if (existingTab) {
         gb.selectedTab = existingTab;
         existingTab.linkedBrowser.contentWindow?.dispatchEvent(

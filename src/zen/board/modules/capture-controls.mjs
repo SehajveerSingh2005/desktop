@@ -152,10 +152,20 @@ async function initDOM() {
       return;
     }
     const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
-    if (chromeWin?.gBrowser) {
+    if (chromeWin?.gZenGlanceManager) {
+      chromeWin.gZenGlanceManager.openGlance({
+        url: obj.sourceUrl,
+        clientX: 0,
+        clientY: 0,
+        width: 0,
+        height: 0,
+        triggeringPrincipal:
+          chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
+      });
+    } else if (chromeWin?.gBrowser) {
       chromeWin.gBrowser.addTrustedTab(obj.sourceUrl, {
         triggeringPrincipal:
-          chromeWin.Services.scriptSecurityManager.createSystemPrincipal(),
+          chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
       });
     } else {
       window.open(obj.sourceUrl, "_blank");

@@ -114,23 +114,29 @@ function findBoardTab(gb, boardId) {
   ) || null;
 }
 
-function getSpawnPosition(chromeWindow, existingTab) {
+function getSpawnPosition(chromeWindow, existingTab, savedBoard) {
   if (existingTab?.linkedBrowser?.contentWindow) {
     const win = existingTab.linkedBrowser.contentWindow;
     try {
-      if (win.getTransformedPoint && win.getState) {
-        const { x, y } = win.getTransformedPoint(win.innerWidth / 2, win.innerHeight / 2);
-        return { x, y };
+      if (win.getTransformedPoint && win.getState && win.innerWidth > 0) {
+        return win.getTransformedPoint(win.innerWidth / 2, win.innerHeight / 2);
       }
-      return { x: win.innerWidth / 2, y: win.innerHeight / 2 };
     } catch {
-      return { x: (win.innerWidth || 1280) / 2, y: (win.innerHeight || 800) / 2 };
+      // Board not initialized yet — fall through
     }
   }
-  return {
-    x: (chromeWindow.innerWidth || 1280) / 2,
-    y: (chromeWindow.innerHeight || 800) / 2,
-  };
+
+  const screenX = (chromeWindow.innerWidth || 1280) / 2;
+  const screenY = (chromeWindow.innerHeight || 800) / 2;
+
+  if (savedBoard && savedBoard.scale) {
+    return {
+      x: (screenX - (savedBoard.offsetX || 0)) / savedBoard.scale,
+      y: (screenY - (savedBoard.offsetY || 0)) / savedBoard.scale,
+    };
+  }
+
+  return { x: screenX, y: screenY };
 }
 
 function buildCaptureObj(spawnX, spawnY, region, sourceUrl, assetFilename) {
@@ -172,9 +178,16 @@ async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, 
     const db = await openChromeDB(chromeWindow);
     const assetFilename = await saveAssetToFilesystem(blob);
 
+    const boardRecord = await new Promise((resolve, reject) => {
+      const tx = db.transaction("boards", "readonly");
+      const req = tx.objectStore("boards").get(boardId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+
     const gb = chromeWindow.gBrowser;
     const existingTab = findBoardTab(gb, boardId);
-    const { x: spawnX, y: spawnY } = getSpawnPosition(chromeWindow, existingTab);
+    const { x: spawnX, y: spawnY } = getSpawnPosition(chromeWindow, existingTab, boardRecord);
 
     const captureObj = buildCaptureObj(spawnX, spawnY, region, sourceUrl, assetFilename);
     await appendCaptureToBoard(db, boardId, captureObj);

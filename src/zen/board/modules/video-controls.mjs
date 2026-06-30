@@ -13,7 +13,7 @@ function getL10nString(id, fallback) {
       return translated[0];
     }
   } catch (e) {
-    // Ignore and fallback
+    console.warn("ZenBoard: l10n failed for", id, e);
   }
   return fallback;
 }

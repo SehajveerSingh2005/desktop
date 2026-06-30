@@ -116,7 +116,9 @@ window.zenPickerInit = async function init() {
     if (translated?.[0]) {
       untitledLabel = translated[0];
     }
-  } catch (e) {}
+  } catch {
+    untitledLabel = "Untitled Board";
+  }
 
   if (boards.length === 0) {
     emptyMsg.hidden = false;
@@ -190,13 +192,9 @@ async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chro
 
     if (chromeWindow?.gBrowser) {
       const gb = chromeWindow.gBrowser;
-      const existingTab = Array.from(gb.tabs).find(t => {
-        try {
-          return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`);
-        } catch {
-          return false;
-        }
-      });
+      const existingTab = Array.from(gb.tabs).find(t =>
+        t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`)
+      );
 
       if (existingTab) {
         gb.selectedTab = existingTab;

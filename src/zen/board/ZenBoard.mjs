@@ -112,13 +112,9 @@ function findBoardTab(gb, boardId) {
   if (!gb) {
     return null;
   }
-  return Array.from(gb.tabs).find(t => {
-    try {
-      return t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`);
-    } catch {
-      return false;
-    }
-  }) || null;
+  return Array.from(gb.tabs).find(t =>
+    t.linkedBrowser?.currentURI?.spec?.includes(`id=${boardId}`)
+  ) || null;
 }
 
 function getSpawnPosition(chromeWindow, existingTab) {
@@ -252,13 +248,8 @@ const ZenBoardXFOObserver = {
     if (
       topic !== "http-on-examine-response" &&
       topic !== "http-on-examine-merged-response" &&
-      topic !== "http-on-examine-cached-response" &&
-      topic !== "http-on-modify-request"
+      topic !== "http-on-examine-cached-response"
     ) {
-      return;
-    }
-
-    if (topic === "http-on-modify-request") {
       return;
     }
 
@@ -297,7 +288,6 @@ function registerObserver(services) {
     services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-response");
     services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-merged-response");
     services.obs.addObserver(ZenBoardXFOObserver, "http-on-examine-cached-response");
-    services.obs.addObserver(ZenBoardXFOObserver, "http-on-modify-request");
     xfoObserverRegistered = true;
   } catch (e) {
     console.warn("ZenBoard: Failed to register XFO observer", e);
@@ -542,7 +532,7 @@ export class ZenBoard {
     };
 
     const updateUrlbarAttribute = tab => {
-      const selectedTab = chromeWindow.gBrowser?.selectedTab;
+      const selectedTab = chromeWindow.gBrowser.selectedTab;
       if (!tab || tab !== selectedTab) {
         return;
       }
@@ -555,7 +545,7 @@ export class ZenBoard {
 
     const progressListener = {
       onLocationChange(aBrowser) {
-        if (aBrowser === chromeWindow.gBrowser?.selectedBrowser) {
+        if (aBrowser === chromeWindow.gBrowser.selectedBrowser) {
           updateUrlbarAttribute(chromeWindow.gBrowser.selectedTab);
         }
       },
@@ -574,7 +564,7 @@ export class ZenBoard {
         .catch(e => console.error("Failed to translate zen-board-urlbar-label:", e));
     }
 
-    if (chromeWindow.gURLBar && !chromeWindow.gURLBar._zenBoardTrimWrapped) {
+    if (!chromeWindow.gURLBar._zenBoardTrimWrapped) {
       chromeWindow.gURLBar._zenBoardTrimWrapped = true;
       currentTrim = chromeWindow.gURLBar._zenTrimURL;
       Object.defineProperty(chromeWindow.gURLBar, "_zenTrimURL", {
@@ -596,7 +586,7 @@ export class ZenBoard {
     // Wrap copy actions to prevent leaking chrome:// board URLs
     let originalCopy = null;
     let originalCopyMarkdown = null;
-    if (chromeWindow.gZenCommonActions && !chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
+    if (!chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
       chromeWindow.gZenCommonActions._zenBoardCopyWrapped = true;
       originalCopy = chromeWindow.gZenCommonActions.copyCurrentURLToClipboard;
       originalCopyMarkdown = chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard;
@@ -619,7 +609,7 @@ export class ZenBoard {
     }
 
     const focusHandler = () => {
-      if (chromeWindow.gURLBar?.hasAttribute("zen-board-active")) {
+      if (chromeWindow.gURLBar.hasAttribute("zen-board-active")) {
         chromeWindow.gURLBar._setValue("", {
           untrimmedValue: chromeWindow.gURLBar._untrimmedValue,
         });
@@ -630,10 +620,10 @@ export class ZenBoard {
     chromeWindow.addEventListener("TabClose", tabCloseHandler);
     chromeWindow.addEventListener("TabSelect", tabSelectHandler);
     chromeWindow.addEventListener("TabAttrModified", tabAttrModifiedHandler);
-    chromeWindow.gBrowser?.addTabsProgressListener(progressListener);
-    chromeWindow.gURLBar?.inputField?.addEventListener("focus", focusHandler);
+    chromeWindow.gBrowser.addTabsProgressListener(progressListener);
+    chromeWindow.gURLBar.inputField?.addEventListener("focus", focusHandler);
 
-    if (chromeWindow.gBrowser?.selectedTab) {
+    if (chromeWindow.gBrowser.selectedTab) {
       updateUrlbarAttribute(chromeWindow.gBrowser.selectedTab);
     }
 
@@ -642,14 +632,14 @@ export class ZenBoard {
       chromeWindow.removeEventListener("TabClose", tabCloseHandler);
       chromeWindow.removeEventListener("TabSelect", tabSelectHandler);
       chromeWindow.removeEventListener("TabAttrModified", tabAttrModifiedHandler);
-      chromeWindow.gBrowser?.removeTabsProgressListener(progressListener);
-      chromeWindow.gURLBar?.inputField?.removeEventListener("focus", focusHandler);
-      if (chromeWindow.gURLBar?._zenBoardTrimWrapped) {
+      chromeWindow.gBrowser.removeTabsProgressListener(progressListener);
+      chromeWindow.gURLBar.inputField?.removeEventListener("focus", focusHandler);
+      if (chromeWindow.gURLBar._zenBoardTrimWrapped) {
         delete chromeWindow.gURLBar._zenTrimURL;
         chromeWindow.gURLBar._zenTrimURL = currentTrim;
         delete chromeWindow.gURLBar._zenBoardTrimWrapped;
       }
-      if (chromeWindow.gZenCommonActions?._zenBoardCopyWrapped) {
+      if (chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
         chromeWindow.gZenCommonActions.copyCurrentURLToClipboard = originalCopy;
         chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard = originalCopyMarkdown;
         delete chromeWindow.gZenCommonActions._zenBoardCopyWrapped;

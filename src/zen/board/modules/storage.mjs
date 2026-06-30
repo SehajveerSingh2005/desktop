@@ -196,7 +196,7 @@ async function serializeObject(obj) {
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
         } catch {
-          // Placeholder image fetch failed — live-embed will render without a preview
+          filename = null;
         }
       }
       serialized = {

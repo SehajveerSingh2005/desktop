@@ -27,7 +27,7 @@ function getL10nString(id, fallback) {
       return translated[0];
     }
   } catch (e) {
-    // Ignore and fallback
+    console.warn("ZenBoard: l10n failed for", id, e);
   }
   return fallback;
 }
@@ -158,18 +158,13 @@ function initDOM() {
     if (!obj?.sourceUrl) {
       return;
     }
-    // Open in a new tab via the chrome window
-    try {
-      const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
-      if (chromeWin?.gBrowser) {
-        chromeWin.gBrowser.addTrustedTab(obj.sourceUrl, {
-          triggeringPrincipal:
-            chromeWin.Services.scriptSecurityManager.createSystemPrincipal(),
-        });
-      } else {
-        window.open(obj.sourceUrl, "_blank");
-      }
-    } catch {
+    const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
+    if (chromeWin?.gBrowser) {
+      chromeWin.gBrowser.addTrustedTab(obj.sourceUrl, {
+        triggeringPrincipal:
+          chromeWin.Services.scriptSecurityManager.createSystemPrincipal(),
+      });
+    } else {
       window.open(obj.sourceUrl, "_blank");
     }
   };
@@ -324,22 +319,8 @@ async function captureFallbackChain(liveEmbedObj) {
 
 async function captureViaScreenshotsUtils(chromeWin, liveEmbedObj) {
   try {
-    let screenshotsUtils = chromeWin?.ScreenshotsUtils;
-    if (!screenshotsUtils && chromeWin?.ChromeUtils) {
-      try {
-        const modules = chromeWin.ChromeUtils.importESModule(
-          "resource:///modules/ScreenshotsUtils.sys.mjs"
-        );
-        screenshotsUtils = modules.ScreenshotsUtils;
-      } catch {
-        const modules = chromeWin.ChromeUtils.importESModule(
-          "resource://app/modules/ScreenshotsUtils.sys.mjs"
-        );
-        screenshotsUtils = modules.ScreenshotsUtils;
-      }
-    }
-    if (!screenshotsUtils) {
-      throw new Error("ScreenshotsUtils not found");
+    if (!ScreenshotsUtils) {
+      throw new Error("ScreenshotsUtils not available");
     }
 
     const sr = liveEmbedObj.sourceRegion || {};
@@ -358,7 +339,7 @@ async function captureViaScreenshotsUtils(chromeWin, liveEmbedObj) {
       viewportWidth: Math.max(800, sr.viewportWidth || 1280),
       viewportHeight: Math.max(600, sr.viewportHeight || 800),
     };
-    const canvas = await screenshotsUtils.createCanvas(
+    const canvas = await ScreenshotsUtils.createCanvas(
       region,
       liveEmbedObj._iframeEl
     );
@@ -539,7 +520,9 @@ export function ensureIframeInjected(liveEmbedObj) {
             addEventListener("DOMContentLoaded", setup);
             addEventListener("load", setup);
             setup();
-          } catch(e) {}
+          } catch(e) {
+            console.error("[ZenBoard] Frame script setup failed:", e);
+          }
         })();
       `);
       try {

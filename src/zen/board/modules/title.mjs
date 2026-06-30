@@ -44,8 +44,8 @@ export function initTitleInput() {
       if (translated?.[0]) {
         displayTitle = translated[0];
       }
-    } catch (e) {
-      // formatValuesSync throws before l10n is initialized
+    } catch {
+      displayTitle = boardTitle;
     }
   }
   boardTitleInput.value = displayTitle;
@@ -57,7 +57,7 @@ export function initTitleInput() {
       tab.zenStaticLabel = displayTitle;
     }
   } catch (e) {
-    // Cross-process tab access failed
+    console.warn("ZenBoard: Failed to set tab label:", e);
   }
   adjustWidth();
 
@@ -75,7 +75,9 @@ export function initTitleInput() {
         if (translated?.[0]) {
           displayTitle = translated[0];
         }
-      } catch (e) {}
+      } catch {
+        displayTitle = newTitle;
+      }
     }
     document.title = displayTitle;
 
@@ -86,7 +88,7 @@ export function initTitleInput() {
         tab.zenStaticLabel = displayTitle;
       }
     } catch (e) {
-      // Cross-process tab access failed — title still saved to state/IDB
+      console.warn("ZenBoard: Failed to set tab label:", e);
     }
 
     triggerSaveImmediate();

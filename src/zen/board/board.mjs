@@ -50,19 +50,15 @@ function getTabForBoard() {
 }
 
 function setBoardAttributes(boardId) {
-  try {
-    const browserEl = window.docShell?.chromeEventHandler;
-    if (browserEl) {
-      browserEl.setAttribute("zen-board-id", boardId);
-      browserEl.setAttribute("zen-board-tab", "true");
-    }
-    const tab = getTabForBoard();
-    if (tab) {
-      tab.setAttribute("zen-board-id", boardId);
-      tab.setAttribute("zen-board-tab", "true");
-    }
-  } catch (e) {
-    // Cross-process attribute access failed
+  const browserEl = window.docShell?.chromeEventHandler;
+  if (browserEl) {
+    browserEl.setAttribute("zen-board-id", boardId);
+    browserEl.setAttribute("zen-board-tab", "true");
+  }
+  const tab = getTabForBoard();
+  if (tab) {
+    tab.setAttribute("zen-board-id", boardId);
+    tab.setAttribute("zen-board-tab", "true");
   }
 }
 
@@ -81,8 +77,8 @@ async function loadSavedBoard(boardId, classes) {
         if (translated?.[0]) {
           displayTitle = translated[0];
         }
-      } catch (e) {
-        // Fallback to saved.title
+      } catch {
+        displayTitle = saved.title;
       }
     }
     setState({ boardTitle: saved.title, isTransparent: saved.isTransparent });
@@ -94,7 +90,7 @@ async function loadSavedBoard(boardId, classes) {
         tab.zenStaticLabel = displayTitle;
       }
     } catch (e) {
-      // Cross-process tab access failed — title still saved to state/IDB
+      console.warn("ZenBoard: Failed to set tab label:", e);
     }
 
     applyTransparency(saved.isTransparent);
@@ -177,13 +173,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Self-heal transparency for duplicated tabs
-  try {
-    const browserEl = window.docShell?.chromeEventHandler;
-    if (browserEl) {
-      browserEl.setAttribute("transparent", "true");
-    }
-  } catch (e) {
-    // Tab browser element not accessible in duplicated tab context
+  const browserEl = window.docShell?.chromeEventHandler;
+  if (browserEl) {
+    browserEl.setAttribute("transparent", "true");
   }
 
   initTitleInput();

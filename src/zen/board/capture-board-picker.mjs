@@ -109,15 +109,11 @@ window.zenPickerInit = async function init() {
   }
 
   let untitledLabel = "Untitled Board";
-  try {
-    const translated = document.l10n.formatValuesSync([
-      { id: "zen-board-untitled-board" },
-    ]);
-    if (translated?.[0]) {
-      untitledLabel = translated[0];
-    }
-  } catch {
-    untitledLabel = "Untitled Board";
+  const [translated] = await document.l10n.formatValues([
+    { id: "zen-board-untitled-board" },
+  ]);
+  if (translated) {
+    untitledLabel = translated;
   }
 
   if (boards.length === 0) {

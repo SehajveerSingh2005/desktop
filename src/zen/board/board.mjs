@@ -70,15 +70,11 @@ async function loadSavedBoard(boardId, classes) {
     liveEmbeds.forEach(obj => ensureIframeInjected(obj));
     let displayTitle = saved.title;
     if (saved.title === "Untitled Board") {
-      try {
-        const translated = document.l10n.formatValuesSync([
-          { id: "zen-board-untitled-board" },
-        ]);
-        if (translated?.[0]) {
-          displayTitle = translated[0];
-        }
-      } catch {
-        displayTitle = saved.title;
+      const [translated] = await document.l10n.formatValues([
+        { id: "zen-board-untitled-board" },
+      ]);
+      if (translated) {
+        displayTitle = translated;
       }
     }
     setState({ boardTitle: saved.title, isTransparent: saved.isTransparent });

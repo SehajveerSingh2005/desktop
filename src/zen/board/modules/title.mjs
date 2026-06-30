@@ -29,7 +29,7 @@ function adjustWidth() {
     Math.min(Math.max(textWidth + 24, 120), window.innerWidth * 0.8) + "px";
 }
 
-export function initTitleInput() {
+export async function initTitleInput() {
   if (!boardTitleInput) {
     return;
   }
@@ -37,15 +37,11 @@ export function initTitleInput() {
   const { boardTitle } = getState();
   let displayTitle = boardTitle;
   if (boardTitle === "Untitled Board") {
-    try {
-      const translated = document.l10n.formatValuesSync([
-        { id: "zen-board-untitled-board" },
-      ]);
-      if (translated?.[0]) {
-        displayTitle = translated[0];
-      }
-    } catch {
-      displayTitle = boardTitle;
+    const [translated] = await document.l10n.formatValues([
+      { id: "zen-board-untitled-board" },
+    ]);
+    if (translated) {
+      displayTitle = translated;
     }
   }
   boardTitleInput.value = displayTitle;
@@ -61,22 +57,18 @@ export function initTitleInput() {
   }
   adjustWidth();
 
-  boardTitleInput.addEventListener("input", () => {
+  boardTitleInput.addEventListener("input", async () => {
     adjustWidth();
     const newTitle = boardTitleInput.value.trim() || "Untitled Board";
     setState({ boardTitle: newTitle });
 
     let displayTitle = newTitle;
     if (newTitle === "Untitled Board") {
-      try {
-        const translated = document.l10n.formatValuesSync([
-          { id: "zen-board-untitled-board" },
-        ]);
-        if (translated?.[0]) {
-          displayTitle = translated[0];
-        }
-      } catch {
-        displayTitle = newTitle;
+      const [translated] = await document.l10n.formatValues([
+        { id: "zen-board-untitled-board" },
+      ]);
+      if (translated) {
+        displayTitle = translated;
       }
     }
     document.title = displayTitle;

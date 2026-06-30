@@ -6,16 +6,9 @@ import { getState, bumpSceneGeneration, triggerSave } from "./state.mjs";
 import { redrawCanvas } from "./canvas.mjs";
 import { pushHistory } from "./history.mjs";
 
-function getL10nString(id, fallback) {
-  try {
-    const translated = document.l10n.formatValuesSync([{ id }]);
-    if (translated?.[0]) {
-      return translated[0];
-    }
-  } catch (e) {
-    console.warn("ZenBoard: l10n failed for", id, e);
-  }
-  return fallback;
+async function getL10nString(id, fallback) {
+  const [translated] = await document.l10n.formatValues([{ id }]);
+  return translated || fallback;
 }
 
 let overlayContainer = null;
@@ -61,7 +54,7 @@ function getIcon(iconName) {
   return svg;
 }
 
-function initDOM() {
+async function initDOM() {
   overlayContainer = document.getElementById("video-controls");
   if (!overlayContainer) {
     return;
@@ -85,7 +78,7 @@ function initDOM() {
   playBtn = document.createElement("button");
   playBtn.className = "video-btn";
   playBtn.id = "vc-play";
-  playBtn.title = getL10nString("zen-board-video-play-pause", "Play/Pause");
+  playBtn.title = await getL10nString("zen-board-video-play-pause", "Play/Pause");
   // eslint-disable-next-line no-unsanitized/property
   playBtn.innerHTML = getIcon("play");
 
@@ -106,7 +99,7 @@ function initDOM() {
   volumeBtn = document.createElement("button");
   volumeBtn.className = "video-btn";
   volumeBtn.id = "vc-volume";
-  volumeBtn.title = getL10nString("zen-board-video-volume", "Volume");
+  volumeBtn.title = await getL10nString("zen-board-video-volume", "Volume");
   // eslint-disable-next-line no-unsanitized/property
   volumeBtn.innerHTML = getIcon("volume-high");
 
@@ -117,7 +110,7 @@ function initDOM() {
   loopBtn = document.createElement("button");
   loopBtn.className = "video-btn";
   loopBtn.id = "vc-loop";
-  loopBtn.title = getL10nString("zen-board-video-loop", "Loop");
+  loopBtn.title = await getL10nString("zen-board-video-loop", "Loop");
   // eslint-disable-next-line no-unsanitized/property
   loopBtn.innerHTML = getIcon("loop");
 
@@ -356,9 +349,9 @@ function startProgressLoop() {
   animationFrameId = requestAnimationFrame(tick);
 }
 
-export function showVideoControls(videoObj) {
+export async function showVideoControls(videoObj) {
   if (!overlayContainer) {
-    initDOM();
+    await initDOM();
   }
   if (!overlayContainer) {
     return;

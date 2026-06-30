@@ -561,7 +561,7 @@ export class ZenBoard {
         .catch(e => console.error("Failed to translate zen-board-urlbar-label:", e));
     }
 
-    if (!chromeWindow.gURLBar._zenBoardTrimWrapped) {
+    if (chromeWindow.gURLBar && !chromeWindow.gURLBar._zenBoardTrimWrapped) {
       chromeWindow.gURLBar._zenBoardTrimWrapped = true;
       currentTrim = chromeWindow.gURLBar._zenTrimURL;
       Object.defineProperty(chromeWindow.gURLBar, "_zenTrimURL", {
@@ -583,7 +583,7 @@ export class ZenBoard {
     // Wrap copy actions to prevent leaking chrome:// board URLs
     let originalCopy = null;
     let originalCopyMarkdown = null;
-    if (!chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
+    if (chromeWindow.gZenCommonActions && !chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
       chromeWindow.gZenCommonActions._zenBoardCopyWrapped = true;
       originalCopy = chromeWindow.gZenCommonActions.copyCurrentURLToClipboard;
       originalCopyMarkdown = chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard;
@@ -617,11 +617,13 @@ export class ZenBoard {
     chromeWindow.addEventListener("TabClose", tabCloseHandler);
     chromeWindow.addEventListener("TabSelect", tabSelectHandler);
     chromeWindow.addEventListener("TabAttrModified", tabAttrModifiedHandler);
-    chromeWindow.gBrowser.addTabsProgressListener(progressListener);
-    chromeWindow.gURLBar.inputField?.addEventListener("focus", focusHandler);
+    if (chromeWindow.gBrowser) {
+      chromeWindow.gBrowser.addTabsProgressListener(progressListener);
+      chromeWindow.gURLBar.inputField?.addEventListener("focus", focusHandler);
 
-    if (chromeWindow.gBrowser.selectedTab) {
-      updateUrlbarAttribute(chromeWindow.gBrowser.selectedTab);
+      if (chromeWindow.gBrowser.selectedTab) {
+        updateUrlbarAttribute(chromeWindow.gBrowser.selectedTab);
+      }
     }
 
     chromeWindow.addEventListener("unload", () => {
@@ -629,14 +631,14 @@ export class ZenBoard {
       chromeWindow.removeEventListener("TabClose", tabCloseHandler);
       chromeWindow.removeEventListener("TabSelect", tabSelectHandler);
       chromeWindow.removeEventListener("TabAttrModified", tabAttrModifiedHandler);
-      chromeWindow.gBrowser.removeTabsProgressListener(progressListener);
-      chromeWindow.gURLBar.inputField?.removeEventListener("focus", focusHandler);
-      if (chromeWindow.gURLBar._zenBoardTrimWrapped) {
+      chromeWindow.gBrowser?.removeTabsProgressListener(progressListener);
+      chromeWindow.gURLBar?.inputField?.removeEventListener("focus", focusHandler);
+      if (chromeWindow.gURLBar?._zenBoardTrimWrapped) {
         delete chromeWindow.gURLBar._zenTrimURL;
         chromeWindow.gURLBar._zenTrimURL = currentTrim;
         delete chromeWindow.gURLBar._zenBoardTrimWrapped;
       }
-      if (chromeWindow.gZenCommonActions._zenBoardCopyWrapped) {
+      if (chromeWindow.gZenCommonActions?._zenBoardCopyWrapped) {
         chromeWindow.gZenCommonActions.copyCurrentURLToClipboard = originalCopy;
         chromeWindow.gZenCommonActions.copyCurrentURLAsMarkdownToClipboard = originalCopyMarkdown;
         delete chromeWindow.gZenCommonActions._zenBoardCopyWrapped;

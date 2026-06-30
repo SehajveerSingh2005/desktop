@@ -20,16 +20,9 @@ import { getAsset } from "./db.mjs";
 import { saveAsset, deleteAsset, ASSETS_FOLDER_NAME } from "./assets.mjs";
 import { pushHistory } from "./history.mjs";
 
-function getL10nString(id, fallback) {
-  try {
-    const translated = document.l10n.formatValuesSync([{ id }]);
-    if (translated?.[0]) {
-      return translated[0];
-    }
-  } catch (e) {
-    console.warn("ZenBoard: l10n failed for", id, e);
-  }
-  return fallback;
+async function getL10nString(id, fallback) {
+  const [translated] = await document.l10n.formatValues([{ id }]);
+  return translated || fallback;
 }
 
 let overlayContainer = null;
@@ -95,7 +88,7 @@ function iconRedirect() {
 
 // ── DOM init ────────────────────────────────────────────────────────────────
 
-function initDOM() {
+async function initDOM() {
   overlayContainer = document.getElementById("capture-controls");
   if (!overlayContainer) {
     return;
@@ -119,7 +112,7 @@ function initDOM() {
   playPauseBtn = document.createElement("button");
   playPauseBtn.className = "capture-btn";
   playPauseBtn.id = "cc-playpause";
-  playPauseBtn.title = getL10nString("zen-board-capture-go-live", "Go live");
+  playPauseBtn.title = await getL10nString("zen-board-capture-go-live", "Go live");
   // eslint-disable-next-line no-unsanitized/property
   playPauseBtn.innerHTML = iconPlay();
 
@@ -127,7 +120,7 @@ function initDOM() {
   redirectBtn = document.createElement("button");
   redirectBtn.className = "capture-btn";
   redirectBtn.id = "cc-redirect";
-  redirectBtn.title = getL10nString("zen-board-capture-open-new-tab", "Open in new tab");
+  redirectBtn.title = await getL10nString("zen-board-capture-open-new-tab", "Open in new tab");
   // eslint-disable-next-line no-unsanitized/property
   redirectBtn.innerHTML = iconRedirect();
 
@@ -190,7 +183,7 @@ function initDOM() {
  *
  * @param {object} captureObj The capture object.
  */
-function convertToLiveEmbed(captureObj) {
+async function convertToLiveEmbed(captureObj) {
   const liveEmbed = new LiveEmbedObject(
     captureObj.id,
     captureObj.x,
@@ -217,7 +210,7 @@ function convertToLiveEmbed(captureObj) {
   ensureIframeInjected(liveEmbed);
 
   // Show the updated toolbar
-  showCaptureControls(liveEmbed);
+  await showCaptureControls(liveEmbed);
 
   redrawCanvas();
   triggerSave();
@@ -234,7 +227,7 @@ function convertToLiveEmbed(captureObj) {
 async function convertToStaticCapture(liveEmbedObj) {
   if (playPauseBtn) {
     playPauseBtn.disabled = true;
-    playPauseBtn.title = getL10nString("zen-board-capture-converting", "Converting…");
+    playPauseBtn.title = await getL10nString("zen-board-capture-converting", "Converting…");
   }
 
   try {
@@ -285,7 +278,7 @@ async function convertToStaticCapture(liveEmbedObj) {
   } finally {
     if (playPauseBtn) {
       playPauseBtn.disabled = false;
-      playPauseBtn.title = getL10nString("zen-board-capture-go-live", "Go live");
+      playPauseBtn.title = await getL10nString("zen-board-capture-go-live", "Go live");
     }
   }
 }
@@ -319,7 +312,8 @@ async function captureFallbackChain(liveEmbedObj) {
 
 async function captureViaScreenshotsUtils(chromeWin, liveEmbedObj) {
   try {
-    if (!ScreenshotsUtils) {
+    const screenshotsUtils = chromeWin?.ScreenshotsUtils;
+    if (!screenshotsUtils) {
       throw new Error("ScreenshotsUtils not available");
     }
 
@@ -339,7 +333,7 @@ async function captureViaScreenshotsUtils(chromeWin, liveEmbedObj) {
       viewportWidth: Math.max(800, sr.viewportWidth || 1280),
       viewportHeight: Math.max(600, sr.viewportHeight || 800),
     };
-    const canvas = await ScreenshotsUtils.createCanvas(
+    const canvas = await screenshotsUtils.createCanvas(
       region,
       liveEmbedObj._iframeEl
     );
@@ -541,9 +535,9 @@ export function ensureIframeInjected(liveEmbedObj) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-export function showCaptureControls(obj) {
+export async function showCaptureControls(obj) {
   if (!overlayContainer) {
-    initDOM();
+    await initDOM();
   }
   if (!overlayContainer) {
     return;
@@ -568,11 +562,11 @@ export function showCaptureControls(obj) {
   if (obj.type === "capture") {
     // eslint-disable-next-line no-unsanitized/property
     playPauseBtn.innerHTML = iconPlay();
-    playPauseBtn.title = getL10nString("zen-board-capture-go-live", "Go live");
+    playPauseBtn.title = await getL10nString("zen-board-capture-go-live", "Go live");
   } else {
     // eslint-disable-next-line no-unsanitized/property
     playPauseBtn.innerHTML = iconPause();
-    playPauseBtn.title = getL10nString("zen-board-capture-pause", "Pause (back to static)");
+    playPauseBtn.title = await getL10nString("zen-board-capture-pause", "Pause (back to static)");
   }
 
   // If this is a live embed, ensure the iframe is injected and visible

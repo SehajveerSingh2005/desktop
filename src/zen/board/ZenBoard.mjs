@@ -263,12 +263,10 @@ const ZenBoardXFOObserver = {
         console.warn("ZenBoard: Failed to strip X-Frame-Options", uriSpec, e);
       }
       try {
-        const csp = channel.getResponseHeader("Content-Security-Policy");
-        if (csp) {
-          channel.setResponseHeader("Content-Security-Policy", "", false);
-        }
+        channel.setResponseHeader("Content-Security-Policy", "", false);
+        channel.setResponseHeader("Content-Security-Policy-Report-Only", "", false);
       } catch (e) {
-        console.warn("ZenBoard: Failed to strip Content-Security-Policy", uriSpec, e);
+        console.warn("ZenBoard: Failed to strip CSP headers", uriSpec, e);
       }
     } catch (e) {
       console.warn("ZenBoard: XFO observer error", topic, e);

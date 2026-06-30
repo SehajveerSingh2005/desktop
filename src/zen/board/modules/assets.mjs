@@ -16,16 +16,15 @@
 // IOUtils and PathUtils are available as privileged globals.
 
 export const ASSETS_FOLDER_NAME = "zen-board-assets";
-let _assetsFolderPath = null;
+
+const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "assetsFolder", () =>
+  PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME)
+);
 
 async function getAssetsFolder() {
-  if (_assetsFolderPath) {
-    return _assetsFolderPath;
-  }
-  const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
-  await IOUtils.makeDirectory(folder, { ignoreExisting: true });
-  _assetsFolderPath = folder;
-  return folder;
+  await IOUtils.makeDirectory(lazy.assetsFolder, { ignoreExisting: true });
+  return lazy.assetsFolder;
 }
 
 // ── Path → file:// URI ────────────────────────────────────────────────────────

@@ -12,16 +12,14 @@ import {
 const ASSETS_FOLDER_NAME = "zen-board-assets";
 const BOARD_URL = "chrome://browser/content/zen-board/board.html";
 
-let _nativeAssetsFolder = null;
+const lazy = {};
+ChromeUtils.defineLazyGetter(lazy, "assetsFolder", () =>
+  PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME)
+);
 
 async function getNativeAssetsFolder() {
-  if (_nativeAssetsFolder) {
-    return _nativeAssetsFolder;
-  }
-  const folder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
-  await IOUtils.makeDirectory(folder, { ignoreExisting: true });
-  _nativeAssetsFolder = folder;
-  return folder;
+  await IOUtils.makeDirectory(lazy.assetsFolder, { ignoreExisting: true });
+  return lazy.assetsFolder;
 }
 
 // Duplicated in modules/assets.mjs — cross-process boundary prevents sharing.
@@ -92,11 +90,10 @@ async function deleteBoardFromDB(db, id) {
     }
   }
 
-  const assetsFolder = PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME);
   for (const filename of boardAssetFiles) {
     if (!usedFiles.has(filename)) {
       try {
-        await IOUtils.remove(PathUtils.join(assetsFolder, filename), {
+        await IOUtils.remove(PathUtils.join(lazy.assetsFolder, filename), {
           ignoreAbsent: true,
         });
       } catch (e) {

@@ -75,12 +75,6 @@ function escapeHTML(str) {
 
 // ── Main ────────────────────────────────────────────────────────────────
 window.zenPickerInit = async function init() {
-  try {
-    await document.l10n.ready;
-  } catch (e) {
-    // Ignore and fallback
-  }
-
   const args = window.arguments?.[0] || window.zenPickerArgs;
   if (!args?.blob || !args?.sourceUrl) {
     console.error("ZenBoard Picker: No capture data provided");

@@ -145,11 +145,6 @@ function onDoubleClick(e) {
 // ── Main init ───────────────────────────────────────────────────────────────
 
 window.addEventListener("DOMContentLoaded", async () => {
-  try {
-    await document.l10n.ready;
-  } catch (e) {
-    // l10n subsystem unavailable — continue with English fallbacks
-  }
   await initTheme();
   initTools();
   resizeCanvas();

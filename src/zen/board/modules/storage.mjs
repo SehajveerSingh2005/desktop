@@ -195,7 +195,8 @@ async function serializeObject(obj) {
           const blob = await res.blob();
           filename = await saveAsset(blob);
           obj._assetFile = filename; // stamp back
-        } catch {
+        } catch (e) {
+          console.warn("ZenBoard: Could not save live-embed placeholder image", e);
           filename = null;
         }
       }

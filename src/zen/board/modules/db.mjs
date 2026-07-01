@@ -287,7 +287,7 @@ export async function deleteBoard(id) {
       try {
         await deleteFileAsset(filename);
       } catch (e) {
-        console.error("ZenBoard: Failed to delete orphaned file asset", filename, e);
+        console.warn("ZenBoard: Failed to delete orphaned file asset", filename, e);
       }
     }
   }

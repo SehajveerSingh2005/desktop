@@ -16,7 +16,7 @@ export function applyTransparency(isTransparent) {
       if (isNaN(opacity)) {
         opacity = DEFAULT_OPACITY;
       }
-    } catch (e) {
+    } catch {
       opacity = DEFAULT_OPACITY;
     }
   } else {

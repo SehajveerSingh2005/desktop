@@ -43,7 +43,7 @@ function pathToFileURI(nativePath) {
         ? Services
         : window.docShell?.chromeEventHandler?.ownerDocument?.defaultView?.Services;
     return svc.io.newFileURI(nsFile).spec;
-  } catch (e) {
+  } catch {
     // Fallback: manual construction (works for ASCII paths and UUID filenames)
     const normalized = nativePath.replace(/\\/g, "/");
     const encoded = normalized.replace(/[^/:.~\-_!A-Za-z0-9]/g, c =>

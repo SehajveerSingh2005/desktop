@@ -206,7 +206,7 @@ export class VideoObject extends DrawingObject {
       this.video.src = "";
       try {
         this.video.load();
-      } catch (e) {
+      } catch {
         // ignore load errors on empty src
       }
     }

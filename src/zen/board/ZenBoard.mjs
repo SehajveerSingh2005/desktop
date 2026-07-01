@@ -16,6 +16,9 @@ const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "assetsFolder", () =>
   PathUtils.join(PathUtils.profileDir, ASSETS_FOLDER_NAME)
 );
+ChromeUtils.defineESModuleGetters(lazy, {
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+});
 
 async function getNativeAssetsFolder() {
   await IOUtils.makeDirectory(lazy.assetsFolder, { ignoreExisting: true });
@@ -334,10 +337,8 @@ function isBoardTab(tab) {
   return urlSpec?.startsWith(BOARD_URL) || false;
 }
 
-function isBoardOpenElsewhere(chromeWindow, closedTab, boardId) {
-  const windows = Services.wm.getEnumerator("navigator:browser");
-  while (windows.hasMoreElements()) {
-    const win = windows.getNext();
+function isBoardOpenElsewhere(closedTab, boardId) {
+  for (const win of Services.wm.getEnumerator("navigator:browser")) {
     const gb = win.gBrowser;
     if (!gb) {
       continue;
@@ -356,11 +357,8 @@ function isBoardOpenElsewhere(chromeWindow, closedTab, boardId) {
 
 async function isBoardBookmarked(boardId) {
   try {
-    const placesUtils = ChromeUtils.importESModule(
-      "resource://gre/modules/PlacesUtils.sys.mjs"
-    ).PlacesUtils;
     const boardUrl = `${BOARD_URL}?id=${boardId}`;
-    return await placesUtils.bookmarks
+    return await lazy.PlacesUtils.bookmarks
       .fetch({ url: boardUrl })
       .then(bm => !!bm)
       .catch(() => false);
@@ -452,19 +450,15 @@ export class ZenBoard {
 
       let untitledLabel = "Untitled Board";
       let createLabel = "Create New Board...";
-      try {
-        const translated = await chromeWindow.document.l10n.formatValues([
-          { id: "zen-board-untitled-board" },
-          { id: "zen-board-create-new-board" },
-        ]);
-        if (translated?.[0]) {
-          untitledLabel = translated[0];
-        }
-        if (translated?.[1]) {
-          createLabel = translated[1];
-        }
-      } catch (e) {
-        console.error("ZenBoard: Failed to translate popup labels", e);
+      const translated = await chromeWindow.document.l10n.formatValues([
+        { id: "zen-board-untitled-board" },
+        { id: "zen-board-create-new-board" },
+      ]);
+      if (translated?.[0]) {
+        untitledLabel = translated[0];
+      }
+      if (translated?.[1]) {
+        createLabel = translated[1];
       }
 
       if (boards.length) {
@@ -522,7 +516,7 @@ export class ZenBoard {
         return;
       }
 
-      if (isBoardOpenElsewhere(chromeWindow, tab, boardId)) {
+      if (isBoardOpenElsewhere(tab, boardId)) {
         return;
       }
 
@@ -562,15 +556,12 @@ export class ZenBoard {
     // Wrap urlbar trim to hide chrome:// board URLs
     let currentTrim = null;
     let boardLabel = "Board";
-    if (chromeWindow.document.l10n) {
-      chromeWindow.document.l10n.formatValues([{ id: "zen-board-urlbar-label" }])
-        .then(translated => {
-          if (translated?.[0]) {
-            boardLabel = translated[0];
-          }
-        })
-        .catch(e => console.error("Failed to translate zen-board-urlbar-label:", e));
-    }
+    chromeWindow.document.l10n.formatValues([{ id: "zen-board-urlbar-label" }])
+      .then(translated => {
+        if (translated?.[0]) {
+          boardLabel = translated[0];
+        }
+      });
 
     if (chromeWindow.gURLBar && !chromeWindow.gURLBar._zenBoardTrimWrapped) {
       chromeWindow.gURLBar._zenBoardTrimWrapped = true;

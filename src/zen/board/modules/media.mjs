@@ -86,7 +86,6 @@ export class ImageObject extends DrawingObject {
     cloned._blob = this._blob;
     cloned.sourceRegion = this.sourceRegion;
     cloned._assetFile = this._assetFile;
-    cloned._assetHash = this._assetHash;
     return cloned;
   }
 }
@@ -223,7 +222,6 @@ export class VideoObject extends DrawingObject {
     );
     cloned._blob = this._blob;
     cloned._assetFile = this._assetFile;
-    cloned._assetHash = this._assetHash;
     cloned.isPlaying = this.isPlaying;
     cloned.isMuted = this.isMuted;
     cloned.volume = this.volume;
@@ -246,8 +244,6 @@ export class CaptureObject extends DrawingObject {
     this.image = imageElement;
     this.sourceUrl = sourceUrl || "";
     this.aspectRatio = width / height;
-    // Asset hash, set after IDB storage (mirrors ImageObject)
-    this._assetHash = null;
   }
 
   /**
@@ -309,7 +305,6 @@ export class CaptureObject extends DrawingObject {
     cloned._blob = this._blob;
     cloned.sourceRegion = this.sourceRegion;
     cloned._assetFile = this._assetFile;
-    cloned._assetHash = this._assetHash;
     cloned.visible = this.visible;
     return cloned;
   }
@@ -326,7 +321,6 @@ export class LiveEmbedObject extends DrawingObject {
     // The actual iframe element — created lazily by capture-controls.js
     this._iframeEl = null;
     this._wrapperEl = null;
-    this._assetHash = null;
   }
 
   getToolbarBox(scale) {
@@ -496,7 +490,6 @@ export class LiveEmbedObject extends DrawingObject {
     );
     cloned.sourceRegion = this.sourceRegion;
     cloned._assetFile = this._assetFile;
-    cloned._assetHash = this._assetHash;
     cloned.visible = this.visible;
     return cloned;
   }

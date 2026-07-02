@@ -11,7 +11,7 @@ import { findObjectAt } from "./modules/interactions.mjs";
 /* eslint-disable no-shadow */
 import { scene, removeFromScene, replaceScene, Text } from "./modules/scene.mjs";
 /* eslint-enable no-shadow */
-import { ensureBoardId, loadBoard, revokeAllObjectURLs } from "./modules/storage.mjs";
+import { ensureBoardId, loadBoard } from "./modules/storage.mjs";
 import { pushHistory, undo, redo, registerOnRestore } from "./modules/history.mjs";
 import { hideVideoControls } from "./modules/video-controls.mjs";
 import { hideCaptureControls, ensureIframeInjected } from "./modules/capture-controls.mjs";
@@ -265,7 +265,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("text-editor")?.addEventListener("blur", () => triggerSave());
 
   window.addEventListener("pagehide", () => {
-    revokeAllObjectURLs();
     scene.forEach(obj => {
       if (typeof obj.destroy === "function") {
         obj.destroy();
@@ -287,6 +286,24 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   selectTool("select");
   updateZoomDisplay();
+
+  // Re-check for captures added during tab startup (race condition guard).
+  // Between board creation and listener registration, a capture may have been
+  // appended to the JSON file. Reload once to pick it up.
+  setTimeout(async () => {
+    try {
+      const reloaded = await loadBoard(getState().boardId, classes);
+      if (reloaded && reloaded.scene.length !== scene.length) {
+        const liveEmbeds = reloaded.scene.filter(obj => obj.type === "live-embed");
+        replaceScene(reloaded.scene);
+        liveEmbeds.forEach(obj => ensureIframeInjected(obj));
+        pushHistory();
+        redrawCanvas();
+      }
+    } catch {
+      // Board may have been deleted — ignore
+    }
+  }, 500);
 
   const zoomDisplay = document.getElementById("zoom-display");
   if (zoomDisplay) {

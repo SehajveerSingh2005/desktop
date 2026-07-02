@@ -123,13 +123,13 @@ function drawPath(context, object) {
   const N = points.length / 2;
 
   if (N === 1) {
-    if (!object._cachedPath2D) {
+    if (!object._cachedDotPath2D) {
       const path2d = new Path2D();
       path2d.arc(points[0], points[1], object.lineWidth / 2, 0, 2 * Math.PI);
-      object._cachedPath2D = path2d;
+      object._cachedDotPath2D = path2d;
     }
     context.fillStyle = object.color;
-    context.fill(object._cachedPath2D);
+    context.fill(object._cachedDotPath2D);
     context.restore();
     return;
   }

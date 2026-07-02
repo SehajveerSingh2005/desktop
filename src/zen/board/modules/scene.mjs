@@ -272,10 +272,10 @@ export class Path extends DrawingObject {
   }
 
   finalizePath() {
-    this.smoothedRelativePoints = smoothPoints(this.rawRelativePoints);
     this.isFinalized = true;
-    
-    // Build the final Path2D for rendering
+
+    // Build the final cached Path2D so the renderer doesn't rebuild every frame.
+    // Don't re-smooth — addPoint already maintained smoothedRelativePoints.
     const points = this.smoothedRelativePoints;
     const N = points.length / 2;
     const path2d = new Path2D();

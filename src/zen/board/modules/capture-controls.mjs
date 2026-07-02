@@ -528,33 +528,37 @@ export function ensureIframeInjected(liveEmbedObj) {
       // Handle messages from the embedded content
       iframe.messageManager.addMessageListener("ZenBoard:OpenLinkInGlance", {
         receiveMessage(msg) {
-          const { url } = msg.data;
-          if (!url) return;
-          const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
-          // Compute screen position of the live embed object for Glance animation
-          let glX = 0, glY = 0, glW = 0, glH = 0;
-          if (currentObject) {
-            const { scale, offsetX, offsetY } = getState();
-            glX = currentObject.x * scale + offsetX;
-            glY = currentObject.y * scale + offsetY;
-            glW = (currentObject.width || 800) * scale;
-            glH = (currentObject.height || 600) * scale;
-          }
-          if (chromeWin?.gZenGlanceManager) {
-            chromeWin.gZenGlanceManager.openGlance({
-              url,
-              clientX: glX,
-              clientY: glY,
-              width: glW,
-              height: glH,
-              triggeringPrincipal:
-                chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
-            });
-          } else if (chromeWin?.gBrowser) {
-            chromeWin.gBrowser.addTrustedTab(url, {
-              triggeringPrincipal:
-                chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
-            });
+          try {
+            const { url } = msg.data;
+            if (!url) return;
+            const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
+            // Compute screen position of the live embed object for Glance animation
+            let glX = 0, glY = 0, glW = 0, glH = 0;
+            if (currentObject) {
+              const { scale, offsetX, offsetY } = getState();
+              glX = currentObject.x * scale + offsetX;
+              glY = currentObject.y * scale + offsetY;
+              glW = (currentObject.width || 800) * scale;
+              glH = (currentObject.height || 600) * scale;
+            }
+            if (chromeWin?.gZenGlanceManager) {
+              chromeWin.gZenGlanceManager.openGlance({
+                url,
+                clientX: glX,
+                clientY: glY,
+                width: glW,
+                height: glH,
+                triggeringPrincipal:
+                  chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
+              });
+            } else if (chromeWin?.gBrowser) {
+              chromeWin.gBrowser.addTrustedTab(url, {
+                triggeringPrincipal:
+                  chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
+              });
+            }
+          } catch (e) {
+            console.error("ZenBoard: Failed to open link in Glance", e);
           }
         },
       });

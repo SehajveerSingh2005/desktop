@@ -53,6 +53,11 @@
         content/browser/zen-board/icons/play.svg                                (../../zen/board/icons/play.svg)
         content/browser/zen-board/icons/pause.svg                               (../../zen/board/icons/pause.svg)
         content/browser/zen-board/icons/volume.svg                              (../../zen/board/icons/volume.svg)
+        content/browser/zen-board/icons/redirect.svg                            (../../zen/board/icons/redirect.svg)
+        content/browser/zen-board/icons/board-grid.svg                          (../../zen/board/icons/board-grid.svg)
+        content/browser/zen-board/icons/chevron-right.svg                       (../../zen/board/icons/chevron-right.svg)
+        content/browser/zen-board/icons/volume-high.svg                         (../../zen/board/icons/volume-high.svg)
+        content/browser/zen-board/icons/volume-mute.svg                         (../../zen/board/icons/volume-mute.svg)
 
         content/browser/zen-board/fonts/ArchivoBlack.ttf                        (../../zen/board/fonts/ArchivoBlack.ttf)
         content/browser/zen-board/fonts/InstrumentSerif.ttf                     (../../zen/board/fonts/InstrumentSerif.ttf)

@@ -285,6 +285,8 @@ body.ready {
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 /* Zoom Hover-Slide UIUX */
@@ -542,16 +544,12 @@ body.ready {
   filter: invert(1) brightness(1.2);
 }
 
-.video-btn svg {
-  width: 20px;
-  height: 20px;
-  fill: white;
+.video-btn .tool-icon {
   pointer-events: none;
-  display: block;
 }
 
-.video-btn.active svg {
-  fill: var(--board-accent-color, var(--zen-colors-primary, #007bff));
+.video-btn.active .tool-icon {
+  color: var(--board-accent-color, var(--zen-colors-primary, #007bff));
 }
 
 .video-time {
@@ -689,9 +687,8 @@ body.ready {
   cursor: not-allowed;
 }
 
-.capture-btn svg {
+.capture-btn .tool-icon {
   pointer-events: none;
-  display: block;
 }
 
 /* Live embed iframe — positioned absolutely over the canvas */

@@ -47,8 +47,20 @@ body {
   color: var(--text);
 }
 
-.picker-title svg {
+.picker-title .tool-icon {
   color: var(--accent);
+  flex-shrink: 0;
+}
+
+.tool-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  pointer-events: none;
   flex-shrink: 0;
 }
 
@@ -150,8 +162,10 @@ body {
   flex-shrink: 0;
 }
 
-.board-item-icon svg {
+.board-item-icon .tool-icon {
   color: var(--accent);
+  width: 16px;
+  height: 16px;
 }
 
 .board-item-info {
@@ -175,6 +189,8 @@ body {
 .board-item-arrow {
   color: var(--text-muted);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 /* Scrollbar */

@@ -353,6 +353,10 @@ const {
       const img = new Image();
       const isTmpBlob = imgSrc && imgSrc.startsWith("blob:");
       await new Promise(resolve => {
+        if (!imgSrc) {
+          resolve();
+          return;
+        }
         img.onload = () => {
           if (isTmpBlob) {
             URL.revokeObjectURL(imgSrc);
@@ -401,6 +405,19 @@ const {
       const videoEl = document.createElement("video");
       videoEl.preload = "metadata";
       const result = await new Promise(resolve => {
+        if (!videoSrc) {
+          resolve(
+            new VideoObject(
+              data.id,
+              data.x,
+              data.y,
+              data.width,
+              data.height,
+              videoEl
+            )
+          );
+          return;
+        }
         videoEl.onloadedmetadata = () =>
           resolve(
             new VideoObject(

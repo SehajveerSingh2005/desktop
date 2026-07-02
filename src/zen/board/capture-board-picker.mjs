@@ -50,27 +50,13 @@ function formatDate(ts) {
   });
 }
 
-function boardItemIcon() {
-  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/>
-    <rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/>
-    <rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/>
-    <rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/>
-  </svg>`;
-}
+const ICON_BASE = "chrome://browser/content/zen-board/icons/";
 
-function arrowIcon() {
-  return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-  </svg>`;
-}
-
-function escapeHTML(str) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function toolIcon(name) {
+  const span = document.createElement("span");
+  span.className = "tool-icon";
+  span.style.maskImage = `url('${ICON_BASE}${name}.svg')`;
+  return span;
 }
 
 // ── Main ────────────────────────────────────────────────────────────────
@@ -119,15 +105,29 @@ window.zenPickerInit = async function init() {
       const boardTitle = board.title === "Untitled Board"
         ? untitledLabel
         : board.title || untitledLabel;
-      // eslint-disable-next-line no-unsanitized/property
-      item.innerHTML = `
-        <div class="board-item-icon">${boardItemIcon()}</div>
-        <div class="board-item-info">
-          <div class="board-item-name">${escapeHTML(boardTitle)}</div>
-          <div class="board-item-date">${formatDate(board.lastEdited)}</div>
-        </div>
-        <div class="board-item-arrow">${arrowIcon()}</div>
-      `;
+
+      const iconEl = document.createElement("div");
+      iconEl.className = "board-item-icon";
+      iconEl.appendChild(toolIcon("board-grid"));
+
+      const infoEl = document.createElement("div");
+      infoEl.className = "board-item-info";
+      const nameEl = document.createElement("div");
+      nameEl.className = "board-item-name";
+      nameEl.textContent = boardTitle;
+      const dateEl = document.createElement("div");
+      dateEl.className = "board-item-date";
+      dateEl.textContent = formatDate(board.lastEdited);
+      infoEl.appendChild(nameEl);
+      infoEl.appendChild(dateEl);
+
+      const arrowEl = document.createElement("div");
+      arrowEl.className = "board-item-arrow";
+      arrowEl.appendChild(toolIcon("chevron-right"));
+
+      item.appendChild(iconEl);
+      item.appendChild(infoEl);
+      item.appendChild(arrowEl);
       item.addEventListener("click", () =>
         addToBoard(db, board.id, board.title, blob, sourceUrl, region, chromeWindow)
       );

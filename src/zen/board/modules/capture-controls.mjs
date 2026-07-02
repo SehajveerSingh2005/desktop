@@ -72,18 +72,13 @@ let sourceUrlEl = null;
 let playPauseBtn = null;
 let redirectBtn = null;
 
-// ── Icon helpers ────────────────────────────────────────────────────────────
+const ICON_BASE = "chrome://browser/content/zen-board/icons/";
 
-function iconPlay() {
-  return `<svg fill="white" width="18" height="18" viewBox="0 0 21 20"><path d="m 17.2778,8.30893 -10.54669,-5.84 c -0.61444,-0.34 -1.34,-0.33 -1.94333,0.02555 C 4.19,2.84671 3.83334,3.46893 3.83334,4.16004 V 15.84 c 0,0.6912 0.35666,1.3134 0.95444,1.6656 0.31,0.1822 0.65111,0.2744 0.99444,0.2744 0.32556,0 0.65112,-0.0833 0.94889,-0.2477 l 10.54559,-5.84 c 0.6177,-0.3411 1.0011,-0.99 1.0011,-1.6911 0,-0.70116 -0.3834,-1.35116 -1,-1.69227 z"/></svg>`;
-}
-
-function iconPause() {
-  return `<svg fill="white" width="18" height="18" viewBox="0 0 21 20"><path d="M 7.16667,2.5 C 6.70833,2.5 6.33333,2.875 6.33333,3.33333 V 16.6667 C 6.33333,17.125 6.70833,17.5 7.16667,17.5 9.16667,17.5 9.16667,17.5 9.16667,17.5 9.625,17.5 10,17.125 10,16.6667 V 3.33333 C 10,2.875 9.625,2.5 9.16667,2.5 Z M 13.8333,2.5 c -0.4583,0 -0.8333,0.375 -0.8333,0.83333 V 16.6667 C 13,17.125 13.375,17.5 13.8333,17.5 h 2 c 0.4584,0 0.8334,-0.375 0.8334,-0.8333 V 3.33333 C 16.6667,2.875 16.2917,2.5 15.8333,2.5 Z"/></svg>`;
-}
-
-function iconRedirect() {
-  return `<svg fill="white" width="16" height="16" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/><polyline points="15 3 21 3 21 9" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="14" x2="21" y2="3" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>`;
+function toolIcon(name) {
+  const span = document.createElement("span");
+  span.className = "tool-icon";
+  span.style.maskImage = `url('${ICON_BASE}${name}.svg')`;
+  return span;
 }
 
 // ── DOM init ────────────────────────────────────────────────────────────────
@@ -113,16 +108,14 @@ async function initDOM() {
   playPauseBtn.className = "capture-btn";
   playPauseBtn.id = "cc-playpause";
   playPauseBtn.title = await getL10nString("zen-board-capture-go-live", "Go live");
-  // eslint-disable-next-line no-unsanitized/property
-  playPauseBtn.innerHTML = iconPlay();
+  playPauseBtn.appendChild(toolIcon("play"));
 
   // Redirect button (↗)
   redirectBtn = document.createElement("button");
   redirectBtn.className = "capture-btn";
   redirectBtn.id = "cc-redirect";
   redirectBtn.title = await getL10nString("zen-board-capture-open-new-tab", "Open in new tab");
-  // eslint-disable-next-line no-unsanitized/property
-  redirectBtn.innerHTML = iconRedirect();
+  redirectBtn.appendChild(toolIcon("redirect"));
 
   btnGroup.appendChild(playPauseBtn);
   btnGroup.appendChild(redirectBtn);
@@ -570,12 +563,10 @@ export async function showCaptureControls(obj) {
 
   // Update play/pause button
   if (obj.type === "capture") {
-    // eslint-disable-next-line no-unsanitized/property
-    playPauseBtn.innerHTML = iconPlay();
+    playPauseBtn.replaceChildren(toolIcon("play"));
     playPauseBtn.title = await getL10nString("zen-board-capture-go-live", "Go live");
   } else {
-    // eslint-disable-next-line no-unsanitized/property
-    playPauseBtn.innerHTML = iconPause();
+    playPauseBtn.replaceChildren(toolIcon("pause"));
     playPauseBtn.title = await getL10nString("zen-board-capture-pause", "Pause (back to static)");
   }
 

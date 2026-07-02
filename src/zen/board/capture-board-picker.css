@@ -125,6 +125,8 @@ body {
   gap: 4px;
   max-height: 220px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .empty-msg {
@@ -193,14 +195,4 @@ body {
   align-items: center;
 }
 
-/* Scrollbar */
-#boards-list::-webkit-scrollbar {
-  width: 4px;
-}
-#boards-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-#boards-list::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
-}
+

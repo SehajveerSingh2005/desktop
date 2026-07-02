@@ -3,11 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import {
-  openChromeDB,
-  createBoardInDB,
-  listBoardsFromDB,
-  appendCaptureToBoard,
-} from "./chrome-db.mjs";
+  createBoard,
+  listBoards,
+  getBoard,
+  appendCapture,
+  deleteBoard,
+} from "./board-store.mjs";
 
 const ASSETS_FOLDER_NAME = "zen-board-assets";
 const BOARD_URL = "chrome://browser/content/zen-board/board.html";
@@ -43,67 +44,6 @@ async function saveAssetToFilesystem(blob) {
   const destPath = PathUtils.join(folder, filename);
   await IOUtils.write(destPath, new Uint8Array(await blob.arrayBuffer()));
   return filename;
-}
-
-// ── Board deletion with orphaned asset cleanup ─────────────────────────────
-
-async function deleteBoardFromDB(db, id) {
-  const board = await new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readonly");
-    const req = tx.objectStore("boards").get(id);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-
-  if (!board) {
-    return;
-  }
-
-  const boardAssetFiles = new Set();
-  for (const obj of board.scene || []) {
-    if (obj._assetFile) {
-      boardAssetFiles.add(obj._assetFile);
-    }
-  }
-
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readwrite");
-    const req = tx.objectStore("boards").delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-
-  if (boardAssetFiles.size === 0) {
-    return;
-  }
-
-  const remaining = await new Promise((resolve, reject) => {
-    const tx = db.transaction("boards", "readonly");
-    const req = tx.objectStore("boards").getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-
-  const usedFiles = new Set();
-  for (const b of remaining) {
-    for (const obj of b.scene || []) {
-      if (obj._assetFile) {
-        usedFiles.add(obj._assetFile);
-      }
-    }
-  }
-
-  for (const filename of boardAssetFiles) {
-    if (!usedFiles.has(filename)) {
-      try {
-        await IOUtils.remove(PathUtils.join(lazy.assetsFolder, filename), {
-          ignoreAbsent: true,
-        });
-      } catch (e) {
-        console.warn("ZenBoard: Failed to delete orphaned asset", filename, e);
-      }
-    }
-  }
 }
 
 // ── Add capture to board ────────────────────────────────────────────────────
@@ -178,22 +118,16 @@ function pinNewBoardTab(gb, chromeWindow, boardUrl, boardId) {
 
 async function doAddToBoard(chromeWindow, boardId, boardTitle, blob, sourceUrl, region) {
   try {
-    const db = await openChromeDB(chromeWindow);
     const assetFilename = await saveAssetToFilesystem(blob);
 
-    const boardRecord = await new Promise((resolve, reject) => {
-      const tx = db.transaction("boards", "readonly");
-      const req = tx.objectStore("boards").get(boardId);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    const boardRecord = await getBoard(boardId);
 
     const gb = chromeWindow.gBrowser;
     const existingTab = findBoardTab(gb, boardId);
     const { x: spawnX, y: spawnY } = getSpawnPosition(chromeWindow, existingTab, boardRecord);
 
     const captureObj = buildCaptureObj(spawnX, spawnY, region, sourceUrl, assetFilename);
-    await appendCaptureToBoard(db, boardId, captureObj);
+    await appendCapture(boardId, captureObj);
 
     if (!gb) {
       return;
@@ -379,9 +313,7 @@ export class ZenBoard {
 
     let boardId;
     try {
-      const db = await openChromeDB(win);
-      boardId = await createBoardInDB(db, "Untitled Board");
-      db.close();
+      boardId = await createBoard("Untitled Board");
     } catch (e) {
       console.error("[ZenBoard] Failed to create new board in openZenBoard", e);
       return;
@@ -444,9 +376,7 @@ export class ZenBoard {
       menupopup.setAttribute("id", "zen-board-capture-menupopup");
       menupopup.setAttribute("style", "max-height: 400px; overflow-y: auto;");
 
-      const db = await openChromeDB(chromeWindow);
-      const boards = await listBoardsFromDB(db);
-      db.close();
+      const boards = await listBoards();
 
       let untitledLabel = "Untitled Board";
       let createLabel = "Create New Board...";
@@ -484,9 +414,7 @@ export class ZenBoard {
       createItem.setAttribute("image", "chrome://browser/skin/zen-icons/plus.svg");
       createItem.addEventListener("command", async () => {
         try {
-          const newDb = await openChromeDB(chromeWindow);
-          const id = await createBoardInDB(newDb, "Untitled Board");
-          newDb.close();
+          const id = await createBoard("Untitled Board");
           doAddToBoard(chromeWindow, id, "Untitled Board", blob, sourceUrl, region);
         } catch (e) {
           console.error("ZenBoard: Failed to create board from popup", e);
@@ -525,9 +453,7 @@ export class ZenBoard {
       }
 
       try {
-        const db = await openChromeDB(chromeWindow);
-        await deleteBoardFromDB(db, boardId);
-        db.close();
+        await deleteBoard(boardId);
       } catch (e) {
         console.error("[ZenBoard] Failed to delete board on tab close", e);
       }

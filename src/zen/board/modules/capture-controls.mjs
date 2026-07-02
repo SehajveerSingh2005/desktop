@@ -16,7 +16,6 @@ import { getState, bumpSceneGeneration, triggerSave, triggerSaveImmediate } from
 import { scene } from "./scene.mjs";
 import { redrawCanvas } from "./canvas.mjs";
 import { CaptureObject, LiveEmbedObject } from "./media.mjs";
-import { getAsset } from "./db.mjs";
 import { saveAsset, deleteAsset, ASSETS_FOLDER_NAME } from "./assets.mjs";
 import { pushHistory } from "./history.mjs";
 
@@ -146,12 +145,15 @@ async function initDOM() {
     }
     const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
     if (chromeWin?.gZenGlanceManager) {
+      const { scale, offsetX, offsetY } = getState();
+      const screenX = obj.x * scale + offsetX;
+      const screenY = obj.y * scale + offsetY;
       chromeWin.gZenGlanceManager.openGlance({
         url: obj.sourceUrl,
-        clientX: 0,
-        clientY: 0,
-        width: 0,
-        height: 0,
+        clientX: screenX,
+        clientY: screenY,
+        width: (obj.width || 800) * scale,
+        height: (obj.height || 600) * scale,
         triggeringPrincipal:
           chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
       });
@@ -196,7 +198,6 @@ async function convertToLiveEmbed(captureObj) {
     captureObj.sourceUrl
   );
   liveEmbed.sourceRegion = captureObj.sourceRegion;
-  liveEmbed._assetHash = captureObj._assetHash;
   liveEmbed._assetFile = captureObj._assetFile;
   // Copy the static image so the renderer can draw it as the deselected placeholder
   liveEmbed._placeholderImage = captureObj.image || null;
@@ -257,7 +258,6 @@ async function convertToStaticCapture(liveEmbedObj) {
       liveEmbedObj.sourceUrl
     );
     captureObj._assetFile = filename;
-    captureObj._assetHash = null;
     captureObj.sourceRegion = liveEmbedObj.sourceRegion;
 
     if (liveEmbedObj.destroy) {
@@ -302,11 +302,6 @@ async function captureFallbackChain(liveEmbedObj) {
 
   if (liveEmbedObj._assetFile) {
     const blob = await readFromFilesystem(liveEmbedObj._assetFile);
-    if (blob) return blob;
-  }
-
-  if (liveEmbedObj._assetHash) {
-    const blob = await readFromLegacyIDB(liveEmbedObj._assetHash);
     if (blob) return blob;
   }
 
@@ -355,15 +350,6 @@ async function readFromFilesystem(assetFile) {
     return new Blob([data], { type: "image/png" });
   } catch (e) {
     console.warn("ZenBoard: Filesystem asset read failed", assetFile, e);
-    return null;
-  }
-}
-
-async function readFromLegacyIDB(assetHash) {
-  try {
-    return await getAsset(assetHash);
-  } catch (e) {
-    console.warn("ZenBoard: Legacy IDB asset read failed", e);
     return null;
   }
 }
@@ -426,6 +412,7 @@ export function ensureIframeInjected(liveEmbedObj) {
   const iframe = chromeDoc.createXULElement("browser");
   iframe.setAttribute("type", "content");
   iframe.setAttribute("remote", "true");
+  iframe.setAttribute("referrerpolicy", "no-referrer");
 
   iframe.className = "live-embed-frame";
   iframe.style.position = "absolute";
@@ -498,8 +485,9 @@ export function ensureIframeInjected(liveEmbedObj) {
     }
 
     // Inject a frame script that:
-    // 1. Hides the page's own scrollbars (since the embed is not meant to be user-scrollable)
-    // 2. After page load, forces scroll to (0,0) so our negative translate mapping is always aligned with the page origin.
+    // 1. Hides the page's own scrollbars
+    // 2. Forces scroll to (0,0)
+    // 3. Intercepts link clicks and sends them to the parent to open in Glance
     if (iframe.messageManager) {
       const script =
         `data:application/javascript,` +
@@ -507,11 +495,20 @@ export function ensureIframeInjected(liveEmbedObj) {
         (function() {
           function setup() {
             if (!content || !content.document || !content.document.documentElement) return;
-            // Hide scrollbars
             content.document.documentElement.style.overflow = 'hidden';
             content.document.documentElement.style.scrollbarWidth = 'none';
-            // Scroll to the top-left origin
             content.scrollTo(0, 0);
+
+            // Intercept link clicks — open in Glance instead of navigating the embed
+            content.document.addEventListener("click", function(e) {
+              const link = e.target.closest("a");
+              if (!link) return;
+              const href = link.href;
+              if (!href || href.startsWith("javascript:")) return;
+              e.preventDefault();
+              e.stopPropagation();
+              sendAsyncMessage("ZenBoard:OpenLinkInGlance", { url: href });
+            }, true);
           }
           try {
             addEventListener("DOMContentLoaded", setup);
@@ -527,6 +524,40 @@ export function ensureIframeInjected(liveEmbedObj) {
       } catch (e) {
         console.error("[ZenBoard] frameScript failed", e);
       }
+
+      // Handle messages from the embedded content
+      iframe.messageManager.addMessageListener("ZenBoard:OpenLinkInGlance", {
+        receiveMessage(msg) {
+          const { url } = msg.data;
+          if (!url) return;
+          const chromeWin = window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
+          // Compute screen position of the live embed object for Glance animation
+          let glX = 0, glY = 0, glW = 0, glH = 0;
+          if (currentObject) {
+            const { scale, offsetX, offsetY } = getState();
+            glX = currentObject.x * scale + offsetX;
+            glY = currentObject.y * scale + offsetY;
+            glW = (currentObject.width || 800) * scale;
+            glH = (currentObject.height || 600) * scale;
+          }
+          if (chromeWin?.gZenGlanceManager) {
+            chromeWin.gZenGlanceManager.openGlance({
+              url,
+              clientX: glX,
+              clientY: glY,
+              width: glW,
+              height: glH,
+              triggeringPrincipal:
+                chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
+            });
+          } else if (chromeWin?.gBrowser) {
+            chromeWin.gBrowser.addTrustedTab(url, {
+              triggeringPrincipal:
+                chromeWin.Services.scriptSecurityManager.getSystemPrincipal(),
+            });
+          }
+        },
+      });
     }
   }, 0);
 

@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
         content/browser/zen-board/ZenBoard.mjs                                (../../zen/board/ZenBoard.mjs)
-        content/browser/zen-board/chrome-db.mjs                                (../../zen/board/chrome-db.mjs)
+        content/browser/zen-board/board-store.mjs                              (../../zen/board/board-store.mjs)
 
         content/browser/zen-board/board.mjs                                      (../../zen/board/board.mjs)
         content/browser/zen-board/board.css                                     (../../zen/board/board.css)
@@ -24,7 +24,6 @@
         content/browser/zen-board/modules/tool-handlers/text.mjs                 (../../zen/board/modules/tool-handlers/text.mjs)
         content/browser/zen-board/modules/tool-handlers/shape.mjs                (../../zen/board/modules/tool-handlers/shape.mjs)
         content/browser/zen-board/modules/ui.mjs                                 (../../zen/board/modules/ui.mjs)
-        content/browser/zen-board/modules/db.mjs                                  (../../zen/board/modules/db.mjs)
         content/browser/zen-board/modules/assets.mjs                              (../../zen/board/modules/assets.mjs)
         content/browser/zen-board/modules/storage.mjs                             (../../zen/board/modules/storage.mjs)
         content/browser/zen-board/modules/capture-controls.mjs                   (../../zen/board/modules/capture-controls.mjs)

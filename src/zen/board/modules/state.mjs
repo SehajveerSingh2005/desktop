@@ -31,7 +31,7 @@ const state = {
   offsetY: 0,
   currentColor: "#000000",
   // ── Persistence ──────────────────────────────────────────────────────────
-  boardId: null, // UUID linking this tab to a board in IndexedDB
+  boardId: null, // UUID linking this tab to a board in zen-boards.json
   boardTitle: "Untitled Board",
   isTransparent: true, // Whether the board background should be transparent
 };

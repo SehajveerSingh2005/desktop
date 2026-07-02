@@ -2,26 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// High-level save/load logic bridging board state with IndexedDB (scene JSON)
-// and the native filesystem (media assets via assets.js).
+// High-level save/load logic bridging board state with the JSON file store
+// and the native filesystem (media assets via assets.mjs).
 //
 // Storage strategy:
-//   - Board metadata + scene JSON → IndexedDB 'boards' store (tiny, fast)
+//   - Board metadata + scene JSON → zen-boards.json (via board-store.mjs)
 //   - Images / Videos / Captures → native filesystem via IOUtils/PathUtils
 //     (stored as plain files in <profile>/zen-board-assets/)
-//
-// Advantages over pure-IDB blob storage:
-//   - No SHA-256 hashing of large files in JS (no ArrayBuffer heap spikes)
-//   - Videos can be streamed natively from file:// URLs (byte-range, seek, HW decode)
-//   - IDB stays lean (only JSON metadata, a few KB per board)
-//   - Easy manual backup: just copy the zen-board-assets folder
 
 import {
   saveBoard as dbSaveBoard,
-  loadBoard as dbLoadBoard,
+  getBoard as dbLoadBoard,
   createBoard as dbCreateBoard,
-  getAsset,
-} from "./db.mjs";
+} from "../board-store.mjs";
 import { saveAsset, getAssetURL } from "./assets.mjs";
 import { smoothPoints } from "./smoothing.mjs";
 import { wireVideoPlaybackEvents } from "./media.mjs";
@@ -29,10 +22,6 @@ import { redrawCanvas } from "./canvas.mjs";
 
 // The URL param key used to link a tab to a board ID
 const BOARD_ID_PARAM = "id";
-
-// ObjectURLs we created for video blobs (file:// URLs need no revocation,
-// but blob: fallbacks for legacy data do). Track so we can clean up.
-const _createdObjectURLs = [];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -125,7 +114,6 @@ async function serializeObject(obj) {
         width: obj.width,
         height: obj.height,
         _assetFile: filename,
-        _assetHash: obj._assetHash || null,
       };
       break;
     }
@@ -154,7 +142,6 @@ async function serializeObject(obj) {
         volume: obj.volume,
         isLooping: obj.isLooping,
         _assetFile: filename,
-        _assetHash: obj._assetHash || null,
       };
       break;
     }
@@ -180,7 +167,6 @@ async function serializeObject(obj) {
         width: obj.width,
         height: obj.height,
         _assetFile: filename,
-        _assetHash: obj._assetHash || null,
         sourceUrl: obj.sourceUrl || "",
         sourceRegion: obj.sourceRegion || null,
       };
@@ -207,7 +193,6 @@ async function serializeObject(obj) {
         sourceUrl: obj.sourceUrl || "",
         sourceRegion: obj.sourceRegion || null,
         _assetFile: filename,
-        _assetHash: obj._assetHash || null,
       };
       break;
     }
@@ -226,15 +211,12 @@ async function serializeObject(obj) {
 /**
  * Resolve the URL for an asset.
  * Handles:
- *   1. New filesystem assets (_assetFile) → file:// URL via IOUtils
- *   2. Legacy IDB assets (_assetHash)     → fetch blob from IDB, use data: URL
- *   3. Inline data URLs                   → returned as-is
+ *   1. Filesystem assets (_assetFile) → file:// URL via IOUtils
+ *   2. Inline data URLs              → returned as-is
  *
  * @param {object} data The object data.
- * @param {Function} [legacyFetcher] The legacy fetcher function.
  */
-async function resolveAssetURL(data, legacyFetcher) {
-  // New-style: filesystem file
+async function resolveAssetURL(data) {
   if (data._assetFile) {
     try {
       return await getAssetURL(data._assetFile);
@@ -245,10 +227,6 @@ async function resolveAssetURL(data, legacyFetcher) {
         e
       );
     }
-  }
-  // Legacy: IDB hash
-  if (data._assetHash && legacyFetcher) {
-    return await legacyFetcher(data._assetHash);
   }
   return null;
 }
@@ -332,22 +310,10 @@ const {
       );
 
     case "image": {
-      // Try new filesystem URL first, then legacy inline src
       let imgSrc = data._imageSrc || "";
 
       if (data._assetFile) {
-        imgSrc = await resolveAssetURL(data, null);
-      } else if (data._assetHash) {
-        try {
-          const blob = await getAsset(data._assetHash);
-          if (blob) {
-            const tmpURL = URL.createObjectURL(blob);
-            // We'll revoke after load
-            imgSrc = tmpURL;
-          }
-        } catch (e) {
-          console.warn("ZenBoard: Could not load legacy image asset", e);
-        }
+        imgSrc = await resolveAssetURL(data);
       }
 
       const img = new Image();
@@ -380,7 +346,6 @@ const {
         img
       );
       result._assetFile = data._assetFile || null;
-      result._assetHash = data._assetHash || null;
       return result;
     }
 
@@ -388,18 +353,7 @@ const {
       let videoSrc = "";
 
       if (data._assetFile) {
-        // file:// URL → the browser media engine can stream this directly
-        videoSrc = await resolveAssetURL(data, null);
-      } else if (data._assetHash) {
-        try {
-          const blob = await getAsset(data._assetHash);
-          if (blob) {
-            videoSrc = URL.createObjectURL(blob);
-            _createdObjectURLs.push(videoSrc); // revoke on pagehide
-          }
-        } catch (e) {
-          console.warn("ZenBoard: Could not load legacy video asset", e);
-        }
+        videoSrc = await resolveAssetURL(data);
       }
 
       const videoEl = document.createElement("video");
@@ -443,7 +397,6 @@ const {
         videoEl.src = videoSrc;
       });
       result._assetFile = data._assetFile || null;
-      result._assetHash = data._assetHash || null;
       result.isMuted = data.isMuted ?? true;
       result.volume = data.volume ?? 0.5;
       result.isLooping = data.isLooping ?? true;
@@ -460,16 +413,7 @@ const {
       let imgSrc = "";
 
       if (data._assetFile) {
-        imgSrc = await resolveAssetURL(data, null);
-      } else if (data._assetHash) {
-        try {
-          const blob = await getAsset(data._assetHash);
-          if (blob) {
-            imgSrc = URL.createObjectURL(blob);
-          }
-        } catch (e) {
-          console.warn("ZenBoard: Could not load legacy capture asset", e);
-        }
+        imgSrc = await resolveAssetURL(data);
       }
 
       const img = new Image();
@@ -504,7 +448,6 @@ const {
       );
       captureResult.sourceRegion = data.sourceRegion || null;
       captureResult._assetFile = data._assetFile || null;
-      captureResult._assetHash = data._assetHash || null;
       return captureResult;
     }
 
@@ -512,16 +455,7 @@ const {
       let imgSrc = "";
 
       if (data._assetFile) {
-        imgSrc = await resolveAssetURL(data, null);
-      } else if (data._assetHash) {
-        try {
-          const blob = await getAsset(data._assetHash);
-          if (blob) {
-            imgSrc = URL.createObjectURL(blob);
-          }
-        } catch (e) {
-          console.warn("ZenBoard: Could not load legacy live-embed asset", e);
-        }
+        imgSrc = await resolveAssetURL(data);
       }
 
       const liveObj = new LiveEmbedObject(
@@ -554,7 +488,6 @@ const {
       }
       liveObj.sourceRegion = data.sourceRegion || null;
       liveObj._assetFile = data._assetFile || null;
-      liveObj._assetHash = data._assetHash || null;
       return liveObj;
     }
 
@@ -579,14 +512,14 @@ export function setBoardIdInURL(id) {
 export async function ensureBoardId() {
   let id = getBoardIdFromURL();
   if (!id) {
-    id = await dbCreateBoard({ title: "Untitled Board", isTransparent: true });
+    id = await dbCreateBoard("Untitled Board");
     setBoardIdInURL(id);
   }
   return id;
 }
 
 /**
- * Save the board scene to IndexedDB (JSON) and media assets to the filesystem.
+ * Save the board scene to JSON file and media assets to the filesystem.
  *
  * @param {string} id The board ID.
  * @param {string} title The board title.
@@ -606,15 +539,16 @@ export async function saveBoard(
   sceneArray
 ) {
   const serializedScene = await Promise.all(sceneArray.map(serializeObject));
-  await dbSaveBoard(
+  await dbSaveBoard({
     id,
     title,
     isTransparent,
     scale,
     offsetX,
     offsetY,
-    serializedScene
-  );
+    lastEdited: Date.now(),
+    scene: serializedScene,
+  });
   document.dispatchEvent(
     new CustomEvent("ZenBoardUpdated", {
       detail: { id, title, isTransparent, lastEdited: Date.now() },
@@ -623,7 +557,7 @@ export async function saveBoard(
 }
 
 /**
- * Load a board from IndexedDB and hydrate all objects (media from filesystem).
+ * Load a board from JSON file and hydrate all objects (media from filesystem).
  *
  * @param {string} id The board ID.
  * @param {object} classes The constructor classes.
@@ -646,12 +580,4 @@ export async function loadBoard(id, classes) {
     offsetY: board.offsetY,
     scene: hydratedObjects.filter(Boolean),
   };
-}
-
-/**
- * Revoke any legacy blob: ObjectURLs (only videos loaded from old IDB data).
- */
-export function revokeAllObjectURLs() {
-  _createdObjectURLs.forEach(url => URL.revokeObjectURL(url));
-  _createdObjectURLs.length = 0;
 }

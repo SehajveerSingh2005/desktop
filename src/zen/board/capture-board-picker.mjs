@@ -6,11 +6,11 @@
 // Receives the capture blob + sourceUrl via window.arguments[0] from ZenBoard.mjs.
 
 import {
-  openChromeDB,
-  listBoardsFromDB,
-  createBoardInDB,
-  appendCaptureToBoard,
-} from "./chrome-db.mjs";
+  createBoard,
+  listBoards,
+  getBoard,
+  appendCapture,
+} from "./board-store.mjs";
 
 // ── Filesystem helpers (write directly to profile/zen-board-assets) ─────
 function mimeToExt(mimeType) {
@@ -71,19 +71,11 @@ window.zenPickerInit = async function init() {
   const chromeWindow =
     window.opener || window.docShell?.chromeEventHandler?.ownerDocument?.defaultView;
 
-  let db;
-  try {
-    db = await openChromeDB(window);
-  } catch (e) {
-    console.error("ZenBoard Picker: Failed to open DB", e);
-    return;
-  }
-
   const boardsList = document.getElementById("boards-list");
   const emptyMsg = document.getElementById("boards-empty");
   let boards = [];
   try {
-    boards = await listBoardsFromDB(db);
+    boards = await listBoards();
   } catch (e) {
     console.error("ZenBoard Picker: Failed to list boards", e);
   }
@@ -129,7 +121,7 @@ window.zenPickerInit = async function init() {
       item.appendChild(infoEl);
       item.appendChild(arrowEl);
       item.addEventListener("click", () =>
-        addToBoard(db, board.id, board.title, blob, sourceUrl, region, chromeWindow)
+        addToBoard(board.id, board.title, blob, sourceUrl, region, chromeWindow)
       );
       boardsList.appendChild(item);
     });
@@ -144,8 +136,8 @@ window.zenPickerInit = async function init() {
     const boardName = input.value.trim() || "Untitled Board";
     createBtn.disabled = true;
     try {
-      const boardId = await createBoardInDB(db, boardName);
-      await addToBoard(db, boardId, boardName, blob, sourceUrl, region, chromeWindow);
+      const boardId = await createBoard(boardName);
+      await addToBoard(boardId, boardName, blob, sourceUrl, region, chromeWindow);
     } catch (e) {
       console.error("ZenBoard Picker: Failed to create board", e);
       createBtn.disabled = false;
@@ -160,16 +152,11 @@ window.zenPickerInit = async function init() {
   });
 };
 
-async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chromeWindow) {
+async function addToBoard(boardId, boardTitle, blob, sourceUrl, region, chromeWindow) {
   try {
     const assetFilename = await saveAssetToFilesystem(blob);
 
-    const boardRecord = await new Promise((resolve, reject) => {
-      const tx = db.transaction("boards", "readonly");
-      const req = tx.objectStore("boards").get(boardId);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    const boardRecord = await getBoard(boardId);
 
     const gb = chromeWindow?.gBrowser;
     const existingTab = gb ? Array.from(gb.tabs).find(t =>
@@ -212,7 +199,7 @@ async function addToBoard(db, boardId, boardTitle, blob, sourceUrl, region, chro
       _assetFile: assetFilename,
     };
 
-    await appendCaptureToBoard(db, boardId, captureObj);
+    await appendCapture(boardId, captureObj);
 
     const boardUrl = `chrome://browser/content/zen-board/board.html?id=${boardId}`;
 

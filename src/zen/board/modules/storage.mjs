@@ -475,6 +475,10 @@ const {
       const img = new Image();
       const isTmp = imgSrc && imgSrc.startsWith("blob:");
       await new Promise(resolve => {
+        if (!imgSrc) {
+          resolve();
+          return;
+        }
         img.onload = () => {
           if (isTmp) {
             URL.revokeObjectURL(imgSrc);
